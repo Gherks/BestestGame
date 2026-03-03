@@ -1,0 +1,113 @@
+@page "/vote"
+@rendermode InteractiveServer
+@using BestestGame.Models
+@using BestestGame.Services
+@inject GameService GameService
+
+<PageTitle>Vote</PageTitle>
+
+<h1>Vote</h1>
+
+@if (_currentDuel == null)
+{
+    <div class="alert alert-success mt-3">
+        <strong>All duels are complete!</strong> Check the standings below.
+    </div>
+}
+else
+{
+    <p class="text-muted">Choose the winner between the two games below.</p>
+
+    <div class="duel-container d-flex justify-content-center align-items-center gap-4 my-4">
+        <button class="btn btn-primary btn-lg duel-btn" @onclick="() => CastVote(_game1!.Id)">
+            @_game1!.Title
+        </button>
+
+        <span class="vs-badge">VS</span>
+
+        <button class="btn btn-primary btn-lg duel-btn" @onclick="() => CastVote(_game2!.Id)">
+            @_game2!.Title
+        </button>
+    </div>
+
+    <p class="text-center text-muted small">
+        Remaining duels: @_pendingCount &nbsp;|&nbsp; Completed: @_completedCount / @_totalCount
+    </p>
+}
+
+<hr />
+
+<h2>Standings</h2>
+
+@if (_games.Count == 0)
+{
+    <p>No games imported yet. Go to the <a href="/import">Import page</a> to add games.</p>
+}
+else
+{
+    <table class="table table-striped table-hover">
+        <thead>
+            <tr>
+                <th>#</th>
+                <th>Title</th>
+                <th>Points</th>
+            </tr>
+        </thead>
+        <tbody>
+            @{int rank = 1;}
+            @foreach (var game in _games)
+            {
+                <tr>
+                    <td>@rank</td>
+                    <td>@game.Title</td>
+                    <td>@game.Points</td>
+                </tr>
+                rank++;
+            }
+        </tbody>
+    </table>
+}
+
+<style>
+    .duel-btn {
+        min-width: 200px;
+        padding: 20px 30px;
+        font-size: 1.2rem;
+    }
+    .vs-badge {
+        font-size: 1.5rem;
+        font-weight: bold;
+        color: #6c757d;
+    }
+</style>
+
+@code {
+    private Duel? _currentDuel;
+    private Game? _game1;
+    private Game? _game2;
+    private List<Game> _games = new();
+    private int _pendingCount;
+    private int _completedCount;
+    private int _totalCount;
+
+    protected override void OnInitialized()
+    {
+        LoadNextDuel();
+    }
+
+    private void LoadNextDuel()
+    {
+        (_currentDuel, _game1, _game2) = GameService.GetRandomPendingDuel();
+        _games = GameService.GetGames();
+        _totalCount = GameService.TotalDuels();
+        _completedCount = GameService.CompletedDuels();
+        _pendingCount = _totalCount - _completedCount;
+    }
+
+    private void CastVote(Guid winnerId)
+    {
+        if (_currentDuel == null) return;
+        GameService.RecordWinner(_currentDuel.Id, winnerId);
+        LoadNextDuel();
+    }
+}

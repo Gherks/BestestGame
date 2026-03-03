@@ -1,0 +1,63 @@
+@page "/import"
+@rendermode InteractiveServer
+@using BestestGame.Services
+@inject GameService GameService
+
+<PageTitle>Import</PageTitle>
+
+<h1>Import Games</h1>
+
+<p>Enter one game title per line. When you click <strong>Import</strong>, all new games will be saved and all missing duels will be generated automatically.</p>
+
+<div class="mb-3">
+    <label for="gameTitles" class="form-label">Game Titles</label>
+    <textarea id="gameTitles" class="form-control" rows="10" placeholder="Enter one game title per line..."
+              @bind="_inputText"></textarea>
+</div>
+
+<button class="btn btn-primary" @onclick="ImportGames" disabled="@_isImporting">
+    @if (_isImporting)
+    {
+        <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+        <span>Importing...</span>
+    }
+    else
+    {
+        <span>Import</span>
+    }
+</button>
+
+@if (!string.IsNullOrEmpty(_message))
+{
+    <div class="alert @_alertClass mt-3">@_message</div>
+}
+
+@code {
+    private string _inputText = string.Empty;
+    private string _message = string.Empty;
+    private string _alertClass = "alert-success";
+    private bool _isImporting = false;
+
+    private void ImportGames()
+    {
+        var titles = _inputText
+            .Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Where(t => !string.IsNullOrWhiteSpace(t))
+            .ToList();
+
+        if (titles.Count == 0)
+        {
+            _alertClass = "alert-warning";
+            _message = "Please enter at least one game title.";
+            return;
+        }
+
+        _isImporting = true;
+        GameService.ImportGames(titles);
+        _isImporting = false;
+
+        _alertClass = "alert-success";
+        _message = $"Successfully imported {titles.Count} game title(s). Head to the Vote page to start voting!";
+        _inputText = string.Empty;
+    }
+}
