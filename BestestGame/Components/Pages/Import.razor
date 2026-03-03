@@ -5,20 +5,21 @@
 
 <PageTitle>Import</PageTitle>
 
-<section class="rounded-3xl border border-white/15 bg-white/5 p-6 shadow-2xl shadow-cyan-900/40 backdrop-blur-xl md:p-8">
-    <h1 class="text-3xl font-black text-white md:text-4xl">📥 Import Games</h1>
+<section class="relative overflow-hidden rounded-3xl border border-white/20 bg-white/10 p-6 shadow-2xl shadow-cyan-900/50 backdrop-blur-xl md:p-8">
+    <div class="pointer-events-none absolute -left-12 top-16 h-36 w-36 rounded-full bg-fuchsia-500/25 blur-3xl"></div>
+    <h1 class="font-display text-3xl font-black text-white md:text-4xl">📥 Import Vault</h1>
 
-    <p class="mt-3 text-slate-200">Enter one game title per line. Hit <strong>Import</strong> and all missing duels will be generated automatically.</p>
+    <p class="mt-3 text-slate-100/90">Enter one game title per line. Hit <strong>Import</strong> and all missing duels will be generated automatically.</p>
 
     <div class="mt-6">
-        <label for="gameTitles" class="mb-2 block text-sm font-bold uppercase tracking-wide text-cyan-100">Game Titles</label>
+        <label for="gameTitles" class="mb-2 block text-sm font-black uppercase tracking-[0.18em] text-cyan-100">Game Titles</label>
         <textarea id="gameTitles"
-                  class="min-h-64 w-full rounded-2xl border border-cyan-300/30 bg-slate-950/70 p-4 text-slate-100 shadow-inner shadow-black/50 outline-none transition focus:border-fuchsia-400 focus:ring-4 focus:ring-fuchsia-500/30"
+                  class="min-h-64 w-full rounded-2xl border border-cyan-300/35 bg-slate-950/80 p-4 text-slate-100 shadow-inner shadow-black/60 outline-none transition focus:border-fuchsia-400 focus:ring-4 focus:ring-fuchsia-500/30"
                   placeholder="Enter one game title per line..."
                   @bind="_inputText"></textarea>
     </div>
 
-    <button class="mt-6 inline-flex items-center rounded-2xl bg-gradient-to-r from-fuchsia-500 via-violet-500 to-cyan-500 px-6 py-3 text-sm font-extrabold uppercase tracking-wide text-white shadow-lg shadow-fuchsia-500/40 transition hover:-translate-y-1 hover:shadow-glow disabled:cursor-not-allowed disabled:opacity-60"
+    <button class="mt-6 inline-flex items-center rounded-2xl border border-white/25 bg-gradient-to-r from-fuchsia-500 via-violet-500 to-cyan-500 bg-[length:200%_100%] px-6 py-3 text-sm font-black uppercase tracking-wide text-white shadow-neon transition hover:-translate-y-1 hover:animate-sheen disabled:cursor-not-allowed disabled:opacity-60"
             @onclick="ImportGames" disabled="@_isImporting">
         @if (_isImporting)
         {
@@ -33,7 +34,7 @@
 
     @if (!string.IsNullOrEmpty(_message))
     {
-        <div class="@GetAlertClasses() mt-5 rounded-2xl border px-4 py-3 text-sm font-semibold">@_message</div>
+        <div class="@GetAlertClasses() mt-5 rounded-2xl border px-4 py-3 text-sm font-bold">@_message</div>
     }
 </section>
 
@@ -67,6 +68,6 @@
     }
 
     private string GetAlertClasses() => _alertClass == "alert-warning"
-        ? "border-amber-300/40 bg-amber-400/20 text-amber-50"
-        : "border-emerald-300/40 bg-emerald-400/20 text-emerald-50";
+        ? "border-amber-300/45 bg-amber-400/25 text-amber-50"
+        : "border-emerald-300/45 bg-emerald-400/25 text-emerald-50";
 }

@@ -6,8 +6,9 @@
 
 <PageTitle>Vote</PageTitle>
 
-<section class="rounded-3xl border border-white/15 bg-white/5 p-6 shadow-2xl shadow-violet-900/40 backdrop-blur-xl md:p-8">
-    <h1 class="text-3xl font-black text-white md:text-4xl">🏆 Vote Arena</h1>
+<section class="relative overflow-hidden rounded-3xl border border-white/20 bg-white/10 p-6 shadow-2xl shadow-violet-900/50 backdrop-blur-xl md:p-8">
+    <div class="pointer-events-none absolute -top-12 right-6 h-40 w-40 rounded-full bg-fuchsia-400/25 blur-3xl"></div>
+    <h1 class="font-display text-3xl font-black text-white md:text-4xl">🏆 Vote Arena</h1>
 
     @if (_currentDuel == null)
     {
@@ -17,42 +18,42 @@
     }
     else
     {
-        <p class="mt-3 text-slate-300">Choose the winner between the two games below.</p>
+        <p class="mt-3 text-slate-200">Choose the winner between the two games below.</p>
 
         <div class="my-8 grid gap-4 md:grid-cols-[1fr_auto_1fr] md:items-center">
-            <button class="rounded-2xl bg-gradient-to-r from-fuchsia-500 to-violet-600 px-6 py-5 text-lg font-extrabold text-white shadow-lg shadow-fuchsia-600/40 transition hover:-translate-y-1 hover:shadow-glow"
+            <button class="rounded-2xl border border-fuchsia-300/35 bg-gradient-to-r from-fuchsia-500 via-violet-500 to-purple-600 bg-[length:200%_100%] px-6 py-5 text-lg font-black text-white shadow-neon transition hover:-translate-y-1 hover:animate-sheen"
                     @onclick="() => CastVote(_game1!.Id)">
                 @_game1!.Title
             </button>
 
-            <span class="mx-auto inline-flex h-12 w-12 items-center justify-center rounded-full border border-cyan-300/40 bg-cyan-400/20 font-black text-cyan-100">VS</span>
+            <span class="mx-auto inline-flex h-14 w-14 animate-floaty items-center justify-center rounded-full border border-cyan-300/40 bg-cyan-400/20 font-display text-lg font-black text-cyan-100">VS</span>
 
-            <button class="rounded-2xl bg-gradient-to-r from-cyan-500 to-blue-600 px-6 py-5 text-lg font-extrabold text-white shadow-lg shadow-cyan-600/40 transition hover:-translate-y-1 hover:shadow-glow"
+            <button class="rounded-2xl border border-cyan-300/35 bg-gradient-to-r from-cyan-500 via-sky-500 to-blue-600 bg-[length:200%_100%] px-6 py-5 text-lg font-black text-white shadow-neon transition hover:-translate-y-1 hover:animate-sheen"
                     @onclick="() => CastVote(_game2!.Id)">
                 @_game2!.Title
             </button>
         </div>
 
-        <p class="text-sm text-slate-300">
-            Remaining duels: <span class="font-bold text-cyan-200">@_pendingCount</span>
+        <p class="text-sm text-slate-200">
+            Remaining duels: <span class="font-extrabold text-cyan-200">@_pendingCount</span>
             <span class="mx-2">|</span>
-            Completed: <span class="font-bold text-fuchsia-200">@_completedCount / @_totalCount</span>
+            Completed: <span class="font-extrabold text-fuchsia-200">@_completedCount / @_totalCount</span>
         </p>
     }
 </section>
 
-<section class="mt-8 rounded-3xl border border-white/15 bg-white/5 p-6 shadow-xl shadow-slate-950/40 backdrop-blur-xl md:p-8">
-    <h2 class="text-2xl font-black text-white">Standings</h2>
+<section class="mt-8 rounded-3xl border border-white/20 bg-white/10 p-6 shadow-xl shadow-slate-950/50 backdrop-blur-xl md:p-8">
+    <h2 class="font-display text-2xl font-black text-white">Standings</h2>
 
     @if (_games.Count == 0)
     {
-        <p class="mt-4 text-slate-300">No games imported yet. Go to the <a href="/import" class="font-bold text-cyan-200 hover:text-cyan-100">Import page</a> to add games.</p>
+        <p class="mt-4 text-slate-200">No games imported yet. Go to the <a href="/import" class="font-bold text-cyan-200 hover:text-cyan-100">Import page</a> to add games.</p>
     }
     else
     {
-        <div class="mt-5 overflow-hidden rounded-2xl border border-white/10">
+        <div class="mt-5 overflow-hidden rounded-2xl border border-white/15">
             <table class="min-w-full divide-y divide-white/10 text-left">
-                <thead class="bg-white/10 text-xs uppercase tracking-wider text-slate-200">
+                <thead class="bg-gradient-to-r from-violet-900/60 to-cyan-900/60 text-xs uppercase tracking-wider text-slate-100">
                     <tr>
                         <th class="px-4 py-3">#</th>
                         <th class="px-4 py-3">Title</th>
@@ -63,10 +64,10 @@
                     @{int rank = 1;}
                     @foreach (var game in _games)
                     {
-                        <tr class="bg-black/10 transition hover:bg-white/10">
-                            <td class="px-4 py-3 font-bold text-cyan-200">@rank</td>
-                            <td class="px-4 py-3">@game.Title</td>
-                            <td class="px-4 py-3 font-extrabold text-fuchsia-200">@game.Points</td>
+                        <tr class="bg-black/20 transition hover:bg-white/10">
+                            <td class="px-4 py-3 font-black text-cyan-200">@rank</td>
+                            <td class="px-4 py-3 font-semibold">@game.Title</td>
+                            <td class="px-4 py-3 font-black text-fuchsia-200">@game.Points</td>
                         </tr>
                         rank++;
                     }

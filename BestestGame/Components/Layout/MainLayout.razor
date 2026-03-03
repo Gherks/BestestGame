@@ -1,18 +1,25 @@
 ﻿@inherits LayoutComponentBase
 
-<div class="min-h-screen bg-gradient-to-br from-slate-950 via-purple-950 to-cyan-950 text-slate-100">
-    <div class="mx-auto flex min-h-screen max-w-7xl flex-col md:flex-row">
-        <aside class="md:w-72 md:border-r md:border-white/10 bg-black/20 backdrop-blur-xl">
+<div class="relative min-h-screen overflow-hidden bg-slate-950 text-slate-100">
+    <div class="pointer-events-none absolute -left-28 -top-24 h-80 w-80 rounded-full bg-fuchsia-500/25 blur-3xl"></div>
+    <div class="pointer-events-none absolute -right-28 top-24 h-96 w-96 rounded-full bg-cyan-400/20 blur-3xl"></div>
+    <div class="pointer-events-none absolute bottom-0 left-1/3 h-72 w-72 rounded-full bg-violet-500/20 blur-3xl"></div>
+
+    <div class="relative mx-auto flex min-h-screen max-w-7xl flex-col md:flex-row">
+        <aside class="md:w-72 md:border-r md:border-white/10 bg-black/35 backdrop-blur-2xl">
             <NavMenu />
         </aside>
 
         <main class="flex-1">
-            <div class="sticky top-0 z-10 border-b border-white/10 bg-slate-950/60 px-6 py-4 backdrop-blur-xl">
-                <a class="inline-flex items-center rounded-full bg-gradient-to-r from-fuchsia-500 to-cyan-400 px-4 py-2 text-sm font-semibold text-white shadow-lg shadow-fuchsia-500/40 transition hover:scale-105 hover:shadow-cyan-400/50"
-                   href="https://learn.microsoft.com/aspnet/core/" target="_blank">ASP.NET Core Docs</a>
+            <div class="sticky top-0 z-10 border-b border-white/10 bg-slate-950/55 px-6 py-4 backdrop-blur-2xl">
+                <div class="flex flex-wrap items-center justify-between gap-3">
+                    <p class="font-display text-sm uppercase tracking-[0.25em] text-cyan-200/90">Bestest Game Control Deck</p>
+                    <a class="inline-flex items-center rounded-full bg-gradient-to-r from-fuchsia-500 via-violet-500 to-cyan-400 bg-[length:200%_100%] px-5 py-2 text-xs font-extrabold uppercase tracking-wide text-white shadow-neon transition hover:-translate-y-0.5 hover:animate-sheen"
+                       href="https://learn.microsoft.com/aspnet/core/" target="_blank">ASP.NET Core Docs</a>
+                </div>
             </div>
 
-            <article class="p-6 md:p-10">
+            <article class="relative p-6 md:p-10">
                 @Body
             </article>
         </main>

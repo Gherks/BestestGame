@@ -5,6 +5,9 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <base href="/" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&family=Orbitron:wght@700;900&display=swap" rel="stylesheet" />
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
         tailwind.config = {
@@ -16,8 +19,31 @@
                             600: '#6d28d9'
                         }
                     },
+                    fontFamily: {
+                        display: ['Orbitron', 'sans-serif']
+                    },
                     boxShadow: {
-                        glow: '0 0 0 3px rgba(124, 58, 237, 0.35), 0 20px 40px rgba(0,0,0,0.35)'
+                        glow: '0 0 0 3px rgba(124, 58, 237, 0.35), 0 20px 40px rgba(0,0,0,0.35)',
+                        neon: '0 0 25px rgba(236, 72, 153, 0.6), 0 0 45px rgba(6, 182, 212, 0.35)'
+                    },
+                    keyframes: {
+                        floaty: {
+                            '0%, 100%': { transform: 'translateY(0px)' },
+                            '50%': { transform: 'translateY(-8px)' }
+                        },
+                        pulseGlow: {
+                            '0%, 100%': { boxShadow: '0 0 0 0 rgba(236, 72, 153, 0.25)' },
+                            '50%': { boxShadow: '0 0 0 10px rgba(236, 72, 153, 0)' }
+                        },
+                        sheen: {
+                            '0%': { backgroundPosition: '-200% center' },
+                            '100%': { backgroundPosition: '200% center' }
+                        }
+                    },
+                    animation: {
+                        floaty: 'floaty 4s ease-in-out infinite',
+                        'pulse-glow': 'pulseGlow 2.5s infinite',
+                        sheen: 'sheen 5s linear infinite'
                     }
                 }
             }

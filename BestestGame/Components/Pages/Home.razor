@@ -2,13 +2,34 @@
 
 <PageTitle>Home</PageTitle>
 
-<section class="rounded-3xl border border-white/15 bg-white/5 p-8 shadow-2xl shadow-purple-900/40 backdrop-blur-xl md:p-12">
-    <p class="mb-3 inline-flex rounded-full border border-fuchsia-300/30 bg-fuchsia-500/20 px-4 py-1 text-xs font-bold uppercase tracking-widest text-fuchsia-100">Bestest Tournament Arena</p>
-    <h1 class="text-4xl font-black tracking-tight text-white md:text-6xl">Make your game list <span class="bg-gradient-to-r from-fuchsia-400 via-violet-300 to-cyan-300 bg-clip-text text-transparent">legendary</span></h1>
-    <p class="mt-5 max-w-2xl text-lg text-slate-200">Import your titles, throw them into duels, and build a glorious ranking board with flashy style.</p>
+<section class="relative overflow-hidden rounded-3xl border border-white/20 bg-white/10 p-8 shadow-2xl shadow-violet-900/50 backdrop-blur-xl md:p-12">
+    <div class="pointer-events-none absolute -right-10 -top-16 h-44 w-44 rounded-full bg-cyan-300/25 blur-2xl"></div>
+    <div class="pointer-events-none absolute -left-16 bottom-0 h-40 w-40 rounded-full bg-fuchsia-400/25 blur-2xl"></div>
+
+    <p class="mb-3 inline-flex rounded-full border border-fuchsia-300/40 bg-fuchsia-500/20 px-4 py-1 text-xs font-black uppercase tracking-[0.2em] text-fuchsia-100">Bestest Tournament Arena</p>
+    <h1 class="font-display text-4xl font-black tracking-tight text-white md:text-6xl">Make your game list <span class="bg-gradient-to-r from-fuchsia-400 via-violet-300 to-cyan-300 bg-clip-text text-transparent">absolutely legendary</span></h1>
+    <p class="mt-5 max-w-2xl text-lg text-slate-100/90">Import your titles, throw them into dramatic head-to-head duels, and forge a ranking board worthy of champions.</p>
 
     <div class="mt-8 flex flex-wrap gap-4">
-        <a href="/vote" class="inline-flex items-center rounded-2xl bg-gradient-to-r from-fuchsia-500 to-violet-500 px-6 py-3 text-sm font-extrabold uppercase tracking-wide text-white shadow-lg shadow-fuchsia-500/40 transition hover:-translate-y-1 hover:shadow-glow">Start Voting ⚡</a>
-        <a href="/import" class="inline-flex items-center rounded-2xl border border-cyan-300/30 bg-cyan-400/20 px-6 py-3 text-sm font-bold uppercase tracking-wide text-cyan-50 transition hover:-translate-y-1 hover:bg-cyan-300/30">Import New Games</a>
+        <a href="/vote" class="inline-flex items-center rounded-2xl bg-gradient-to-r from-fuchsia-500 via-violet-500 to-cyan-500 bg-[length:200%_100%] px-7 py-3 text-sm font-black uppercase tracking-wide text-white shadow-neon transition hover:-translate-y-1 hover:animate-sheen">Start Voting ⚡</a>
+        <a href="/import" class="inline-flex items-center rounded-2xl border border-cyan-200/40 bg-cyan-400/25 px-7 py-3 text-sm font-extrabold uppercase tracking-wide text-cyan-50 transition hover:-translate-y-1 hover:bg-cyan-300/35">Import New Games</a>
+    </div>
+
+    <div class="mt-8 grid gap-4 md:grid-cols-3">
+        <div class="rounded-2xl border border-white/15 bg-black/25 p-4 backdrop-blur-lg">
+            <p class="text-xs font-black uppercase tracking-widest text-fuchsia-200">1</p>
+            <p class="mt-1 font-bold text-white">Build your list</p>
+            <p class="mt-1 text-sm text-slate-200">Drop in all game titles you want in the tournament.</p>
+        </div>
+        <div class="rounded-2xl border border-white/15 bg-black/25 p-4 backdrop-blur-lg">
+            <p class="text-xs font-black uppercase tracking-widest text-cyan-200">2</p>
+            <p class="mt-1 font-bold text-white">Duel them</p>
+            <p class="mt-1 text-sm text-slate-200">Choose winners in flashy 1v1 matchups.</p>
+        </div>
+        <div class="rounded-2xl border border-white/15 bg-black/25 p-4 backdrop-blur-lg">
+            <p class="text-xs font-black uppercase tracking-widest text-violet-200">3</p>
+            <p class="mt-1 font-bold text-white">Crown the champ</p>
+            <p class="mt-1 text-sm text-slate-200">Watch your leaderboard settle into greatness.</p>
+        </div>
     </div>
 </section>
