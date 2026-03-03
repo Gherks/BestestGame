@@ -1,19 +1,22 @@
 ﻿@inherits LayoutComponentBase
 
-<div class="page">
-    <div class="sidebar">
-        <NavMenu />
+<div class="min-h-screen bg-gradient-to-br from-slate-950 via-purple-950 to-cyan-950 text-slate-100">
+    <div class="mx-auto flex min-h-screen max-w-7xl flex-col md:flex-row">
+        <aside class="md:w-72 md:border-r md:border-white/10 bg-black/20 backdrop-blur-xl">
+            <NavMenu />
+        </aside>
+
+        <main class="flex-1">
+            <div class="sticky top-0 z-10 border-b border-white/10 bg-slate-950/60 px-6 py-4 backdrop-blur-xl">
+                <a class="inline-flex items-center rounded-full bg-gradient-to-r from-fuchsia-500 to-cyan-400 px-4 py-2 text-sm font-semibold text-white shadow-lg shadow-fuchsia-500/40 transition hover:scale-105 hover:shadow-cyan-400/50"
+                   href="https://learn.microsoft.com/aspnet/core/" target="_blank">ASP.NET Core Docs</a>
+            </div>
+
+            <article class="p-6 md:p-10">
+                @Body
+            </article>
+        </main>
     </div>
-
-    <main>
-        <div class="top-row px-4">
-            <a href="https://learn.microsoft.com/aspnet/core/" target="_blank">About</a>
-        </div>
-
-        <article class="content px-4">
-            @Body
-        </article>
-    </main>
 </div>
 
 <div id="blazor-error-ui">

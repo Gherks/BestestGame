@@ -5,32 +5,37 @@
 
 <PageTitle>Import</PageTitle>
 
-<h1>Import Games</h1>
+<section class="rounded-3xl border border-white/15 bg-white/5 p-6 shadow-2xl shadow-cyan-900/40 backdrop-blur-xl md:p-8">
+    <h1 class="text-3xl font-black text-white md:text-4xl">📥 Import Games</h1>
 
-<p>Enter one game title per line. When you click <strong>Import</strong>, all new games will be saved and all missing duels will be generated automatically.</p>
+    <p class="mt-3 text-slate-200">Enter one game title per line. Hit <strong>Import</strong> and all missing duels will be generated automatically.</p>
 
-<div class="mb-3">
-    <label for="gameTitles" class="form-label">Game Titles</label>
-    <textarea id="gameTitles" class="form-control" rows="10" placeholder="Enter one game title per line..."
-              @bind="_inputText"></textarea>
-</div>
+    <div class="mt-6">
+        <label for="gameTitles" class="mb-2 block text-sm font-bold uppercase tracking-wide text-cyan-100">Game Titles</label>
+        <textarea id="gameTitles"
+                  class="min-h-64 w-full rounded-2xl border border-cyan-300/30 bg-slate-950/70 p-4 text-slate-100 shadow-inner shadow-black/50 outline-none transition focus:border-fuchsia-400 focus:ring-4 focus:ring-fuchsia-500/30"
+                  placeholder="Enter one game title per line..."
+                  @bind="_inputText"></textarea>
+    </div>
 
-<button class="btn btn-primary" @onclick="ImportGames" disabled="@_isImporting">
-    @if (_isImporting)
+    <button class="mt-6 inline-flex items-center rounded-2xl bg-gradient-to-r from-fuchsia-500 via-violet-500 to-cyan-500 px-6 py-3 text-sm font-extrabold uppercase tracking-wide text-white shadow-lg shadow-fuchsia-500/40 transition hover:-translate-y-1 hover:shadow-glow disabled:cursor-not-allowed disabled:opacity-60"
+            @onclick="ImportGames" disabled="@_isImporting">
+        @if (_isImporting)
+        {
+            <span class="mr-2 inline-block h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white"></span>
+            <span>Importing...</span>
+        }
+        else
+        {
+            <span>Import</span>
+        }
+    </button>
+
+    @if (!string.IsNullOrEmpty(_message))
     {
-        <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
-        <span>Importing...</span>
+        <div class="@GetAlertClasses() mt-5 rounded-2xl border px-4 py-3 text-sm font-semibold">@_message</div>
     }
-    else
-    {
-        <span>Import</span>
-    }
-</button>
-
-@if (!string.IsNullOrEmpty(_message))
-{
-    <div class="alert @_alertClass mt-3">@_message</div>
-}
+</section>
 
 @code {
     private string _inputText = string.Empty;
@@ -60,4 +65,8 @@
         _message = $"Successfully imported {titles.Count} game title(s). Head to the Vote page to start voting!";
         _inputText = string.Empty;
     }
+
+    private string GetAlertClasses() => _alertClass == "alert-warning"
+        ? "border-amber-300/40 bg-amber-400/20 text-amber-50"
+        : "border-emerald-300/40 bg-emerald-400/20 text-emerald-50";
 }
