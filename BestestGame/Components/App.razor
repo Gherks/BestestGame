@@ -7,43 +7,131 @@
     <base href="/" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&family=Orbitron:wght@700;900&display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Comic+Neue:wght@400;700&family=Bangers&family=Bungee+Shade&family=Press+Start+2P&display=swap" rel="stylesheet" />
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
         tailwind.config = {
             theme: {
                 extend: {
                     colors: {
-                        brand: {
-                            500: '#7c3aed',
-                            600: '#6d28d9'
-                        }
+                        doge: '#f5a623',
+                        'doge-dark': '#c47f17',
+                        pepe: '#6b8e23',
+                        'pepe-dark': '#4a6316',
+                        mlg: '#ff00ff',
+                        'mountain-dew': '#00ff00',
+                        doritos: '#ff6600',
+                        fedora: '#2c2c2c',
                     },
                     fontFamily: {
-                        display: ['Orbitron', 'sans-serif']
+                        meme: ['"Comic Neue"', 'Comic Sans MS', 'cursive'],
+                        display: ['Bangers', 'cursive'],
+                        gamer: ['"Press Start 2P"', 'monospace'],
+                        title: ['"Bungee Shade"', 'cursive'],
                     },
                     boxShadow: {
                         glow: '0 0 0 3px rgba(124, 58, 237, 0.35), 0 20px 40px rgba(0,0,0,0.35)',
-                        neon: '0 0 25px rgba(236, 72, 153, 0.6), 0 0 45px rgba(6, 182, 212, 0.35)'
+                        neon: '0 0 25px rgba(255, 0, 255, 0.8), 0 0 55px rgba(0, 255, 0, 0.5)',
+                        doge: '0 0 30px rgba(245, 166, 35, 0.8), 0 0 60px rgba(245, 166, 35, 0.4)',
+                        mlg: '0 0 40px rgba(255, 0, 255, 1), 0 0 80px rgba(0, 255, 0, 1), 0 0 120px rgba(255, 102, 0, 0.6)',
                     },
                     keyframes: {
                         floaty: {
-                            '0%, 100%': { transform: 'translateY(0px)' },
-                            '50%': { transform: 'translateY(-8px)' }
+                            '0%, 100%': { transform: 'translateY(0px) rotate(-2deg)' },
+                            '50%': { transform: 'translateY(-12px) rotate(2deg)' }
                         },
                         pulseGlow: {
-                            '0%, 100%': { boxShadow: '0 0 0 0 rgba(236, 72, 153, 0.25)' },
-                            '50%': { boxShadow: '0 0 0 10px rgba(236, 72, 153, 0)' }
+                            '0%, 100%': { boxShadow: '0 0 0 0 rgba(255, 0, 255, 0.4)' },
+                            '50%': { boxShadow: '0 0 0 15px rgba(0, 255, 0, 0)' }
                         },
                         sheen: {
                             '0%': { backgroundPosition: '-200% center' },
                             '100%': { backgroundPosition: '200% center' }
-                        }
+                        },
+                        rainbow: {
+                            '0%': { color: '#ff0000' },
+                            '16%': { color: '#ff8800' },
+                            '33%': { color: '#ffff00' },
+                            '50%': { color: '#00ff00' },
+                            '66%': { color: '#0088ff' },
+                            '83%': { color: '#8800ff' },
+                            '100%': { color: '#ff0000' }
+                        },
+                        rainbowBg: {
+                            '0%': { backgroundColor: '#ff0000' },
+                            '16%': { backgroundColor: '#ff8800' },
+                            '33%': { backgroundColor: '#ffff00' },
+                            '50%': { backgroundColor: '#00ff00' },
+                            '66%': { backgroundColor: '#0088ff' },
+                            '83%': { backgroundColor: '#8800ff' },
+                            '100%': { backgroundColor: '#ff0000' }
+                        },
+                        wiggle: {
+                            '0%, 100%': { transform: 'rotate(-5deg)' },
+                            '50%': { transform: 'rotate(5deg)' }
+                        },
+                        yeet: {
+                            '0%': { transform: 'translateX(-100vw) rotate(-720deg)', opacity: '0' },
+                            '60%': { transform: 'translateX(20px) rotate(15deg)', opacity: '1' },
+                            '80%': { transform: 'translateX(-10px) rotate(-5deg)' },
+                            '100%': { transform: 'translateX(0) rotate(0deg)' }
+                        },
+                        skullEmoji: {
+                            '0%, 100%': { transform: 'scale(1)' },
+                            '50%': { transform: 'scale(1.3) rotate(10deg)' }
+                        },
+                        marqueeScroll: {
+                            '0%': { transform: 'translateX(100%)' },
+                            '100%': { transform: 'translateX(-100%)' }
+                        },
+                        noscope: {
+                            '0%': { transform: 'rotate(0deg) scale(1)' },
+                            '25%': { transform: 'rotate(360deg) scale(1.2)' },
+                            '50%': { transform: 'rotate(720deg) scale(0.8)' },
+                            '75%': { transform: 'rotate(1080deg) scale(1.1)' },
+                            '100%': { transform: 'rotate(1440deg) scale(1)' }
+                        },
+                        fadeInUp: {
+                            '0%': { opacity: '0', transform: 'translateY(30px)' },
+                            '100%': { opacity: '1', transform: 'translateY(0)' }
+                        },
+                        juicePop: {
+                            '0%': { transform: 'scale(0.85)', opacity: '0.7' },
+                            '40%': { transform: 'scale(1.12)', opacity: '1' },
+                            '70%': { transform: 'scale(0.96)' },
+                            '100%': { transform: 'scale(1)' }
+                        },
+                        tableSlam: {
+                            '0%': { transform: 'translateY(-8px) scale(0.98)', opacity: '0.6' },
+                            '50%': { transform: 'translateY(3px) scale(1.005)' },
+                            '100%': { transform: 'translateY(0) scale(1)', opacity: '1' }
+                        },
+                        rowCascade: {
+                            '0%': { opacity: '0', transform: 'translateX(-20px)' },
+                            '100%': { opacity: '1', transform: 'translateX(0)' }
+                        },
+                        victoryBurst: {
+                            '0%': { boxShadow: '0 0 0 0 rgba(255,255,255,0.6)', transform: 'scale(1)' },
+                            '50%': { boxShadow: '0 0 60px 20px rgba(255,0,255,0)', transform: 'scale(1.03)' },
+                            '100%': { boxShadow: '0 0 0 0 rgba(0,255,0,0)', transform: 'scale(1)' }
+                        },
                     },
                     animation: {
-                        floaty: 'floaty 4s ease-in-out infinite',
-                        'pulse-glow': 'pulseGlow 2.5s infinite',
-                        sheen: 'sheen 5s linear infinite'
+                        floaty: 'floaty 2s ease-in-out infinite',
+                        'pulse-glow': 'pulseGlow 1.5s infinite',
+                        sheen: 'sheen 3s linear infinite',
+                        rainbow: 'rainbow 2s linear infinite',
+                        'rainbow-bg': 'rainbowBg 3s linear infinite',
+                        wiggle: 'wiggle 0.3s ease-in-out infinite',
+                        yeet: 'yeet 0.8s ease-out',
+                        skull: 'skullEmoji 0.5s ease-in-out infinite',
+                        marquee: 'marqueeScroll 15s linear infinite',
+                        noscope: 'noscope 2s ease-in-out',
+                        'fade-in-up': 'fadeInUp 0.6s ease-out',
+                        'juice-pop': 'juicePop 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)',
+                        'table-slam': 'tableSlam 0.5s cubic-bezier(0.34, 1.56, 0.64, 1)',
+                        'row-cascade': 'rowCascade 0.3s ease-out both',
+                        'victory-burst': 'victoryBurst 0.6s ease-out',
                     }
                 }
             }
@@ -55,7 +143,7 @@
     <HeadOutlet />
 </head>
 
-<body>
+<body class="font-meme">
     <Routes />
     <script src="_framework/blazor.web.js"></script>
 </body>

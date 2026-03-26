@@ -3,42 +3,111 @@
 @using BestestGame.Services
 @inject GameService GameService
 
-<PageTitle>Import</PageTitle>
+<PageTitle>Yeet Games In | The Import Dungeon 📥</PageTitle>
 
-<section class="relative overflow-hidden rounded-3xl border border-white/20 bg-white/10 p-6 shadow-2xl shadow-cyan-900/50 backdrop-blur-xl md:p-8">
-    <div class="pointer-events-none absolute -left-12 top-16 h-36 w-36 rounded-full bg-fuchsia-500/25 blur-3xl"></div>
-    <h1 class="font-display text-3xl font-black text-white md:text-4xl">📥 Import Vault</h1>
+<section class="relative overflow-hidden rounded-3xl border-2 border-orange-400/30 bg-white/10 p-6 shadow-2xl shadow-orange-900/40 backdrop-blur-xl md:p-8 animate-fade-in-up">
+    <div class="pointer-events-none absolute -left-12 top-16 h-44 w-44 rounded-full bg-fuchsia-500/30 blur-3xl animate-pulse"></div>
+    <div class="pointer-events-none absolute -right-8 bottom-10 h-36 w-36 rounded-full bg-green-500/25 blur-3xl animate-pulse" style="animation-delay: 0.7s;"></div>
 
-    <p class="mt-3 text-slate-100/90">Enter one game title per line. Hit <strong>Import</strong> and all missing duels will be generated automatically.</p>
+    <div class="flex items-center gap-3 flex-wrap">
+        <h1 class="font-display text-3xl font-black text-white md:text-4xl">
+            <span class="animate-wiggle inline-block">📥</span>
+            YEET GAMES IN
+        </h1>
+        <span class="rounded-full bg-orange-500/30 border-2 border-orange-400/50 px-3 py-1 text-[10px] font-black uppercase tracking-widest text-orange-200 animate-pulse">THE IMPORT DUNGEON</span>
+    </div>
+
+    <p class="mt-3 text-slate-100/90">
+        Enter one game title per line. Hit <strong class="text-fuchsia-300">YEET</strong> and all missing duels will be auto-generated.
+        <span class="text-xs text-slate-400 block mt-1">
+            Pro tip: the more games you add, the more duels you get. It's basic math. Stay in school. 🧠
+        </span>
+    </p>
 
     <div class="mt-6">
-        <label for="gameTitles" class="mb-2 block text-sm font-black uppercase tracking-[0.18em] text-cyan-100">Game Titles</label>
+        <label for="gameTitles" class="mb-2 flex items-center gap-2 text-sm font-black uppercase tracking-[0.18em] text-fuchsia-100">
+            <span class="animate-floaty inline-block">🎮</span>
+            Game Titles
+            <span class="text-[10px] font-normal normal-case tracking-normal text-slate-400">(one per line, like a civilized human being)</span>
+        </label>
         <textarea id="gameTitles"
-                  class="min-h-64 w-full rounded-2xl border border-cyan-300/35 bg-slate-950/80 p-4 text-slate-100 shadow-inner shadow-black/60 outline-none transition focus:border-fuchsia-400 focus:ring-4 focus:ring-fuchsia-500/30"
-                  placeholder="Enter one game title per line..."
+                  class="min-h-64 w-full rounded-2xl border-2 border-fuchsia-400/30 bg-slate-950/80 p-4 text-slate-100 shadow-inner shadow-black/60 outline-none transition focus:border-fuchsia-400 focus:ring-4 focus:ring-fuchsia-500/30 focus:shadow-[0_0_30px_rgba(255,0,255,0.3)] placeholder:text-slate-500"
+                  placeholder="@_placeholder"
                   @bind="_inputText"></textarea>
     </div>
 
-    <button class="mt-6 inline-flex items-center rounded-2xl border border-white/25 bg-gradient-to-r from-fuchsia-500 via-violet-500 to-cyan-500 bg-[length:200%_100%] px-6 py-3 text-sm font-black uppercase tracking-wide text-white shadow-neon transition hover:-translate-y-1 hover:animate-sheen disabled:cursor-not-allowed disabled:opacity-60"
-            @onclick="ImportGames" disabled="@_isImporting">
-        @if (_isImporting)
-        {
-            <span class="mr-2 inline-block h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white"></span>
-            <span>Importing...</span>
-        }
-        else
-        {
-            <span>Import</span>
-        }
-    </button>
+    <div class="mt-6 flex items-center gap-4 flex-wrap">
+        <button class="group inline-flex items-center rounded-2xl border-2 border-fuchsia-400/40 bg-gradient-to-r from-fuchsia-500 via-green-500 to-orange-500 bg-[length:300%_100%] px-8 py-4 text-sm font-black uppercase tracking-wide text-white shadow-mlg transition hover:-translate-y-1 hover:animate-sheen hover:scale-105 disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:scale-100 disabled:hover:translate-y-0"
+                @onclick="ImportGames" disabled="@_isImporting">
+            @if (_isImporting)
+            {
+                <span class="mr-2 inline-block h-5 w-5 animate-spin rounded-full border-2 border-white/30 border-t-white"></span>
+                <span>YEETING...</span>
+                <span class="ml-2 animate-wiggle inline-block">🚀</span>
+            }
+            else
+            {
+                <span class="mr-2 group-hover:animate-wiggle inline-block">🚀</span>
+                <span>YEET IT</span>
+                <span class="ml-2 group-hover:animate-skull inline-block">💯</span>
+            }
+        </button>
+        <p class="text-[10px] text-slate-500 font-bold">
+            *YEET (verb): to throw with reckless abandon and maximum velocity*
+        </p>
+    </div>
 
     @if (!string.IsNullOrEmpty(_message))
     {
-        <div class="@GetAlertClasses() mt-5 rounded-2xl border px-4 py-3 text-sm font-bold">@_message</div>
+        <div class="@GetAlertClasses() mt-5 rounded-2xl border-2 px-5 py-4 text-sm font-bold animate-yeet">
+            @if (_alertClass == "alert-success")
+            {
+                <span class="text-lg mr-2">🎉</span>
+            }
+            else
+            {
+                <span class="text-lg mr-2">😤</span>
+            }
+            @_message
+        </div>
     }
 </section>
 
+<!-- Import Tips - meme edition -->
+<section class="mt-8 rounded-3xl border-2 border-dashed border-green-500/30 bg-black/30 p-6 backdrop-blur-xl animate-fade-in-up" style="animation-delay: 0.3s;">
+    <h2 class="font-display text-xl text-green-200 mb-4">
+        <span class="animate-floaty inline-block mr-2">🧠</span>
+        Big Brain Import Tips™
+    </h2>
+    <div class="grid gap-3 md:grid-cols-2">
+        <div class="rounded-xl border border-green-500/20 bg-green-900/10 p-3">
+            <p class="text-xs font-black uppercase tracking-widest text-green-300/70 mb-1">💡 Tip #1</p>
+            <p class="text-sm text-slate-300">Add games you've actually played. Or don't. We can't stop you from adding "Big Rigs: Over the Road Racing" ironically.</p>
+        </div>
+        <div class="rounded-xl border border-fuchsia-500/20 bg-fuchsia-900/10 p-3">
+            <p class="text-xs font-black uppercase tracking-widest text-fuchsia-300/70 mb-1">💡 Tip #2</p>
+            <p class="text-sm text-slate-300">More games = more duels = more time spent not touching grass. It's a feature, not a bug. 🌿</p>
+        </div>
+        <div class="rounded-xl border border-orange-500/20 bg-orange-900/10 p-3">
+            <p class="text-xs font-black uppercase tracking-widest text-orange-300/70 mb-1">💡 Tip #3</p>
+            <p class="text-sm text-slate-300">With N games you get N×(N-1)/2 duels. That's called combinatorics. Look at you learning math! 📐</p>
+        </div>
+        <div class="rounded-xl border border-yellow-500/20 bg-yellow-900/10 p-3">
+            <p class="text-xs font-black uppercase tracking-widest text-yellow-300/70 mb-1">💡 Tip #4</p>
+            <p class="text-sm text-slate-300">If you import 100 games you get 4,950 duels. Maybe reconsider your life choices? Or don't. YOLO. 🤷</p>
+        </div>
+    </div>
+</section>
+
 @code {
+    private const string _placeholder =
+        "Enter game titles here...\n\n" +
+        "e.g.:\n" +
+        "The Witcher 3\n" +
+        "Elden Ring\n" +
+        "Untitled Goose Game (a man of culture)\n" +
+        "Bad Rats (if you dare)";
+
     private string _inputText = string.Empty;
     private string _message = string.Empty;
     private string _alertClass = "alert-success";
@@ -54,7 +123,7 @@
         if (titles.Count == 0)
         {
             _alertClass = "alert-warning";
-            _message = "Please enter at least one game title.";
+            _message = "Bruh. You gotta enter at least ONE game title. Come on. 😤";
             return;
         }
 
@@ -63,11 +132,11 @@
         _isImporting = false;
 
         _alertClass = "alert-success";
-        _message = $"Successfully imported {titles.Count} game title(s). Head to the Vote page to start voting!";
+        _message = $"YEETED {titles.Count} game(s) into the arena! 🎉 Now go to the 1v1 page and start voting, you absolute legend!";
         _inputText = string.Empty;
     }
 
     private string GetAlertClasses() => _alertClass == "alert-warning"
-        ? "border-amber-300/45 bg-amber-400/25 text-amber-50"
-        : "border-emerald-300/45 bg-emerald-400/25 text-emerald-50";
+        ? "border-amber-400/50 bg-amber-400/20 text-amber-50"
+        : "border-green-400/50 bg-green-400/20 text-green-50";
 }

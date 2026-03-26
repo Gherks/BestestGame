@@ -1,33 +1,71 @@
 ﻿@inherits LayoutComponentBase
 
 <div class="relative min-h-screen overflow-hidden bg-slate-950 text-slate-100">
-    <div class="pointer-events-none absolute -left-28 -top-24 h-80 w-80 rounded-full bg-fuchsia-500/25 blur-3xl"></div>
-    <div class="pointer-events-none absolute -right-28 top-24 h-96 w-96 rounded-full bg-cyan-400/20 blur-3xl"></div>
-    <div class="pointer-events-none absolute bottom-0 left-1/3 h-72 w-72 rounded-full bg-violet-500/20 blur-3xl"></div>
+    <!-- MLG lens flare blobs -->
+    <div class="pointer-events-none absolute -left-28 -top-24 h-96 w-96 rounded-full bg-fuchsia-500/30 blur-3xl animate-pulse"></div>
+    <div class="pointer-events-none absolute -right-28 top-24 h-96 w-96 rounded-full bg-green-400/25 blur-3xl animate-pulse" style="animation-delay: 0.5s"></div>
+    <div class="pointer-events-none absolute bottom-0 left-1/3 h-72 w-72 rounded-full bg-orange-500/25 blur-3xl animate-pulse" style="animation-delay: 1s"></div>
+    <div class="pointer-events-none absolute right-1/4 top-1/2 h-64 w-64 rounded-full bg-yellow-300/20 blur-3xl animate-pulse" style="animation-delay: 1.5s"></div>
 
-    <div class="relative mx-auto flex min-h-screen max-w-7xl flex-col md:flex-row">
-        <aside class="md:w-72 md:border-r md:border-white/10 bg-black/35 backdrop-blur-2xl">
+    <!-- floating meme emojis background -->
+    <div class="pointer-events-none fixed inset-0 z-50 overflow-hidden opacity-20">
+        <span class="absolute text-4xl animate-floaty" style="left: 5%; top: 20%; animation-delay: 0s;">🐕</span>
+        <span class="absolute text-3xl animate-floaty" style="left: 15%; top: 60%; animation-delay: 0.5s;">💎</span>
+        <span class="absolute text-4xl animate-floaty" style="left: 25%; top: 35%; animation-delay: 1s;">🚀</span>
+        <span class="absolute text-3xl animate-floaty" style="left: 40%; top: 75%; animation-delay: 1.5s;">🌙</span>
+        <span class="absolute text-4xl animate-floaty" style="left: 55%; top: 15%; animation-delay: 2s;">🎺</span>
+        <span class="absolute text-3xl animate-floaty" style="left: 70%; top: 50%; animation-delay: 0.3s;">💯</span>
+        <span class="absolute text-4xl animate-floaty" style="left: 85%; top: 30%; animation-delay: 0.8s;">🔥</span>
+        <span class="absolute text-3xl animate-floaty" style="left: 92%; top: 70%; animation-delay: 1.2s;">👑</span>
+        <span class="absolute text-3xl animate-floaty" style="left: 50%; top: 85%; animation-delay: 1.8s;">🗿</span>
+        <span class="absolute text-4xl animate-floaty" style="left: 35%; top: 10%; animation-delay: 0.7s;">⭐</span>
+    </div>
+
+    <div class="relative mx-auto flex min-h-screen max-w-7xl flex-col md:flex-row md:border-x md:border-fuchsia-500/30" style="border-image: linear-gradient(to bottom, #ff00ff, #00ff00, #ff6600) 1;">
+        <aside class="md:w-72 md:border-r md:border-fuchsia-500/30 bg-black/50 backdrop-blur-2xl" style="border-image: linear-gradient(to bottom, #ff00ff, #00ff00, #ff6600) 1;">
             <NavMenu />
         </aside>
 
-        <main class="flex-1">
-            <div class="sticky top-0 z-10 border-b border-white/10 bg-slate-950/55 px-6 py-4 backdrop-blur-2xl">
-                <div class="flex flex-wrap items-center justify-between gap-3">
-                    <p class="font-display text-sm uppercase tracking-[0.25em] text-cyan-200/90">Bestest Game Control Deck</p>
-                    <a class="inline-flex items-center rounded-full bg-gradient-to-r from-fuchsia-500 via-violet-500 to-cyan-400 bg-[length:200%_100%] px-5 py-2 text-xs font-extrabold uppercase tracking-wide text-white shadow-neon transition hover:-translate-y-0.5 hover:animate-sheen"
-                       href="https://learn.microsoft.com/aspnet/core/" target="_blank">ASP.NET Core Docs</a>
+        <main class="flex-1 min-w-0 overflow-hidden">
+            <!-- meme ticker header -->
+            <div class="sticky top-0 z-10 border-b-2 border-fuchsia-500/50 bg-slate-950/70 backdrop-blur-2xl">
+                <div class="meme-ticker overflow-hidden bg-gradient-to-r from-fuchsia-900/50 via-green-900/50 to-orange-900/50 py-1">
+                    <span class="meme-ticker-content text-xs font-bold tracking-wider">
+                        🐕 wow 🐕 such game 🐕 very vote 🐕 much ranking 🐕 so bestest 🐕 many duel 🐕 amaze 🐕 to the moon 🚀 HODL 💎🙌 stonks only go up 📈 no cap fr fr 💯 bussin respectfully 🔥 it's giving champion vibes ✨ slay 💅 based and game-pilled 💊 this is the way 🐕
+                    </span>
+                </div>
+                <div class="px-6 py-3">
+                    <div class="flex flex-wrap items-center justify-between gap-3">
+                        <p class="font-display text-sm uppercase tracking-[0.25em] rainbow-text">✨ Bestest Game Control Deck ✨</p>
+                        <a class="group inline-flex items-center rounded-full bg-gradient-to-r from-fuchsia-500 via-green-500 to-orange-500 bg-[length:200%_100%] px-5 py-2 text-xs font-extrabold uppercase tracking-wide text-white shadow-mlg transition hover:-translate-y-0.5 hover:animate-sheen spin-hover"
+                           href="https://learn.microsoft.com/aspnet/core/" target="_blank">
+                            <span class="mr-1">🧠</span> Big Brain Docs
+                        </a>
+                    </div>
                 </div>
             </div>
 
             <article class="relative p-6 md:p-10">
                 @Body
             </article>
+
+            <!-- footer meme wisdom -->
+            <footer class="border-t border-fuchsia-500/20 bg-black/30 px-6 py-4 text-center backdrop-blur-xl">
+                <p class="text-xs text-slate-400 font-bold">
+                    <span class="animate-wiggle inline-block">🎩</span>
+                    M'lady... *tips fedora* ...powered by memes and Mountain Dew™
+                    <span class="animate-wiggle inline-block" style="animation-delay: 0.15s;">🎩</span>
+                </p>
+                <p class="mt-1 text-[10px] text-slate-500">
+                    © 42069 BestestGame Inc. | All your base are belong to us | Made with 💀 and questionable life choices
+                </p>
+            </footer>
         </main>
     </div>
 </div>
 
-<div id="blazor-error-ui">
-    An unhandled error has occurred.
-    <a href="" class="reload">Reload</a>
+<div id="blazor-error-ui" class="font-meme">
+    💀 Bruh. An unhandled error just yeeted itself into existence. 💀
+    <a href="" class="reload">Reload (pls no bully)</a>
     <a class="dismiss">🗙</a>
 </div>
