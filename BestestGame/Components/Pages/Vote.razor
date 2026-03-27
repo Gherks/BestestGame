@@ -3,9 +3,25 @@
 @using BestestGame.Models
 @using BestestGame.Services
 @inject GameService GameService
+@inject NavigationManager Navigation
 
 <PageTitle>1v1 Me Bro | MLG Vote Arena 🎺</PageTitle>
 
+@if (_currentTournament is null)
+{
+    <section class="relative overflow-hidden rounded-3xl border-2 border-amber-400/30 bg-white/10 p-6 shadow-2xl shadow-amber-900/40 backdrop-blur-xl md:p-8 animate-fade-in-up">
+        <div class="mt-2 text-center py-8">
+            <p class="text-5xl mb-3">🤔</p>
+            <p class="text-slate-200 font-bold text-xl">No tournament selected, fam.</p>
+            <p class="mt-2 text-sm text-slate-400">You need to create or select a tournament before you can vote.</p>
+            <a href="/tournaments" class="mt-4 inline-flex items-center rounded-2xl bg-gradient-to-r from-fuchsia-500 via-green-500 to-orange-500 bg-[length:300%_100%] px-7 py-4 text-sm font-black uppercase tracking-wide text-white shadow-mlg transition hover:-translate-y-1 hover:animate-sheen hover:scale-105">
+                <span class="mr-2">🏟️</span> Go to Tournaments
+            </a>
+        </div>
+    </section>
+}
+else
+{
 <section class="relative overflow-hidden rounded-3xl border-2 border-fuchsia-400/30 bg-white/10 p-6 shadow-2xl shadow-fuchsia-900/50 backdrop-blur-xl md:p-8 animate-fade-in-up">
     <div class="pointer-events-none absolute -top-12 right-6 h-48 w-48 rounded-full bg-fuchsia-400/30 blur-3xl animate-pulse"></div>
     <div class="pointer-events-none absolute -bottom-8 left-10 h-36 w-36 rounded-full bg-green-400/25 blur-3xl animate-pulse" style="animation-delay: 0.7s;"></div>
@@ -17,6 +33,7 @@
             <span class="animate-skull inline-block" style="animation-delay: 0.25s;">💀</span>
         </h1>
         <span class="rounded-full bg-red-500/30 border-2 border-red-400/50 px-3 py-1 text-[10px] font-black uppercase tracking-widest text-red-200 animate-pulse">🔴 LIVE</span>
+        <span class="rounded-full bg-fuchsia-500/30 border border-fuchsia-400/50 px-3 py-1 text-[10px] font-black uppercase tracking-widest text-fuchsia-200">🏟️ @_currentTournament.Name</span>
     </div>
     <p class="text-xs text-fuchsia-300/60 font-bold mt-1">Final Destination • No Items • Fox Only • Best Game Wins</p>
 
@@ -130,8 +147,10 @@
         </div>
     }
 </section>
+}
 
 @code {
+    private Tournament? _currentTournament;
     private Duel? _currentDuel;
     private Game? _game1;
     private Game? _game2;
@@ -146,7 +165,9 @@
 
     protected override void OnInitialized()
     {
-        LoadNextDuel();
+        _currentTournament = GameService.GetCurrentTournament();
+        if (_currentTournament is not null)
+            LoadNextDuel();
     }
 
     private void LoadNextDuel()

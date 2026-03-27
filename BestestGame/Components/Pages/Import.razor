@@ -1,10 +1,27 @@
 @page "/import"
 @rendermode InteractiveServer
+@using BestestGame.Models
 @using BestestGame.Services
 @inject GameService GameService
+@inject NavigationManager Navigation
 
 <PageTitle>Yeet Games In | The Import Dungeon 📥</PageTitle>
 
+@if (_currentTournament is null)
+{
+    <section class="relative overflow-hidden rounded-3xl border-2 border-amber-400/30 bg-white/10 p-6 shadow-2xl shadow-amber-900/40 backdrop-blur-xl md:p-8 animate-fade-in-up">
+        <div class="mt-2 text-center py-8">
+            <p class="text-5xl mb-3">🤔</p>
+            <p class="text-slate-200 font-bold text-xl">No tournament selected, fam.</p>
+            <p class="mt-2 text-sm text-slate-400">You need to create or select a tournament before yeeting games in.</p>
+            <a href="/tournaments" class="mt-4 inline-flex items-center rounded-2xl bg-gradient-to-r from-fuchsia-500 via-green-500 to-orange-500 bg-[length:300%_100%] px-7 py-4 text-sm font-black uppercase tracking-wide text-white shadow-mlg transition hover:-translate-y-1 hover:animate-sheen hover:scale-105">
+                <span class="mr-2">🏟️</span> Go to Tournaments
+            </a>
+        </div>
+    </section>
+}
+else
+{
 <section class="relative overflow-hidden rounded-3xl border-2 border-orange-400/30 bg-white/10 p-6 shadow-2xl shadow-orange-900/40 backdrop-blur-xl md:p-8 animate-fade-in-up">
     <div class="pointer-events-none absolute -left-12 top-16 h-44 w-44 rounded-full bg-fuchsia-500/30 blur-3xl animate-pulse"></div>
     <div class="pointer-events-none absolute -right-8 bottom-10 h-36 w-36 rounded-full bg-green-500/25 blur-3xl animate-pulse" style="animation-delay: 0.7s;"></div>
@@ -15,6 +32,7 @@
             YEET GAMES IN
         </h1>
         <span class="rounded-full bg-orange-500/30 border-2 border-orange-400/50 px-3 py-1 text-[10px] font-black uppercase tracking-widest text-orange-200 animate-pulse">THE IMPORT DUNGEON</span>
+        <span class="rounded-full bg-fuchsia-500/30 border border-fuchsia-400/50 px-3 py-1 text-[10px] font-black uppercase tracking-widest text-fuchsia-200">🏟️ @_currentTournament.Name</span>
     </div>
 
     <p class="mt-3 text-slate-100/90">
@@ -98,6 +116,7 @@
         </div>
     </div>
 </section>
+}
 
 @code {
     private const string _placeholder =
@@ -108,10 +127,16 @@
         "Untitled Goose Game (a man of culture)\n" +
         "Bad Rats (if you dare)";
 
+    private Tournament? _currentTournament;
     private string _inputText = string.Empty;
     private string _message = string.Empty;
     private string _alertClass = "alert-success";
     private bool _isImporting = false;
+
+    protected override void OnInitialized()
+    {
+        _currentTournament = GameService.GetCurrentTournament();
+    }
 
     private void ImportGames()
     {
