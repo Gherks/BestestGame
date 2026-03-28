@@ -8,9 +8,12 @@ public class GameService
     private readonly string _dbPath;
     private readonly Random _random = new();
 
-    public GameService(IWebHostEnvironment env)
+    public GameService(IConfiguration configuration, IWebHostEnvironment env)
     {
-        _dbPath = Path.Combine(env.ContentRootPath, "data.json");
+        var configuredPath = configuration["DatabasePath"];
+        _dbPath = string.IsNullOrWhiteSpace(configuredPath)
+            ? Path.Combine(env.ContentRootPath, "data.json")
+            : Path.GetFullPath(configuredPath);
     }
 
     private GameDatabase Load()
