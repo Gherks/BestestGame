@@ -12,7 +12,7 @@
 *.env
 
 # BestestGame runtime database
-BestestGame/data.json
+BestestGame/publish-linux
 
 # User-specific files (MonoDevelop/Xamarin Studio)
 *.userprefs
