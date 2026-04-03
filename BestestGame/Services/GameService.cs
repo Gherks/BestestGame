@@ -195,4 +195,31 @@ public class GameService
         var tournament = GetCurrentTournament(db);
         return tournament?.Duels.Count(d => d.IsCompleted) ?? 0;
     }
+
+    /// <summary>
+    /// Returns a dictionary mapping each game ID to the number of completed duels it participated in.
+    /// </summary>
+    public Dictionary<Guid, int> GetMatchesPlayedPerGame()
+    {
+        var db = Load();
+        var tournament = GetCurrentTournament(db);
+        if (tournament is null)
+            return [];
+
+        var counts = new Dictionary<Guid, int>();
+        foreach (var game in tournament.Games)
+        {
+            counts[game.Id] = 0;
+        }
+
+        foreach (var duel in tournament.Duels.Where(d => d.IsCompleted))
+        {
+            if (counts.ContainsKey(duel.Game1Id))
+                counts[duel.Game1Id]++;
+            if (counts.ContainsKey(duel.Game2Id))
+                counts[duel.Game2Id]++;
+        }
+
+        return counts;
+    }
 }

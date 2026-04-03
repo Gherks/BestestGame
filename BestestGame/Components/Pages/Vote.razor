@@ -114,6 +114,7 @@ else
                         <th class="px-4 py-3">🏅 Rank</th>
                         <th class="px-4 py-3">🎮 Title</th>
                         <th class="px-4 py-3">⭐ Points</th>
+                        <th class="px-4 py-3">🎯 Matches</th>
                         <th class="px-4 py-3">📊 Vibe</th>
                     </tr>
                 </thead>
@@ -138,6 +139,7 @@ else
                                 }
                             </td>
                             <td class="px-4 py-3 font-display font-black text-lg text-fuchsia-200">@game.Points</td>
+                            <td class="px-4 py-3 font-display font-black text-lg text-green-200">@(_matchesPlayed.GetValueOrDefault(game.Id))</td>
                             <td class="px-4 py-3 text-sm">@GetVibeCheck(r)</td>
                         </tr>
                         rank++;
@@ -155,6 +157,7 @@ else
     private Game? _game1;
     private Game? _game2;
     private List<Game> _games = new();
+    private Dictionary<Guid, int> _matchesPlayed = new();
     private int _pendingCount;
     private int _completedCount;
     private int _totalCount;
@@ -174,6 +177,7 @@ else
     {
         (_currentDuel, _game1, _game2) = GameService.GetRandomPendingDuel();
         _games = GameService.GetGames();
+        _matchesPlayed = GameService.GetMatchesPlayedPerGame();
         _totalCount = GameService.TotalDuels();
         _completedCount = GameService.CompletedDuels();
         _pendingCount = _totalCount - _completedCount;
