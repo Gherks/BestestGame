@@ -73,6 +73,14 @@ else
             </button>
         </div>
 
+        <div class="flex justify-center my-2">
+            <button class="rounded-2xl border-2 border-yellow-400/50 bg-gradient-to-r from-yellow-600/80 to-orange-600/80 px-6 py-3 text-sm font-black uppercase tracking-wider text-white shadow-lg transition-all duration-200 hover:-translate-y-1 hover:scale-105 hover:shadow-[0_0_40px_rgba(255,200,0,0.6)] active:scale-90 disabled:opacity-30 disabled:pointer-events-none"
+                    disabled="@(!_canUndo)"
+                    @onclick="UndoLastVote">
+                <span class="mr-1">⏪</span> Woopsie
+            </button>
+        </div>
+
         <div class="flex flex-wrap items-center gap-4 text-sm">
             <div class="rounded-xl border border-fuchsia-500/30 bg-fuchsia-500/10 px-4 py-2">
                 <span class="text-fuchsia-300/70 text-xs font-black uppercase tracking-widest">Remaining</span>
@@ -116,6 +124,7 @@ else
                         <th class="px-4 py-3">⭐ Points</th>
                         <th class="px-4 py-3">🎯 Matches</th>
                         <th class="px-4 py-3">📊 Vibe</th>
+                        <th class="px-4 py-3">🔍 Losses</th>
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-fuchsia-500/10 text-slate-100">
@@ -141,6 +150,19 @@ else
                             <td class="px-4 py-3 font-display font-black text-lg text-fuchsia-200">@game.Points</td>
                             <td class="px-4 py-3 font-display font-black text-lg text-green-200">@(_matchesPlayed.GetValueOrDefault(game.Id))</td>
                             <td class="px-4 py-3 text-sm">@GetVibeCheck(r)</td>
+                            <td class="px-4 py-3 text-center">
+                                @if (_gamesPickedOver.TryGetValue(game.Id, out var beaten) && beaten.Count > 0)
+                                {
+                                    <button class="rounded-xl border border-red-400/50 bg-red-500/20 px-3 py-1 text-xs font-bold text-red-200 transition hover:bg-red-500/40 hover:scale-105"
+                                            @onclick="() => ShowBeatenBy(game.Title, beaten)">
+                                        💀 @beaten.Count
+                                    </button>
+                                }
+                                else
+                                {
+                                    <span class="text-xs text-green-300/60">✅ None</span>
+                                }
+                            </td>
                         </tr>
                         rank++;
                     }
@@ -149,6 +171,29 @@ else
         </div>
     }
 </section>
+
+@if (_showBeatenByDialog)
+{
+    <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm animate-fade-in-up" @onclick="CloseBeatenByDialog">
+        <div class="relative mx-4 max-w-md w-full rounded-2xl border-2 border-red-400/30 bg-slate-900/95 p-6 shadow-2xl" @onclick:stopPropagation>
+            <h3 class="font-display text-xl font-black text-red-200">
+                💀 Games picked over <span class="text-fuchsia-300">@_beatenByGameTitle</span>
+            </h3>
+            <ul class="mt-4 max-h-64 space-y-2 overflow-y-auto pr-1">
+                @foreach (var title in _beatenByList)
+                {
+                    <li class="rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-2 text-sm font-bold text-red-100">
+                        🎮 @title
+                    </li>
+                }
+            </ul>
+            <button class="mt-5 w-full rounded-xl border-2 border-slate-500/40 bg-slate-700/60 px-4 py-2 text-sm font-black uppercase tracking-wider text-slate-200 transition hover:bg-slate-600/60"
+                    @onclick="CloseBeatenByDialog">
+                Close
+            </button>
+        </div>
+    </div>
+}
 }
 
 @code {
@@ -158,6 +203,10 @@ else
     private Game? _game2;
     private List<Game> _games = new();
     private Dictionary<Guid, int> _matchesPlayed = new();
+    private Dictionary<Guid, List<string>> _gamesPickedOver = new();
+    private bool _showBeatenByDialog;
+    private string _beatenByGameTitle = string.Empty;
+    private List<string> _beatenByList = [];
     private int _pendingCount;
     private int _completedCount;
     private int _totalCount;
@@ -165,6 +214,8 @@ else
     private bool _lastVoteLeft;
     private Guid _lastWinnerId;
     private int _tableAnimKey;
+    private Guid? _lastCompletedDuelId;
+    private bool _canUndo;
 
     protected override void OnInitialized()
     {
@@ -178,6 +229,7 @@ else
         (_currentDuel, _game1, _game2) = GameService.GetRandomPendingDuel();
         _games = GameService.GetGames();
         _matchesPlayed = GameService.GetMatchesPlayedPerGame();
+        _gamesPickedOver = GameService.GetGamesPickedOver();
         _totalCount = GameService.TotalDuels();
         _completedCount = GameService.CompletedDuels();
         _pendingCount = _totalCount - _completedCount;
@@ -192,12 +244,37 @@ else
         _justVoted = true;
         _tableAnimKey++;
 
+        _lastCompletedDuelId = _currentDuel.Id;
+        _canUndo = true;
+
         GameService.RecordWinner(_currentDuel.Id, winnerId);
         LoadNextDuel();
 
         // Let the animations play before clearing state
         await Task.Delay(600);
         _justVoted = false;
+    }
+
+    private void UndoLastVote()
+    {
+        if (!_canUndo || _lastCompletedDuelId is null)
+            return;
+
+        var duelId = _lastCompletedDuelId.Value;
+        _canUndo = false;
+        _lastCompletedDuelId = null;
+
+        GameService.UndoMatch(duelId);
+
+        // Reload the exact duel that was undone instead of a random one
+        (_currentDuel, _game1, _game2) = GameService.GetDuel(duelId);
+        _games = GameService.GetGames();
+        _matchesPlayed = GameService.GetMatchesPlayedPerGame();
+        _gamesPickedOver = GameService.GetGamesPickedOver();
+        _totalCount = GameService.TotalDuels();
+        _completedCount = GameService.CompletedDuels();
+        _pendingCount = _totalCount - _completedCount;
+        _tableAnimKey++;
     }
 
     private string GetButtonClass(string side)
@@ -244,6 +321,18 @@ else
         3 => "bg-orange-500/5 border-l-4 border-l-orange-500",
         _ => "bg-black/20"
     };
+
+    private void ShowBeatenBy(string gameTitle, List<string> beatenBy)
+    {
+        _beatenByGameTitle = gameTitle;
+        _beatenByList = beatenBy;
+        _showBeatenByDialog = true;
+    }
+
+    private void CloseBeatenByDialog()
+    {
+        _showBeatenByDialog = false;
+    }
 
     private static string GetVibeCheck(int rank) => rank switch
     {

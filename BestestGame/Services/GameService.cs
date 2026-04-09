@@ -122,6 +122,25 @@ public class GameService
         return (duel, game1, game2);
     }
 
+    /// <summary>
+    /// Returns a specific duel and its two games by duel ID.
+    /// </summary>
+    public (Duel? duel, Game? game1, Game? game2) GetDuel(Guid duelId)
+    {
+        var db = Load();
+        var tournament = GetCurrentTournament(db);
+        if (tournament is null)
+            return (null, null, null);
+
+        var duel = tournament.Duels.FirstOrDefault(d => d.Id == duelId);
+        if (duel is null)
+            return (null, null, null);
+
+        var game1 = tournament.Games.FirstOrDefault(g => g.Id == duel.Game1Id);
+        var game2 = tournament.Games.FirstOrDefault(g => g.Id == duel.Game2Id);
+        return (duel, game1, game2);
+    }
+
     public void RecordWinner(Guid duelId, Guid winnerId)
     {
         var db = Load();
@@ -194,6 +213,60 @@ public class GameService
         var db = Load();
         var tournament = GetCurrentTournament(db);
         return tournament?.Duels.Count(d => d.IsCompleted) ?? 0;
+    }
+
+    /// <summary>
+    /// Undoes a completed duel by resetting its state and decrementing the winner's points.
+    /// </summary>
+    public void UndoMatch(Guid duelId)
+    {
+        var db = Load();
+        var tournament = GetCurrentTournament(db);
+        if (tournament is null)
+            return;
+
+        var duel = tournament.Duels.FirstOrDefault(d => d.Id == duelId);
+        if (duel is null || !duel.IsCompleted)
+            return;
+
+        if (duel.WinnerId is { } winnerId)
+        {
+            var winner = tournament.Games.FirstOrDefault(g => g.Id == winnerId);
+            if (winner is not null)
+                winner.Points = Math.Max(0, winner.Points - 1);
+        }
+
+        duel.IsCompleted = false;
+        duel.WinnerId = null;
+
+        Save(db);
+    }
+
+    /// <summary>
+    /// Returns a dictionary mapping each game ID to the titles of games that were picked over it.
+    /// </summary>
+    public Dictionary<Guid, List<string>> GetGamesPickedOver()
+    {
+        var db = Load();
+        var tournament = GetCurrentTournament(db);
+        if (tournament is null)
+            return [];
+
+        var gamesById = tournament.Games.ToDictionary(g => g.Id);
+        var result = tournament.Games.ToDictionary(g => g.Id, _ => new List<string>());
+
+        foreach (var duel in tournament.Duels.Where(d => d.IsCompleted && d.WinnerId.HasValue))
+        {
+            var winnerId = duel.WinnerId!.Value;
+            var loserId = duel.Game1Id == winnerId ? duel.Game2Id : duel.Game1Id;
+
+            if (gamesById.TryGetValue(winnerId, out var winner) && result.ContainsKey(loserId))
+            {
+                result[loserId].Add(winner.Title);
+            }
+        }
+
+        return result;
     }
 
     /// <summary>
