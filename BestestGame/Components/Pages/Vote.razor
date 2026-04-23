@@ -73,11 +73,15 @@ else
             </button>
         </div>
 
-        <div class="flex justify-center my-2">
+        <div class="flex justify-center gap-3 my-2">
             <button class="rounded-2xl border-2 border-yellow-400/50 bg-gradient-to-r from-yellow-600/80 to-orange-600/80 px-6 py-3 text-sm font-black uppercase tracking-wider text-white shadow-lg transition-all duration-200 hover:-translate-y-1 hover:scale-105 hover:shadow-[0_0_40px_rgba(255,200,0,0.6)] active:scale-90 disabled:opacity-30 disabled:pointer-events-none"
                     disabled="@(!_canUndo)"
                     @onclick="UndoLastVote">
                 <span class="mr-1">⏪</span> Woopsie
+            </button>
+            <button class="rounded-2xl border-2 border-cyan-400/50 bg-gradient-to-r from-cyan-600/80 to-blue-600/80 px-6 py-3 text-sm font-black uppercase tracking-wider text-white shadow-lg transition-all duration-200 hover:-translate-y-1 hover:scale-105 hover:shadow-[0_0_40px_rgba(0,200,255,0.6)] active:scale-90"
+                    @onclick="RandomizeMatch">
+                <span class="mr-1">🎲</span> Randomize
             </button>
         </div>
 
@@ -275,6 +279,12 @@ else
         _completedCount = GameService.CompletedDuels();
         _pendingCount = _totalCount - _completedCount;
         _tableAnimKey++;
+    }
+
+    private void RandomizeMatch()
+    {
+        LoadNextDuel();
+        _canUndo = false;
     }
 
     private string GetButtonClass(string side)
