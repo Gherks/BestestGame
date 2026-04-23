@@ -220,6 +220,29 @@ else
     private int _tableAnimKey;
     private Guid? _lastCompletedDuelId;
     private bool _canUndo;
+    private string _leftButtonColors = "";
+    private string _rightButtonColors = "";
+    private Random _random = new();
+
+    private record NeonColorScheme(
+        string BorderColor,
+        string FromColor,
+        string ViaColor,
+        string ToColor,
+        string HoverGlowColor
+    );
+
+    private readonly List<NeonColorScheme> _neonColors = new()
+    {
+        new("fuchsia-400/50", "fuchsia-600", "purple-600", "fuchsia-800", "rgba(255,0,255,1)"),
+        new("cyan-400/50", "cyan-600", "blue-600", "cyan-800", "rgba(0,255,255,1)"),
+        new("lime-400/50", "lime-600", "green-600", "lime-800", "rgba(0,255,0,1)"),
+        new("pink-400/50", "pink-600", "red-600", "pink-800", "rgba(255,0,127,1)"),
+        new("yellow-400/50", "yellow-600", "orange-600", "yellow-800", "rgba(255,255,0,1)"),
+        new("orange-400/50", "orange-600", "red-600", "orange-800", "rgba(255,165,0,1)"),
+        new("violet-400/50", "violet-600", "purple-600", "violet-800", "rgba(167,139,250,1)"),
+        new("rose-400/50", "rose-600", "pink-600", "rose-800", "rgba(244,114,182,1)"),
+    };
 
     protected override void OnInitialized()
     {
@@ -237,6 +260,7 @@ else
         _totalCount = GameService.TotalDuels();
         _completedCount = GameService.CompletedDuels();
         _pendingCount = _totalCount - _completedCount;
+        GenerateRandomButtonColors();
     }
 
     private async Task CastVote(Guid winnerId, bool isLeft)
@@ -294,11 +318,34 @@ else
         return isWinner ? "animate-juice-pop" : "";
     }
 
-    private const string LeftButtonBase = "group relative rounded-3xl border-2 border-fuchsia-400/50 bg-gradient-to-br from-fuchsia-600 via-purple-600 to-fuchsia-800 bg-[length:200%_100%] px-10 py-10 text-3xl md:text-4xl font-black text-white shadow-mlg transition-all duration-200 hover:-translate-y-2 hover:animate-sheen hover:scale-105 hover:shadow-[0_0_60px_rgba(255,0,255,1)] active:scale-90 active:brightness-125";
-    private const string RightButtonBase = "group relative rounded-3xl border-2 border-green-400/50 bg-gradient-to-br from-green-600 via-emerald-600 to-green-800 bg-[length:200%_100%] px-10 py-10 text-3xl md:text-4xl font-black text-white shadow-mlg transition-all duration-200 hover:-translate-y-2 hover:animate-sheen hover:scale-105 hover:shadow-[0_0_60px_rgba(0,255,0,1)] active:scale-90 active:brightness-125";
+    private void GenerateRandomButtonColors()
+    {
+        int leftIndex = _random.Next(_neonColors.Count);
+        int rightIndex;
 
-    private string _leftButtonClass => $"{GetButtonClass("left")} {LeftButtonBase}";
-    private string _rightButtonClass => $"{GetButtonClass("right")} {RightButtonBase}";
+        // Ensure right button is different color from left
+        do
+        {
+            rightIndex = _random.Next(_neonColors.Count);
+        } while (rightIndex == leftIndex);
+
+        var leftColors = _neonColors[leftIndex];
+        var rightColors = _neonColors[rightIndex];
+
+        _leftButtonColors = BuildButtonStyle(leftColors);
+        _rightButtonColors = BuildButtonStyle(rightColors);
+    }
+
+    private static string BuildButtonStyle(NeonColorScheme colors)
+    {
+        return $"group relative rounded-3xl border-2 border-{colors.BorderColor} bg-gradient-to-br from-{colors.FromColor} via-{colors.ViaColor} to-{colors.ToColor} bg-[length:200%_100%] px-10 py-10 min-h-96 text-3xl md:text-4xl font-black text-white shadow-mlg transition-all duration-200 hover:-translate-y-2 hover:animate-sheen hover:scale-105 hover:shadow-[0_0_60px_{colors.HoverGlowColor}] active:scale-90 active:brightness-125";
+    }
+
+    private const string LeftButtonBase = "group relative rounded-3xl border-2 border-fuchsia-400/50 bg-gradient-to-br from-fuchsia-600 via-purple-600 to-fuchsia-800 bg-[length:200%_100%] px-10 py-10 min-h-96 text-3xl md:text-4xl font-black text-white shadow-mlg transition-all duration-200 hover:-translate-y-2 hover:animate-sheen hover:scale-105 hover:shadow-[0_0_60px_rgba(255,0,255,1)] active:scale-90 active:brightness-125";
+    private const string RightButtonBase = "group relative rounded-3xl border-2 border-green-400/50 bg-gradient-to-br from-green-600 via-emerald-600 to-green-800 bg-[length:200%_100%] px-10 py-10 min-h-96 text-3xl md:text-4xl font-black text-white shadow-mlg transition-all duration-200 hover:-translate-y-2 hover:animate-sheen hover:scale-105 hover:shadow-[0_0_60px_rgba(0,255,0,1)] active:scale-90 active:brightness-125";
+
+    private string _leftButtonClass => $"{GetButtonClass("left")} {_leftButtonColors}";
+    private string _rightButtonClass => $"{GetButtonClass("right")} {_rightButtonColors}";
 
     private string _tableContainerClass => $"mt-5 overflow-hidden rounded-2xl border-2 border-fuchsia-400/20 {(_justVoted ? "animate-table-slam" : "")}";
 
