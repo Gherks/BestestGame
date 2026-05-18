@@ -158,7 +158,7 @@ else
                                 @if (_gamesPickedOver.TryGetValue(game.Id, out var beaten) && beaten.Count > 0)
                                 {
                                     <button class="rounded-xl border border-red-400/50 bg-red-500/20 px-3 py-1 text-xs font-bold text-red-200 transition hover:bg-red-500/40 hover:scale-105"
-                                            @onclick="() => ShowBeatenBy(game.Title, beaten)">
+                                            @onclick="() => ShowBeatenBy(game.Id, game.Title, beaten)">
                                         💀 @beaten.Count
                                     </button>
                                 }
@@ -184,10 +184,13 @@ else
                 💀 Games picked over <span class="text-fuchsia-300">@_beatenByGameTitle</span>
             </h3>
             <ul class="mt-4 max-h-64 space-y-2 overflow-y-auto pr-1">
-                @foreach (var title in _beatenByList)
+                @foreach (var loss in _beatenByList)
                 {
-                    <li class="rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-2 text-sm font-bold text-red-100">
-                        🎮 @title
+                    <li>
+                        <button class="w-full rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-2 text-left text-sm font-bold text-red-100 transition hover:bg-green-500/20 hover:border-green-400/40 hover:text-green-100"
+                                @onclick="() => ChangeLossToWin(loss)">
+                            🎮 @loss.WinnerTitle
+                        </button>
                     </li>
                 }
             </ul>
@@ -207,10 +210,11 @@ else
     private Game? _game2;
     private List<Game> _games = new();
     private Dictionary<Guid, int> _matchesPlayed = new();
-    private Dictionary<Guid, List<string>> _gamesPickedOver = new();
+    private Dictionary<Guid, List<GameService.LossDetail>> _gamesPickedOver = new();
     private bool _showBeatenByDialog;
+    private Guid? _beatenByGameId;
     private string _beatenByGameTitle = string.Empty;
-    private List<string> _beatenByList = [];
+    private List<GameService.LossDetail> _beatenByList = [];
     private int _pendingCount;
     private int _completedCount;
     private int _totalCount;
@@ -254,13 +258,18 @@ else
     private void LoadNextDuel()
     {
         (_currentDuel, _game1, _game2) = GameService.GetRandomPendingDuel();
+        RefreshStandings();
+        GenerateRandomButtonColors();
+    }
+
+    private void RefreshStandings()
+    {
         _games = GameService.GetGames();
         _matchesPlayed = GameService.GetMatchesPlayedPerGame();
-        _gamesPickedOver = GameService.GetGamesPickedOver();
+        _gamesPickedOver = GameService.GetGamesPickedOverDetails();
         _totalCount = GameService.TotalDuels();
         _completedCount = GameService.CompletedDuels();
         _pendingCount = _totalCount - _completedCount;
-        GenerateRandomButtonColors();
     }
 
     private async Task CastVote(Guid winnerId, bool isLeft)
@@ -296,12 +305,7 @@ else
 
         // Reload the exact duel that was undone instead of a random one
         (_currentDuel, _game1, _game2) = GameService.GetDuel(duelId);
-        _games = GameService.GetGames();
-        _matchesPlayed = GameService.GetMatchesPlayedPerGame();
-        _gamesPickedOver = GameService.GetGamesPickedOver();
-        _totalCount = GameService.TotalDuels();
-        _completedCount = GameService.CompletedDuels();
-        _pendingCount = _totalCount - _completedCount;
+        RefreshStandings();
         _tableAnimKey++;
     }
 
@@ -379,16 +383,31 @@ else
         _ => "bg-black/20"
     };
 
-    private void ShowBeatenBy(string gameTitle, List<string> beatenBy)
+    private void ShowBeatenBy(Guid gameId, string gameTitle, List<GameService.LossDetail> beatenBy)
     {
+        _beatenByGameId = gameId;
         _beatenByGameTitle = gameTitle;
-        _beatenByList = beatenBy;
+        _beatenByList = beatenBy.ToList();
         _showBeatenByDialog = true;
+    }
+
+    private void ChangeLossToWin(GameService.LossDetail loss)
+    {
+        if (_beatenByGameId is null)
+            return;
+
+        if (!GameService.ChangeCompletedDuelWinner(loss.DuelId, _beatenByGameId.Value))
+            return;
+
+        _beatenByList.RemoveAll(x => x.DuelId == loss.DuelId);
+        RefreshStandings();
+        _tableAnimKey++;
     }
 
     private void CloseBeatenByDialog()
     {
         _showBeatenByDialog = false;
+        _beatenByGameId = null;
     }
 
     private static string GetVibeCheck(int rank) => rank switch

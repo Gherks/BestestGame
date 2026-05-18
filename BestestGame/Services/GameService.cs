@@ -5,6 +5,8 @@ namespace BestestGame.Services;
 
 public class GameService
 {
+    public sealed record LossDetail(Guid DuelId, Guid WinnerId, string WinnerTitle);
+
     private readonly string _dbPath;
     private readonly Random _random = new();
 
@@ -268,9 +270,9 @@ public class GameService
     }
 
     /// <summary>
-    /// Returns a dictionary mapping each game ID to the titles of games that were picked over it.
+    /// Returns a dictionary mapping each game ID to detailed completed losses.
     /// </summary>
-    public Dictionary<Guid, List<string>> GetGamesPickedOver()
+    public Dictionary<Guid, List<LossDetail>> GetGamesPickedOverDetails()
     {
         var db = Load();
         var tournament = GetCurrentTournament(db);
@@ -278,20 +280,67 @@ public class GameService
             return [];
 
         var gamesById = tournament.Games.ToDictionary(g => g.Id);
-        var result = tournament.Games.ToDictionary(g => g.Id, _ => new List<string>());
+        var result = tournament.Games.ToDictionary(g => g.Id, _ => new List<LossDetail>());
 
         foreach (var duel in tournament.Duels.Where(d => d.IsCompleted && d.WinnerId.HasValue))
         {
-            var winnerId = duel.WinnerId!.Value;
+            var winnerId = duel.WinnerId.Value;
             var loserId = duel.Game1Id == winnerId ? duel.Game2Id : duel.Game1Id;
 
             if (gamesById.TryGetValue(winnerId, out var winner) && result.ContainsKey(loserId))
             {
-                result[loserId].Add(winner.Title);
+                result[loserId].Add(new LossDetail(duel.Id, winnerId, winner.Title));
             }
         }
 
         return result;
+    }
+
+    /// <summary>
+    /// Returns a dictionary mapping each game ID to the titles of games that were picked over it.
+    /// </summary>
+    public Dictionary<Guid, List<string>> GetGamesPickedOver()
+    {
+        return GetGamesPickedOverDetails()
+            .ToDictionary(
+                x => x.Key,
+                x => x.Value.Select(loss => loss.WinnerTitle).ToList());
+    }
+
+    /// <summary>
+    /// Changes the winner of a completed duel and updates points.
+    /// </summary>
+    public bool ChangeCompletedDuelWinner(Guid duelId, Guid winnerId)
+    {
+        var db = Load();
+        var tournament = GetCurrentTournament(db);
+        if (tournament is null)
+            return false;
+
+        var duel = tournament.Duels.FirstOrDefault(d => d.Id == duelId);
+        if (duel is null || !duel.IsCompleted || !duel.WinnerId.HasValue)
+            return false;
+
+        if (duel.Game1Id != winnerId && duel.Game2Id != winnerId)
+            return false;
+
+        var previousWinnerId = duel.WinnerId.Value;
+        if (previousWinnerId == winnerId)
+            return false;
+
+        var previousWinner = tournament.Games.FirstOrDefault(g => g.Id == previousWinnerId);
+        var newWinner = tournament.Games.FirstOrDefault(g => g.Id == winnerId);
+        if (newWinner is null)
+            return false;
+
+        if (previousWinner is not null)
+            previousWinner.Points = Math.Max(0, previousWinner.Points - 1);
+
+        newWinner.Points++;
+        duel.WinnerId = winnerId;
+
+        Save(db);
+        return true;
     }
 
     /// <summary>
