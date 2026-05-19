@@ -151,7 +151,12 @@ else
                                     @game.Title
                                 }
                             </td>
-                            <td class="px-4 py-3 font-display font-black text-lg text-fuchsia-200">@game.Points</td>
+                            <td class="px-4 py-3 text-center">
+                                <button class="rounded-xl border border-fuchsia-400/50 bg-fuchsia-500/20 px-3 py-1 font-display font-black text-lg text-fuchsia-200 transition hover:bg-fuchsia-500/40 hover:scale-105"
+                                        @onclick="() => ShowWinsOver(game.Id, game.Title, _winsOver.GetValueOrDefault(game.Id, []))">
+                                    @game.Points
+                                </button>
+                            </td>
                             <td class="px-4 py-3 font-display font-black text-lg text-green-200">@(_matchesPlayed.GetValueOrDefault(game.Id))</td>
                             <td class="px-4 py-3 text-sm">@GetVibeCheck(r)</td>
                             <td class="px-4 py-3 text-center">
@@ -167,6 +172,7 @@ else
                                     <span class="text-xs text-green-300/60">✅ None</span>
                                 }
                             </td>
+
                         </tr>
                         rank++;
                     }
@@ -201,6 +207,29 @@ else
         </div>
     </div>
 }
+
+@if (_showWinsOverDialog)
+{
+    <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm animate-fade-in-up" @onclick="CloseWinsOverDialog">
+        <div class="relative mx-4 max-w-md w-full rounded-2xl border-2 border-green-400/30 bg-slate-900/95 p-6 shadow-2xl" @onclick:stopPropagation>
+            <h3 class="font-display text-xl font-black text-green-200">
+                🏆 Games beaten by <span class="text-fuchsia-300">@_winsOverGameTitle</span>
+            </h3>
+            <ul class="mt-4 max-h-64 space-y-2 overflow-y-auto pr-1">
+                @foreach (var win in _winsOverList)
+                {
+                    <li class="rounded-xl border border-green-500/20 bg-green-500/10 px-4 py-2 text-sm font-bold text-green-100">
+                        🎮 @win.WinnerTitle
+                    </li>
+                }
+            </ul>
+            <button class="mt-5 w-full rounded-xl border-2 border-slate-500/40 bg-slate-700/60 px-4 py-2 text-sm font-black uppercase tracking-wider text-slate-200 transition hover:bg-slate-600/60"
+                    @onclick="CloseWinsOverDialog">
+                Close
+            </button>
+        </div>
+    </div>
+}
 }
 
 @code {
@@ -211,10 +240,15 @@ else
     private List<Game> _games = new();
     private Dictionary<Guid, int> _matchesPlayed = new();
     private Dictionary<Guid, List<GameService.LossDetail>> _gamesPickedOver = new();
+    private Dictionary<Guid, List<GameService.LossDetail>> _winsOver = new();
     private bool _showBeatenByDialog;
     private Guid? _beatenByGameId;
     private string _beatenByGameTitle = string.Empty;
     private List<GameService.LossDetail> _beatenByList = [];
+    private bool _showWinsOverDialog;
+    private Guid? _winsOverGameId;
+    private string _winsOverGameTitle = string.Empty;
+    private List<GameService.LossDetail> _winsOverList = [];
     private int _pendingCount;
     private int _completedCount;
     private int _totalCount;
@@ -267,6 +301,7 @@ else
         _games = GameService.GetGames();
         _matchesPlayed = GameService.GetMatchesPlayedPerGame();
         _gamesPickedOver = GameService.GetGamesPickedOverDetails();
+        _winsOver = GameService.GetWinsOverDetails();
         _totalCount = GameService.TotalDuels();
         _completedCount = GameService.CompletedDuels();
         _pendingCount = _totalCount - _completedCount;
@@ -408,6 +443,20 @@ else
     {
         _showBeatenByDialog = false;
         _beatenByGameId = null;
+    }
+
+    private void ShowWinsOver(Guid gameId, string gameTitle, List<GameService.LossDetail> winsOver)
+    {
+        _winsOverGameId = gameId;
+        _winsOverGameTitle = gameTitle;
+        _winsOverList = winsOver.ToList();
+        _showWinsOverDialog = true;
+    }
+
+    private void CloseWinsOverDialog()
+    {
+        _showWinsOverDialog = false;
+        _winsOverGameId = null;
     }
 
     private static string GetVibeCheck(int rank) => rank switch

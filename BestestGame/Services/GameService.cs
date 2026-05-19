@@ -297,6 +297,33 @@ public class GameService
     }
 
     /// <summary>
+    /// Returns a dictionary mapping each game ID to detailed wins (games the given game beat).
+    /// </summary>
+    public Dictionary<Guid, List<LossDetail>> GetWinsOverDetails()
+    {
+        var db = Load();
+        var tournament = GetCurrentTournament(db);
+        if (tournament is null)
+            return [];
+
+        var gamesById = tournament.Games.ToDictionary(g => g.Id);
+        var result = tournament.Games.ToDictionary(g => g.Id, _ => new List<LossDetail>());
+
+        foreach (var duel in tournament.Duels.Where(d => d.IsCompleted && d.WinnerId.HasValue))
+        {
+            var winnerId = duel.WinnerId.Value;
+            var loserId = duel.Game1Id == winnerId ? duel.Game2Id : duel.Game1Id;
+
+            if (gamesById.TryGetValue(loserId, out var loser) && result.ContainsKey(winnerId))
+            {
+                result[winnerId].Add(new LossDetail(duel.Id, loserId, loser.Title));
+            }
+        }
+
+        return result;
+    }
+
+    /// <summary>
     /// Returns a dictionary mapping each game ID to the titles of games that were picked over it.
     /// </summary>
     public Dictionary<Guid, List<string>> GetGamesPickedOver()
