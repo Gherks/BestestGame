@@ -39,12 +39,23 @@ else
 
     @if (_currentDuel == null)
     {
-        <div class="mt-6 rounded-2xl border-2 border-green-400/50 bg-green-500/20 p-6 text-green-50 text-center">
-            <p class="text-4xl mb-2">🏆</p>
-            <p class="font-display text-2xl font-black">GG WP! ALL DUELS COMPLETE!</p>
-            <p class="mt-2 text-sm text-green-200/80">The tournament is over. Check the standings below, you absolute legend. 💯</p>
-            <p class="mt-2 text-xs text-green-300/50">*airhorn noises* 🎺🎺🎺</p>
-        </div>
+        @if (_onlyArenaBanMatchesRemain)
+        {
+            <div class="mt-6 rounded-2xl border-2 border-yellow-400/50 bg-yellow-500/20 p-6 text-yellow-50 text-center">
+                <p class="text-4xl mb-2">🚫</p>
+                <p class="font-display text-2xl font-black">ONLY ARENA-BANNED MATCHUPS LEFT</p>
+                <p class="mt-2 text-sm text-yellow-100/90">Every pending match has at least one Arena Banned title. Uncheck a title in the standings to keep voting.</p>
+            </div>
+        }
+        else
+        {
+            <div class="mt-6 rounded-2xl border-2 border-green-400/50 bg-green-500/20 p-6 text-green-50 text-center">
+                <p class="text-4xl mb-2">🏆</p>
+                <p class="font-display text-2xl font-black">GG WP! ALL DUELS COMPLETE!</p>
+                <p class="mt-2 text-sm text-green-200/80">The tournament is over. Check the standings below, you absolute legend. 💯</p>
+                <p class="mt-2 text-xs text-green-300/50">*airhorn noises* 🎺🎺🎺</p>
+            </div>
+        }
     }
     else
     {
@@ -85,22 +96,30 @@ else
             </button>
         </div>
 
-        <div class="flex flex-wrap items-center gap-4 text-sm">
-            <div class="rounded-xl border border-fuchsia-500/30 bg-fuchsia-500/10 px-4 py-2">
-                <span class="text-fuchsia-300/70 text-xs font-black uppercase tracking-widest">Remaining</span>
-                <span class="ml-2 font-display text-lg font-black text-fuchsia-200">@_pendingCount</span>
+            }
+
+            <div class="mt-4 flex flex-wrap items-center gap-4 text-sm">
+                <div class="rounded-xl border border-fuchsia-500/30 bg-fuchsia-500/10 px-4 py-2">
+                    <span class="text-fuchsia-300/70 text-xs font-black uppercase tracking-widest">Remaining</span>
+                    <span class="ml-2 font-display text-lg font-black text-fuchsia-200">@_pendingCount</span>
+                </div>
+                <div class="rounded-xl border border-green-500/30 bg-green-500/10 px-4 py-2">
+                    <span class="text-green-300/70 text-xs font-black uppercase tracking-widest">Completed</span>
+                        <span class="ml-2 font-display text-lg font-black text-green-200">@_completedCount / @_totalCount (@((_completedCount * 100) / _totalCount)%)</span>
+                </div>
+                @if (_arenaBannedGameIds.Count > 0)
+                {
+                    <div class="rounded-xl border border-yellow-500/30 bg-yellow-500/10 px-4 py-2">
+                        <span class="text-yellow-300/70 text-xs font-black uppercase tracking-widest">Matchups Left Before Ban-Only</span>
+                        <span class="ml-2 font-display text-lg font-black text-yellow-100">@_presentablePendingCount</span>
+                    </div>
+                }
+                <div class="rounded-xl border border-orange-500/30 bg-orange-500/10 px-4 py-2">
+                    <span class="text-orange-300/70 text-xs font-black uppercase tracking-widest">Hype Level</span>
+                    <span class="ml-2 font-display text-lg font-black text-orange-200 animate-rainbow">MAXIMUM</span>
+                </div>
             </div>
-            <div class="rounded-xl border border-green-500/30 bg-green-500/10 px-4 py-2">
-                <span class="text-green-300/70 text-xs font-black uppercase tracking-widest">Completed</span>
-                    <span class="ml-2 font-display text-lg font-black text-green-200">@_completedCount / @_totalCount (@((_completedCount * 100) / _totalCount)%)</span>
-            </div>
-            <div class="rounded-xl border border-orange-500/30 bg-orange-500/10 px-4 py-2">
-                <span class="text-orange-300/70 text-xs font-black uppercase tracking-widest">Hype Level</span>
-                <span class="ml-2 font-display text-lg font-black text-orange-200 animate-rainbow">MAXIMUM</span>
-            </div>
-        </div>
-    }
-</section>
+        </section>
 
 <!-- STANDINGS - The Hall of Dank -->
 <section class="mt-8 rounded-3xl border-2 border-green-400/20 bg-white/10 p-6 shadow-xl shadow-slate-950/50 backdrop-blur-xl md:p-8 animate-fade-in-up" style="animation-delay: 0.3s;">
@@ -126,9 +145,10 @@ else
                         <th class="px-4 py-3">🏅 Rank</th>
                         <th class="px-4 py-3">🎮 Title</th>
                         <th class="px-4 py-3">⭐ Points</th>
+                        <th class="px-4 py-3">🔍 Losses</th>
                         <th class="px-4 py-3">🎯 Matches</th>
                         <th class="px-4 py-3">📊 Vibe</th>
-                        <th class="px-4 py-3">🔍 Losses</th>
+                        <th class="px-4 py-3">🚫 Arena Ban</th>
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-fuchsia-500/10 text-slate-100">
@@ -157,8 +177,6 @@ else
                                     @game.Points
                                 </button>
                             </td>
-                            <td class="px-4 py-3 font-display font-black text-lg text-green-200">@(_matchesPlayed.GetValueOrDefault(game.Id))</td>
-                            <td class="px-4 py-3 text-sm">@GetVibeCheck(r)</td>
                             <td class="px-4 py-3 text-center">
                                 @if (_gamesPickedOver.TryGetValue(game.Id, out var beaten) && beaten.Count > 0)
                                 {
@@ -171,6 +189,14 @@ else
                                 {
                                     <span class="text-xs text-green-300/60">✅ None</span>
                                 }
+                            </td>
+                            <td class="px-4 py-3 font-display font-black text-lg text-green-200">@(_matchesPlayed.GetValueOrDefault(game.Id))</td>
+                            <td class="px-4 py-3 text-sm">@GetVibeCheck(r)</td>
+                            <td class="px-4 py-3 text-center">
+                                <input type="checkbox"
+                                       class="h-5 w-5 accent-yellow-400"
+                                       checked="@_arenaBannedGameIds.Contains(game.Id)"
+                                       @onchange="(args) => ToggleArenaBan(game.Id, args.Value is bool isChecked && isChecked)" />
                             </td>
 
                         </tr>
@@ -252,6 +278,9 @@ else
     private int _pendingCount;
     private int _completedCount;
     private int _totalCount;
+    private int _presentablePendingCount;
+    private bool _onlyArenaBanMatchesRemain;
+    private HashSet<Guid> _arenaBannedGameIds = [];
     private bool _justVoted;
     private bool _lastVoteLeft;
     private Guid _lastWinnerId;
@@ -291,8 +320,32 @@ else
 
     private void LoadNextDuel()
     {
-        (_currentDuel, _game1, _game2) = GameService.GetRandomPendingDuel();
         RefreshStandings();
+
+        var pendingDuels = GameService.GetPendingDuels();
+        var presentablePendingDuels = pendingDuels
+            .Where(d => !ContainsArenaBannedTitle(d))
+            .ToList();
+
+        _presentablePendingCount = presentablePendingDuels.Count;
+        _onlyArenaBanMatchesRemain = _arenaBannedGameIds.Count > 0 && pendingDuels.Count > 0 && presentablePendingDuels.Count == 0;
+
+        if (presentablePendingDuels.Count == 0)
+        {
+            _currentDuel = null;
+            _game1 = null;
+            _game2 = null;
+            GenerateRandomButtonColors();
+            return;
+        }
+
+        var duel = presentablePendingDuels[_random.Next(presentablePendingDuels.Count)];
+        _currentDuel = duel;
+
+        var gamesById = _games.ToDictionary(g => g.Id);
+        gamesById.TryGetValue(duel.Game1Id, out _game1);
+        gamesById.TryGetValue(duel.Game2Id, out _game2);
+
         GenerateRandomButtonColors();
     }
 
@@ -338,9 +391,22 @@ else
 
         GameService.UndoMatch(duelId);
 
-        // Reload the exact duel that was undone instead of a random one
-        (_currentDuel, _game1, _game2) = GameService.GetDuel(duelId);
-        RefreshStandings();
+        var (duel, game1, game2) = GameService.GetDuel(duelId);
+        if (duel is not null && !duel.IsCompleted && !ContainsArenaBannedTitle(duel))
+        {
+            RefreshStandings();
+            _currentDuel = duel;
+            _game1 = game1;
+            _game2 = game2;
+            _presentablePendingCount = GameService.GetPendingDuels().Count(d => !ContainsArenaBannedTitle(d));
+            _onlyArenaBanMatchesRemain = _arenaBannedGameIds.Count > 0 && _pendingCount > 0 && _presentablePendingCount == 0;
+            GenerateRandomButtonColors();
+        }
+        else
+        {
+            LoadNextDuel();
+        }
+
         _tableAnimKey++;
     }
 
@@ -348,6 +414,22 @@ else
     {
         LoadNextDuel();
         _canUndo = false;
+    }
+
+    private void ToggleArenaBan(Guid gameId, bool isChecked)
+    {
+        if (isChecked)
+            _arenaBannedGameIds.Add(gameId);
+        else
+            _arenaBannedGameIds.Remove(gameId);
+
+        _canUndo = false;
+        LoadNextDuel();
+    }
+
+    private bool ContainsArenaBannedTitle(Duel duel)
+    {
+        return _arenaBannedGameIds.Contains(duel.Game1Id) || _arenaBannedGameIds.Contains(duel.Game2Id);
     }
 
     private string GetButtonClass(string side)
