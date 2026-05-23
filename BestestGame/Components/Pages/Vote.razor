@@ -63,17 +63,25 @@ else
 
         <div class="my-8 grid gap-4 md:grid-cols-[1fr_auto_1fr] md:items-center">
             <button class="@_leftButtonClass"
+                    style="@_leftButtonAnimationStyle"
                     @onclick="() => CastVote(_game1!.Id, true)">
+                <span class="pointer-events-none absolute inset-0 overflow-hidden rounded-[inherit]">
+                    <span class="absolute left-6 top-6 text-3xl opacity-80 animate-arena-orbit">🔥</span>
+                    <span class="absolute bottom-8 right-8 text-3xl opacity-70 animate-arena-orbit" style="animation-delay: 0.85s;">🦄</span>
+                    <span class="absolute right-5 top-1/2 text-2xl opacity-0 transition duration-200 group-hover:opacity-100 group-hover:animate-wiggle">⚡</span>
+                </span>
                 <span class="absolute -top-4 -left-4 text-3xl animate-floaty">🔥</span>
                 @{ var leftTitleDisplay = GetTitleDisplay(_game1!.Title); }
-                <span class="flex flex-col items-center text-center">
+                <span class="relative z-10 flex flex-col items-center text-center group-hover:animate-arena-jitter">
+                    <span class="mb-3 inline-flex rotate-[-5deg] rounded-full border border-white/30 bg-black/25 px-4 py-1 text-xs font-black uppercase tracking-[0.35em] text-yellow-200 shadow-neon group-hover:rotate-[7deg] group-hover:scale-110 transition">@_leftButtonBadgeLabel</span>
                     <span class="font-display leading-tight text-3xl md:text-4xl">@leftTitleDisplay.Title</span>
                     @if (!string.IsNullOrWhiteSpace(leftTitleDisplay.Subtitle))
                     {
                         <span class="mt-2 text-base font-bold text-white/80 md:text-lg">@leftTitleDisplay.Subtitle</span>
                     }
                 </span>
-                <span class="absolute -bottom-3 -right-3 text-2xl opacity-0 group-hover:opacity-100 transition animate-wiggle">💪</span>
+                <span class="absolute -bottom-3 -right-3 text-2xl opacity-0 transition group-hover:opacity-100 animate-wiggle">💪</span>
+                <span class="absolute bottom-4 left-4 rounded-full bg-black/25 px-3 py-1 text-[11px] font-black uppercase tracking-[0.3em] text-cyan-200 opacity-0 transition group-hover:translate-y-[-6px] group-hover:rotate-[-8deg] group-hover:opacity-100">YEET</span>
             </button>
 
             <div class="mx-auto flex flex-col items-center gap-2">
@@ -84,17 +92,25 @@ else
             </div>
 
             <button class="@_rightButtonClass"
+                    style="@_rightButtonAnimationStyle"
                     @onclick="() => CastVote(_game2!.Id, false)">
+                <span class="pointer-events-none absolute inset-0 overflow-hidden rounded-[inherit]">
+                    <span class="absolute right-6 top-6 text-3xl opacity-80 animate-arena-orbit">🔥</span>
+                    <span class="absolute bottom-8 left-8 text-3xl opacity-70 animate-arena-orbit" style="animation-delay: 1.1s;">🐸</span>
+                    <span class="absolute left-5 top-1/2 text-2xl opacity-0 transition duration-200 group-hover:opacity-100 group-hover:animate-wiggle">⚡</span>
+                </span>
                 <span class="absolute -top-4 -right-4 text-3xl animate-floaty" style="animation-delay: 0.5s;">🔥</span>
                 @{ var rightTitleDisplay = GetTitleDisplay(_game2!.Title); }
-                <span class="flex flex-col items-center text-center">
+                <span class="relative z-10 flex flex-col items-center text-center group-hover:animate-arena-jitter">
+                    <span class="mb-3 inline-flex rotate-[5deg] rounded-full border border-white/30 bg-black/25 px-4 py-1 text-xs font-black uppercase tracking-[0.35em] text-pink-200 shadow-neon transition group-hover:rotate-[-7deg] group-hover:scale-110">@_rightButtonBadgeLabel</span>
                     <span class="font-display leading-tight text-3xl md:text-4xl">@rightTitleDisplay.Title</span>
                     @if (!string.IsNullOrWhiteSpace(rightTitleDisplay.Subtitle))
                     {
                         <span class="mt-2 text-base font-bold text-white/80 md:text-lg">@rightTitleDisplay.Subtitle</span>
                     }
                 </span>
-                <span class="absolute -bottom-3 -left-3 text-2xl opacity-0 group-hover:opacity-100 transition animate-wiggle">💪</span>
+                <span class="absolute -bottom-3 -left-3 text-2xl opacity-0 transition group-hover:opacity-100 animate-wiggle">💪</span>
+                <span class="absolute bottom-4 right-4 rounded-full bg-black/25 px-3 py-1 text-[11px] font-black uppercase tracking-[0.3em] text-lime-200 opacity-0 transition group-hover:translate-y-[-6px] group-hover:rotate-[8deg] group-hover:opacity-100">HONK</span>
             </button>
         </div>
 
@@ -422,6 +438,10 @@ else
     private bool _canUndo;
     private string _leftButtonColors = "";
     private string _rightButtonColors = "";
+    private string _leftButtonAnimationStyle = "";
+    private string _rightButtonAnimationStyle = "";
+    private string _leftButtonBadgeLabel = "BONK ZONE";
+    private string _rightButtonBadgeLabel = "CHAOS PICK";
     private Random _random = new();
 
     private record NeonColorScheme(
@@ -447,6 +467,50 @@ else
         new("violet-400/50", "violet-600", "purple-600", "violet-800", "rgba(167,139,250,1)"),
         new("rose-400/50", "rose-600", "pink-600", "rose-800", "rgba(244,114,182,1)"),
     };
+
+    private readonly List<string> _buttonBadgeOptions =
+    [
+        "PICK THIS IF U EAT GLUE",
+        "TASTE LEVEL: MICROWAVED WATER",
+        "MAIN-CHARACTER DELUSION BUTTON",
+        "BRO REALLY SAID THIS ONE",
+        "CERTIFIED COPIUM CHOICE",
+        "SPEEDRUNNING BAD TAKES",
+        "RIZZLESS SELECTION",
+        "GOOF TROOP PRIORITY",
+        "PICK THIS IF U FEAR JOY",
+        "CONTROLLER THROWER ENERGY",
+        "OBJECTIVELY SUS BEHAVIOR",
+        "NPC DECISION-MAKING ARC",
+        "BIG YIKES TIER PICK",
+        "UNRANKED OPINION DETECTED",
+        "MOMENT OF ABSOLUTE CRINGE",
+        "YOU CLICKED THIS ON PURPOSE",
+        "POV: U LIKE LOADING SCREENS",
+        "PATCH NOTES WILL JUDGE U",
+        "ZERO BRAIN-CELL LOCK-IN",
+        "THIS PICK NEEDS A HELMET",
+        "TEAMMATES ARE TYPING...",
+        "YOU HEARD A TIKTOK AND BELIEVED IT",
+        "RANKED BAN SPEEDRUN PICK",
+        "TIER LIST MADE IN A FEVER DREAM",
+        "THIS ONE SCREAMS SKILL ISSUE",
+        "VIBES OVER LOGIC BUTTON",
+        "ULTRA DELUXE THROW MODE",
+        "EYEBROWS RAISED BY CHAT",
+        "TRUST ME BRO SOURCE",
+        "MOUSE SLIPPED? SURE.",
+        "BALD STRATEGY DEPLOYED",
+        "EMOTIONAL DAMAGE LOADOUT",
+        "BRO BUILT DIFFERENTLY (WRONG)",
+        "THIS PICK AGED LIKE MILK",
+        "FULL CRINGE COMMITMENT",
+        "L + RATIO SELECTION",
+        "DONT WORRY, NOBODY SAW THAT",
+        "AIM ASSIST CANT SAVE THIS",
+        "MOM SAID ITS YOUR TURN TO LOSE",
+        "RESPECTFULLY... ABSOLUTELY NOT"
+    ];
 
     protected override void OnInitialized()
     {
@@ -580,11 +644,13 @@ else
 
     private string GetButtonClass(string side)
     {
+        const string idleAnimation = "animate-arena-chaos";
+
         if (!_justVoted || !_animateCurrentDuelButtons)
-            return "";
+            return idleAnimation;
 
         var isWinner = (side == "left" && _lastVoteLeft) || (side == "right" && !_lastVoteLeft);
-        return isWinner ? "animate-juice-pop" : "";
+        return isWinner ? $"{idleAnimation} animate-arena-winner z-10" : "animate-arena-loser saturate-[0.8]";
     }
 
     private void GenerateRandomButtonColors()
@@ -603,6 +669,47 @@ else
 
         _leftButtonColors = BuildButtonStyle(leftColors);
         _rightButtonColors = BuildButtonStyle(rightColors);
+        GenerateRandomButtonAnimationStyles();
+        GenerateRandomButtonBadgeLabels();
+    }
+
+    private void GenerateRandomButtonAnimationStyles()
+    {
+        _leftButtonAnimationStyle = BuildButtonAnimationStyle();
+        _rightButtonAnimationStyle = BuildButtonAnimationStyle();
+    }
+
+    private string BuildButtonAnimationStyle()
+    {
+        var durationSeconds = 1.8 + (_random.NextDouble() * 1.8);
+        var phaseOffsetSeconds = 0.2 + (_random.NextDouble() * 3.8);
+
+        return FormattableString.Invariant(
+            $"animation-duration: {durationSeconds:0.00}s; animation-delay: -{phaseOffsetSeconds:0.00}s;");
+    }
+
+    private void GenerateRandomButtonBadgeLabels()
+    {
+        if (_buttonBadgeOptions.Count == 0)
+            return;
+
+        if (_buttonBadgeOptions.Count == 1)
+        {
+            _leftButtonBadgeLabel = _buttonBadgeOptions[0];
+            _rightButtonBadgeLabel = _buttonBadgeOptions[0];
+            return;
+        }
+
+        var leftIndex = _random.Next(_buttonBadgeOptions.Count);
+        var rightIndex = _random.Next(_buttonBadgeOptions.Count);
+
+        while (rightIndex == leftIndex)
+        {
+            rightIndex = _random.Next(_buttonBadgeOptions.Count);
+        }
+
+        _leftButtonBadgeLabel = _buttonBadgeOptions[leftIndex];
+        _rightButtonBadgeLabel = _buttonBadgeOptions[rightIndex];
     }
 
     private static string BuildButtonStyle(NeonColorScheme colors)
