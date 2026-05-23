@@ -65,7 +65,14 @@ else
             <button class="@_leftButtonClass"
                     @onclick="() => CastVote(_game1!.Id, true)">
                 <span class="absolute -top-4 -left-4 text-3xl animate-floaty">🔥</span>
-                <span class="font-display">@_game1!.Title</span>
+                @{ var leftTitleDisplay = GetTitleDisplay(_game1!.Title); }
+                <span class="flex flex-col items-center text-center">
+                    <span class="font-display leading-tight text-3xl md:text-4xl">@leftTitleDisplay.Title</span>
+                    @if (!string.IsNullOrWhiteSpace(leftTitleDisplay.Subtitle))
+                    {
+                        <span class="mt-2 text-sm font-bold text-white/80 md:text-base">@leftTitleDisplay.Subtitle</span>
+                    }
+                </span>
                 <span class="absolute -bottom-3 -right-3 text-2xl opacity-0 group-hover:opacity-100 transition animate-wiggle">💪</span>
             </button>
 
@@ -79,7 +86,14 @@ else
             <button class="@_rightButtonClass"
                     @onclick="() => CastVote(_game2!.Id, false)">
                 <span class="absolute -top-4 -right-4 text-3xl animate-floaty" style="animation-delay: 0.5s;">🔥</span>
-                <span class="font-display">@_game2!.Title</span>
+                @{ var rightTitleDisplay = GetTitleDisplay(_game2!.Title); }
+                <span class="flex flex-col items-center text-center">
+                    <span class="font-display leading-tight text-3xl md:text-4xl">@rightTitleDisplay.Title</span>
+                    @if (!string.IsNullOrWhiteSpace(rightTitleDisplay.Subtitle))
+                    {
+                        <span class="mt-2 text-sm font-bold text-white/80 md:text-base">@rightTitleDisplay.Subtitle</span>
+                    }
+                </span>
                 <span class="absolute -bottom-3 -left-3 text-2xl opacity-0 group-hover:opacity-100 transition animate-wiggle">💪</span>
             </button>
         </div>
@@ -142,13 +156,34 @@ else
             <table class="min-w-full divide-y divide-fuchsia-500/20 text-left">
                 <thead class="bg-gradient-to-r from-fuchsia-900/60 via-green-900/40 to-orange-900/60 text-xs uppercase tracking-wider text-slate-100">
                     <tr>
-                        <th class="px-4 py-3">🏅 Rank</th>
-                        <th class="px-4 py-3">🎮 Title</th>
-                        <th class="px-4 py-3">⭐ Points</th>
-                        <th class="px-4 py-3">🔍 Losses</th>
-                        <th class="px-4 py-3">🎯 Matches</th>
-                        <th class="px-4 py-3">📊 Vibe</th>
-                        <th class="px-4 py-3">🚫 Arena Ban</th>
+                        <th class="px-4 py-3 text-center">
+                            <span class="block">🏅</span>
+                            <span class="block">Rank</span>
+                        </th>
+                        <th class="px-4 py-3">
+                            <span class="block">🎮</span>
+                            <span class="block">Title</span>
+                        </th>
+                        <th class="px-4 py-3 text-center">
+                            <span class="block">⭐</span>
+                            <span class="block">Points</span>
+                        </th>
+                        <th class="px-4 py-3 text-center">
+                            <span class="block">🔍</span>
+                            <span class="block">Losses</span>
+                        </th>
+                        <th class="px-4 py-3 text-center">
+                            <span class="block">🎯</span>
+                            <span class="block">Matches</span>
+                        </th>
+                        <th class="px-4 py-3 text-center">
+                            <span class="block">📊</span>
+                            <span class="block">Vibe</span>
+                        </th>
+                        <th class="px-4 py-3 text-center">
+                            <span class="block">🚫</span>
+                            <span class="block">Arena Ban</span>
+                        </th>
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-fuchsia-500/10 text-slate-100">
@@ -156,20 +191,27 @@ else
                     @foreach (var game in _games)
                     {
                         var r = rank;
+                        var titleDisplay = GetTitleDisplay(game.Title);
                         <tr class="@GetRowAnimClass(game, r)"
                             style="@GetRowAnimStyle(r)">
                             <td class="px-4 py-3 font-display text-lg font-black @GetRankColor(r)">
                                 @GetRankDisplay(r)
                             </td>
                             <td class="px-4 py-3 font-bold text-lg">
-                                @if (r == 1)
-                                {
-                                    <span class="rainbow-text">@game.Title</span>
-                                }
-                                else
-                                {
-                                    @game.Title
-                                }
+                                <div class="flex flex-col leading-tight">
+                                    @if (r == 1)
+                                    {
+                                        <span class="rainbow-text">@titleDisplay.Title</span>
+                                    }
+                                    else
+                                    {
+                                        <span>@titleDisplay.Title</span>
+                                    }
+                                    @if (!string.IsNullOrWhiteSpace(titleDisplay.Subtitle))
+                                    {
+                                        <span class="mt-1 text-sm font-semibold text-slate-300/80">@titleDisplay.Subtitle</span>
+                                    }
+                                </div>
                             </td>
                             <td class="px-4 py-3 text-center">
                                 <button class="rounded-xl border border-fuchsia-400/50 bg-fuchsia-500/20 px-3 py-1 font-display font-black text-lg text-fuchsia-200 transition hover:bg-fuchsia-500/40 hover:scale-105"
@@ -180,9 +222,10 @@ else
                             <td class="px-4 py-3 text-center">
                                 @if (_gamesPickedOver.TryGetValue(game.Id, out var beaten) && beaten.Count > 0)
                                 {
-                                    <button class="rounded-xl border border-red-400/50 bg-red-500/20 px-3 py-1 text-xs font-bold text-red-200 transition hover:bg-red-500/40 hover:scale-105"
+                                    <button class="inline-flex flex-col items-center rounded-xl border border-red-400/50 bg-red-500/20 px-3 py-1 text-xs font-bold text-red-200 transition hover:bg-red-500/40 hover:scale-105"
                                             @onclick="() => ShowBeatenBy(game.Id, game.Title, beaten)">
-                                        💀 @beaten.Count
+                                        <span>💀</span>
+                                        <span>@beaten.Count</span>
                                     </button>
                                 }
                                 else
@@ -190,8 +233,22 @@ else
                                     <span class="text-xs text-green-300/60">✅ None</span>
                                 }
                             </td>
-                            <td class="px-4 py-3 font-display font-black text-lg text-green-200">@(_matchesPlayed.GetValueOrDefault(game.Id))</td>
-                            <td class="px-4 py-3 text-sm">@GetVibeCheck(r)</td>
+                            <td class="px-4 py-3 text-center">
+                                <button class="rounded-xl border border-green-400/50 bg-green-500/20 px-3 py-1 font-display font-black text-lg text-green-200 transition hover:bg-green-500/40 hover:scale-105"
+                                        @onclick="() => ShowPendingMatches(game.Id, game.Title)">
+                                    @(_matchesPlayed.GetValueOrDefault(game.Id))
+                                </button>
+                            </td>
+                            @{ var vibeDisplay = GetVibeDisplay(r); }
+                            <td class="px-4 py-3 text-center">
+                                <div class="flex flex-col items-center text-sm leading-tight">
+                                    @if (!string.IsNullOrWhiteSpace(vibeDisplay.Icons))
+                                    {
+                                        <span class="text-base">@vibeDisplay.Icons</span>
+                                    }
+                                    <span>@vibeDisplay.Text</span>
+                                </div>
+                            </td>
                             <td class="px-4 py-3 text-center">
                                 <input type="checkbox"
                                        class="h-5 w-5 accent-yellow-400"
@@ -256,6 +313,50 @@ else
         </div>
     </div>
 }
+
+@if (_showPendingMatchesDialog)
+{
+    <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm animate-fade-in-up" @onclick="ClosePendingMatchesDialog">
+        <div class="relative mx-4 max-w-2xl w-full rounded-2xl border-2 border-cyan-400/30 bg-slate-900/95 p-6 shadow-2xl" @onclick:stopPropagation>
+            <h3 class="font-display text-xl font-black text-cyan-200">
+                🎯 Pending matchups for <span class="text-fuchsia-300">@_pendingMatchesGameTitle</span>
+            </h3>
+
+            @if (_pendingMatchOptions.Count == 0)
+            {
+                <p class="mt-4 rounded-xl border border-slate-600/40 bg-slate-800/60 px-4 py-3 text-sm text-slate-300">
+                    No pending matchups for this title right now.
+                </p>
+            }
+            else
+            {
+                <ul class="mt-4 max-h-80 space-y-3 overflow-y-auto pr-1">
+                    @foreach (var pendingMatch in _pendingMatchOptions)
+                    {
+                        <li class="rounded-xl border border-cyan-500/20 bg-cyan-500/10 px-4 py-3">
+                            <p class="text-sm font-black text-cyan-100">🎮 @_pendingMatchesGameTitle vs @pendingMatch.OpponentTitle</p>
+                            <div class="mt-3 grid gap-2 sm:grid-cols-2">
+                                <button class="rounded-lg border border-fuchsia-400/50 bg-fuchsia-500/20 px-3 py-2 text-sm font-black text-fuchsia-100 transition hover:bg-fuchsia-500/40"
+                                        @onclick="() => PickPendingMatchWinner(pendingMatch, true)">
+                                    @_pendingMatchesGameTitle wins
+                                </button>
+                                <button class="rounded-lg border border-green-400/50 bg-green-500/20 px-3 py-2 text-sm font-black text-green-100 transition hover:bg-green-500/40"
+                                        @onclick="() => PickPendingMatchWinner(pendingMatch, false)">
+                                    @pendingMatch.OpponentTitle wins
+                                </button>
+                            </div>
+                        </li>
+                    }
+                </ul>
+            }
+
+            <button class="mt-5 w-full rounded-xl border-2 border-slate-500/40 bg-slate-700/60 px-4 py-2 text-sm font-black uppercase tracking-wider text-slate-200 transition hover:bg-slate-600/60"
+                    @onclick="ClosePendingMatchesDialog">
+                Close
+            </button>
+        </div>
+    </div>
+}
 }
 
 @code {
@@ -275,6 +376,10 @@ else
     private Guid? _winsOverGameId;
     private string _winsOverGameTitle = string.Empty;
     private List<GameService.LossDetail> _winsOverList = [];
+    private bool _showPendingMatchesDialog;
+    private Guid? _pendingMatchesGameId;
+    private string _pendingMatchesGameTitle = string.Empty;
+    private List<PendingMatchOption> _pendingMatchOptions = [];
     private int _pendingCount;
     private int _completedCount;
     private int _totalCount;
@@ -282,6 +387,7 @@ else
     private bool _onlyArenaBanMatchesRemain;
     private HashSet<Guid> _arenaBannedGameIds = [];
     private bool _justVoted;
+    private bool _animateCurrentDuelButtons;
     private bool _lastVoteLeft;
     private Guid _lastWinnerId;
     private int _tableAnimKey;
@@ -298,6 +404,10 @@ else
         string ToColor,
         string HoverGlowColor
     );
+
+    private readonly record struct TitleDisplay(string Title, string? Subtitle);
+
+    private record PendingMatchOption(Guid DuelId, Guid OpponentId, string OpponentTitle);
 
     private readonly List<NeonColorScheme> _neonColors = new()
     {
@@ -362,22 +472,31 @@ else
 
     private async Task CastVote(Guid winnerId, bool isLeft)
     {
-        if (_currentDuel == null) return;
+        if (_currentDuel is null)
+            return;
 
-        _lastVoteLeft = isLeft;
+        await RecordVote(_currentDuel.Id, winnerId, animateCurrentDuelButtons: true, isLeft);
+    }
+
+    private async Task RecordVote(Guid duelId, Guid winnerId, bool animateCurrentDuelButtons, bool isLeft)
+    {
+        _animateCurrentDuelButtons = animateCurrentDuelButtons;
+        if (animateCurrentDuelButtons)
+            _lastVoteLeft = isLeft;
+
         _lastWinnerId = winnerId;
         _justVoted = true;
         _tableAnimKey++;
 
-        _lastCompletedDuelId = _currentDuel.Id;
+        _lastCompletedDuelId = duelId;
         _canUndo = true;
 
-        GameService.RecordWinner(_currentDuel.Id, winnerId);
+        GameService.RecordWinner(duelId, winnerId);
         LoadNextDuel();
 
-        // Let the animations play before clearing state
         await Task.Delay(600);
         _justVoted = false;
+        _animateCurrentDuelButtons = false;
     }
 
     private void UndoLastVote()
@@ -434,7 +553,9 @@ else
 
     private string GetButtonClass(string side)
     {
-        if (!_justVoted) return "";
+        if (!_justVoted || !_animateCurrentDuelButtons)
+            return "";
+
         var isWinner = (side == "left" && _lastVoteLeft) || (side == "right" && !_lastVoteLeft);
         return isWinner ? "animate-juice-pop" : "";
     }
@@ -541,6 +662,97 @@ else
         _winsOverGameId = null;
     }
 
+    private void ShowPendingMatches(Guid gameId, string gameTitle)
+    {
+        _pendingMatchesGameId = gameId;
+        _pendingMatchesGameTitle = gameTitle;
+        _pendingMatchOptions = GetPendingMatchOptions(gameId);
+        _showPendingMatchesDialog = true;
+    }
+
+    private List<PendingMatchOption> GetPendingMatchOptions(Guid gameId)
+    {
+        var gameTitlesById = _games.ToDictionary(g => g.Id, g => g.Title);
+
+        return GameService.GetPendingDuels()
+            .Where(d => d.Game1Id == gameId || d.Game2Id == gameId)
+            .Select(d =>
+            {
+                var opponentId = d.Game1Id == gameId ? d.Game2Id : d.Game1Id;
+                gameTitlesById.TryGetValue(opponentId, out var opponentTitle);
+                return new PendingMatchOption(d.Id, opponentId, opponentTitle ?? "Unknown title");
+            })
+            .OrderBy(x => x.OpponentTitle)
+            .ToList();
+    }
+
+    private async Task PickPendingMatchWinner(PendingMatchOption pendingMatch, bool pickCurrentRowGame)
+    {
+        if (_pendingMatchesGameId is null)
+            return;
+
+        var winnerId = pickCurrentRowGame ? _pendingMatchesGameId.Value : pendingMatch.OpponentId;
+        await RecordVote(pendingMatch.DuelId, winnerId, animateCurrentDuelButtons: false, isLeft: false);
+
+        _pendingMatchOptions = GetPendingMatchOptions(_pendingMatchesGameId.Value);
+        if (_pendingMatchOptions.Count == 0)
+        {
+            ClosePendingMatchesDialog();
+        }
+    }
+
+    private void ClosePendingMatchesDialog()
+    {
+        _showPendingMatchesDialog = false;
+        _pendingMatchesGameId = null;
+        _pendingMatchesGameTitle = string.Empty;
+        _pendingMatchOptions = [];
+    }
+
+    private static TitleDisplay GetTitleDisplay(string gameTitle)
+    {
+        if (string.IsNullOrWhiteSpace(gameTitle))
+        {
+            return new(gameTitle, null);
+        }
+
+        var trimmedTitle = gameTitle.Trim();
+        if (!trimmedTitle.EndsWith(")", StringComparison.Ordinal))
+        {
+            return new(trimmedTitle, null);
+        }
+
+        var openingParenthesisIndex = trimmedTitle.LastIndexOf('(');
+        if (openingParenthesisIndex <= 0 || openingParenthesisIndex >= trimmedTitle.Length - 1)
+        {
+            return new(trimmedTitle, null);
+        }
+
+        var title = trimmedTitle[..openingParenthesisIndex].TrimEnd();
+        if (string.IsNullOrWhiteSpace(title))
+        {
+            return new(trimmedTitle, null);
+        }
+
+        var parenthesisContent = trimmedTitle[(openingParenthesisIndex + 1)..^1];
+        if (string.IsNullOrWhiteSpace(parenthesisContent))
+        {
+            return new(title, null);
+        }
+
+        var subtitleParts = parenthesisContent
+            .Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries)
+            .Select(part => $"{title} {part}")
+            .ToList();
+
+        if (subtitleParts.Count == 0)
+        {
+            return new(title, null);
+        }
+
+        return new(title, string.Join(", ", subtitleParts));
+    }
+
     private static string GetVibeCheck(int rank) => rank switch
     {
         1 => "🔥 GOAT 🐐",
@@ -565,4 +777,50 @@ else
         20 => "🙂 Mid but valid",
         _ => "🗿 Exists"
     };
+
+    private static (string Icons, string Text) GetVibeDisplay(int rank)
+    {
+        var vibe = GetVibeCheck(rank);
+        var parts = vibe.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        if (parts.Length == 0)
+        {
+            return (string.Empty, vibe);
+        }
+
+        var start = 0;
+        while (start < parts.Length && IsVibeIconToken(parts[start]))
+        {
+            start++;
+        }
+
+        var end = parts.Length - 1;
+        while (end >= start && IsVibeIconToken(parts[end]))
+        {
+            end--;
+        }
+
+        var leadingIcons = start > 0 ? string.Join(' ', parts[..start]) : string.Empty;
+        var trailingIcons = end + 1 < parts.Length ? string.Join(' ', parts[(end + 1)..]) : string.Empty;
+        var icons = string.IsNullOrWhiteSpace(leadingIcons)
+            ? trailingIcons
+            : string.IsNullOrWhiteSpace(trailingIcons)
+                ? leadingIcons
+                : $"{leadingIcons} {trailingIcons}";
+
+        var text = start <= end ? string.Join(' ', parts[start..(end + 1)]) : vibe;
+        return (icons, text);
+    }
+
+    private static bool IsVibeIconToken(string token)
+    {
+        foreach (var character in token)
+        {
+            if (char.IsLetterOrDigit(character))
+            {
+                return false;
+            }
+        }
+
+        return token.Length > 0;
+    }
 }
