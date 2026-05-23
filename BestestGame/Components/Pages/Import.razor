@@ -89,6 +89,64 @@ else
             @_message
         </div>
     }
+
+    <section class="mt-7 rounded-2xl border-2 border-rose-400/30 bg-rose-950/20 p-4">
+        <div class="flex items-center gap-2">
+            <span class="inline-block">🧹</span>
+            <h2 class="text-sm font-black uppercase tracking-[0.18em] text-rose-100">Remove Game Titles</h2>
+        </div>
+        <p class="mt-2 text-xs text-slate-300">
+            Removing a title deletes it and every generated match that includes it.
+        </p>
+
+        @if (_games.Count == 0)
+        {
+            <p class="mt-3 rounded-xl border border-slate-600/40 bg-slate-900/40 p-3 text-sm text-slate-300">
+                No games in this tournament yet.
+            </p>
+        }
+        else
+        {
+            <ul class="mt-3 space-y-2">
+                @foreach (var game in _games)
+                {
+                    <li class="flex items-center justify-between gap-3 rounded-xl border border-slate-500/30 bg-slate-900/50 px-3 py-2">
+                        <span class="text-sm font-semibold text-slate-100">@game.Title</span>
+                        <button class="inline-flex items-center rounded-xl border border-rose-400/50 bg-rose-500/20 px-3 py-1 text-xs font-black uppercase tracking-wide text-rose-100 transition hover:bg-rose-500/35"
+                                @onclick="() => PromptRemoveGame(game)">
+                            Remove
+                        </button>
+                    </li>
+                }
+            </ul>
+        }
+    </section>
+
+    @if (_gamePendingRemoval is not null)
+    {
+        <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
+            <div class="w-full max-w-lg rounded-2xl border-2 border-rose-400/40 bg-slate-950/95 p-6 shadow-2xl shadow-rose-900/40">
+                <h3 class="text-lg font-black uppercase tracking-wide text-rose-100">Confirm game removal</h3>
+                <p class="mt-3 text-sm text-slate-200">
+                    Remove <strong class="text-rose-200">@_gamePendingRemoval.Title</strong> from this tournament?
+                </p>
+                <p class="mt-2 text-xs text-slate-400">
+                    This also deletes every generated match that includes this game title.
+                </p>
+
+                <div class="mt-6 flex justify-end gap-3">
+                    <button class="rounded-xl border border-slate-500/50 bg-slate-800/70 px-4 py-2 text-xs font-black uppercase tracking-wide text-slate-100 transition hover:bg-slate-700/80"
+                            @onclick="CancelRemoveGame">
+                        Cancel
+                    </button>
+                    <button class="rounded-xl border border-rose-400/50 bg-rose-500/25 px-4 py-2 text-xs font-black uppercase tracking-wide text-rose-100 transition hover:bg-rose-500/40"
+                            @onclick="ConfirmRemoveGame">
+                        Yes, remove
+                    </button>
+                </div>
+            </div>
+        </div>
+    }
 </section>
 
 <!-- Import Tips - meme edition -->
@@ -128,6 +186,8 @@ else
         "Bad Rats (if you dare)";
 
     private Tournament? _currentTournament;
+    private List<Game> _games = [];
+    private Game? _gamePendingRemoval;
     private string _inputText = string.Empty;
     private string _message = string.Empty;
     private string _alertClass = "alert-success";
@@ -136,6 +196,7 @@ else
     protected override void OnInitialized()
     {
         _currentTournament = GameService.GetCurrentTournament();
+        LoadGames();
     }
 
     private void ImportGames()
@@ -156,9 +217,48 @@ else
         GameService.ImportGames(titles);
         _isImporting = false;
 
+        LoadGames();
         _alertClass = "alert-success";
         _message = $"YEETED {titles.Count} game(s) into the arena! 🎉 Now go to the 1v1 page and start voting, you absolute legend!";
         _inputText = string.Empty;
+    }
+
+    private void PromptRemoveGame(Game game)
+    {
+        ArgumentNullException.ThrowIfNull(game);
+        _gamePendingRemoval = game;
+    }
+
+    private void CancelRemoveGame()
+    {
+        _gamePendingRemoval = null;
+    }
+
+    private void ConfirmRemoveGame()
+    {
+        if (_gamePendingRemoval is null)
+            return;
+
+        var game = _gamePendingRemoval;
+        _gamePendingRemoval = null;
+
+        if (GameService.RemoveGame(game.Id))
+        {
+            LoadGames();
+            _alertClass = "alert-success";
+            _message = $"Removed {game.Title} and every match that included it.";
+            return;
+        }
+
+        _alertClass = "alert-warning";
+        _message = "Could not remove that game title. Please refresh and try again.";
+    }
+
+    private void LoadGames()
+    {
+        _games = GameService.GetGames()
+            .OrderBy(g => g.Title)
+            .ToList();
     }
 
     private string GetAlertClasses() => _alertClass == "alert-warning"

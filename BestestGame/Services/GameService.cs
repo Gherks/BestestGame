@@ -226,6 +226,28 @@ public class GameService
         Save(db);
     }
 
+    /// <summary>
+    /// Removes a game from the current tournament and deletes all duels that include it.
+    /// </summary>
+    public bool RemoveGame(Guid gameId)
+    {
+        var db = Load();
+        var tournament = GetCurrentTournament(db);
+        if (tournament is null)
+            return false;
+
+        var game = tournament.Games.FirstOrDefault(g => g.Id == gameId);
+        if (game is null)
+            return false;
+
+        tournament.Games.Remove(game);
+        tournament.Duels.RemoveAll(d => d.Game1Id == gameId || d.Game2Id == gameId);
+        RecalculatePoints(tournament);
+
+        Save(db);
+        return true;
+    }
+
     public bool HasPendingDuels() => GetPendingDuels().Count > 0;
 
     public int TotalDuels()
@@ -282,9 +304,11 @@ public class GameService
         var gamesById = tournament.Games.ToDictionary(g => g.Id);
         var result = tournament.Games.ToDictionary(g => g.Id, _ => new List<LossDetail>());
 
-        foreach (var duel in tournament.Duels.Where(d => d.IsCompleted && d.WinnerId.HasValue))
+        foreach (var duel in tournament.Duels.Where(d => d.IsCompleted))
         {
-            var winnerId = duel.WinnerId.Value;
+            if (duel.WinnerId is not { } winnerId)
+                continue;
+
             var loserId = duel.Game1Id == winnerId ? duel.Game2Id : duel.Game1Id;
 
             if (gamesById.TryGetValue(winnerId, out var winner) && result.ContainsKey(loserId))
@@ -309,9 +333,11 @@ public class GameService
         var gamesById = tournament.Games.ToDictionary(g => g.Id);
         var result = tournament.Games.ToDictionary(g => g.Id, _ => new List<LossDetail>());
 
-        foreach (var duel in tournament.Duels.Where(d => d.IsCompleted && d.WinnerId.HasValue))
+        foreach (var duel in tournament.Duels.Where(d => d.IsCompleted))
         {
-            var winnerId = duel.WinnerId.Value;
+            if (duel.WinnerId is not { } winnerId)
+                continue;
+
             var loserId = duel.Game1Id == winnerId ? duel.Game2Id : duel.Game1Id;
 
             if (gamesById.TryGetValue(loserId, out var loser) && result.ContainsKey(winnerId))
@@ -395,5 +421,25 @@ public class GameService
         }
 
         return counts;
+    }
+
+    private static void RecalculatePoints(Tournament tournament)
+    {
+        foreach (var game in tournament.Games)
+        {
+            game.Points = 0;
+        }
+
+        var gamesById = tournament.Games.ToDictionary(g => g.Id);
+        foreach (var duel in tournament.Duels.Where(d => d.IsCompleted))
+        {
+            if (!duel.WinnerId.HasValue)
+                continue;
+
+            if (gamesById.TryGetValue(duel.WinnerId.Value, out var winner))
+            {
+                winner.Points++;
+            }
+        }
     }
 }
