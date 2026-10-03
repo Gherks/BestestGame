@@ -43,28 +43,48 @@ else
     </p>
 
     <section class="mt-6 rounded-2xl border-2 border-green-400/25 bg-black/30 p-5">
-        <h2 class="text-sm font-black uppercase tracking-wide text-green-200">Add a game with included titles</h2>
-        <p class="mt-2 text-sm text-slate-300">Included titles are optional, freely named titles grouped under one entry. They share its points and duels.</p>
-        <label for="entryTitle" class="mt-4 mb-2 block text-sm font-bold text-slate-100">Title</label>
-        <input id="entryTitle" type="text" @bind="_entryTitle" @bind:event="oninput" readonly="@(_editingGameId is not null)"
-               class="w-full rounded-xl border-2 border-fuchsia-400/30 bg-slate-950/80 px-4 py-3 text-slate-100" />
-        <label for="includedTitles" class="mt-4 mb-2 block text-sm font-bold text-slate-100">Included titles (one per line)</label>
-        <textarea id="includedTitles" @bind="_includedTitlesText" rows="4"
-                  class="w-full rounded-xl border-2 border-fuchsia-400/30 bg-slate-950/80 p-4 text-slate-100"
-                  placeholder="Any titles you want to include"></textarea>
-        <div class="mt-4 flex gap-3">
-            <button @onclick="SaveEntry" disabled="@string.IsNullOrWhiteSpace(_entryTitle)"
-                    class="rounded-xl border border-green-400/50 bg-green-500/20 px-4 py-2 text-sm font-bold text-green-100 disabled:opacity-60">
-                @(_editingGameId is null ? "Add game" : "Save included titles")
-            </button>
-            @if (_editingGameId is not null)
+        <h2 class="text-sm font-black uppercase tracking-wide text-green-200">@(_editingGameId is null ? "Add a game" : "Edit game details")</h2>
+        <p class="mt-2 text-sm text-slate-300">Included titles share this entry's points and duels. Release years are optional; leave them blank when unknown.</p>
+        <EditForm Model="_entry" OnValidSubmit="SaveEntry" @key="_entry">
+            <DataAnnotationsValidator />
+            <ValidationSummary class="mt-3 text-rose-200" />
+            <label for="entryTitle" class="mt-4 mb-2 block text-sm font-bold text-slate-100">Title</label>
+            <InputText id="entryTitle" @bind-Value="_entry.Title" readonly="@(_editingGameId is not null)"
+                       class="w-full rounded-xl border-2 border-fuchsia-400/30 bg-slate-950/80 px-4 py-3 text-slate-100" />
+            <label for="entryYear" class="mt-4 mb-2 block text-sm font-bold text-slate-100">Release year (optional)</label>
+            <InputNumber id="entryYear" @bind-Value="_entry.ReleaseYear" min="1" max="9999" step="1" DisplayName="Release year"
+                         class="w-full rounded-xl border-2 border-fuchsia-400/30 bg-slate-950/80 px-4 py-3 text-slate-100" />
+            <h3 class="mt-4 mb-2 text-sm font-bold text-slate-100">Included titles</h3>
+            @foreach (var included in _entry.IncludedTitles)
             {
-                <button @onclick="ResetEntryForm" class="rounded-xl border border-slate-500/50 bg-slate-800/70 px-4 py-2 text-sm font-bold text-slate-100">Cancel</button>
+                <div @key="included" class="mb-3 flex flex-wrap items-end gap-3">
+                    <label class="flex-1 text-sm text-slate-100">Included title
+                        <InputText @bind-Value="included.Title" class="mt-1 w-full rounded-xl border border-fuchsia-400/30 bg-slate-950/80 px-3 py-2 text-slate-100" />
+                    </label>
+                    <label class="text-sm text-slate-100">Release year (optional)
+                        <InputNumber @bind-Value="included.ReleaseYear" min="1" max="9999" step="1" DisplayName="Included title release year"
+                                     class="mt-1 w-full rounded-xl border border-fuchsia-400/30 bg-slate-950/80 px-3 py-2 text-slate-100" />
+                    </label>
+                    <button type="button" @onclick="() => _entry.IncludedTitles.Remove(included)"
+                            class="rounded-xl border border-rose-400/50 px-3 py-2 text-sm text-rose-100">Remove included title</button>
+                </div>
             }
-        </div>
+            <button type="button" @onclick="() => _entry.IncludedTitles.Add(new IncludedTitle())"
+                    class="rounded-xl border border-green-400/50 px-3 py-2 text-sm text-green-100">Add included title</button>
+            <div class="mt-4 flex gap-3">
+                <button type="submit" class="rounded-xl border border-green-400/50 bg-green-500/20 px-4 py-2 text-sm font-bold text-green-100">
+                    @(_editingGameId is null ? "Add game" : "Save details")
+                </button>
+                @if (_editingGameId is not null)
+                {
+                    <button type="button" @onclick="ResetEntryForm" class="rounded-xl border border-slate-500/50 bg-slate-800/70 px-4 py-2 text-sm font-bold text-slate-100">Cancel</button>
+                }
+            </div>
+        </EditForm>
     </section>
 
     <div class="mt-6">
+        <p class="mb-3 text-sm text-slate-300">Bulk import without years: enter one title per line. To assign release years, use the form above or Edit details after importing.</p>
         <label for="gameTitles" class="mb-2 flex items-center gap-2 text-sm font-black uppercase tracking-[0.18em] text-fuchsia-100">
             <span class="animate-floaty inline-block">🎮</span>
             Game Titles
@@ -134,20 +154,20 @@ else
                 {
                     <li class="flex items-center justify-between gap-3 rounded-xl border border-slate-500/30 bg-slate-900/50 px-3 py-2">
                         <div class="text-sm font-semibold text-slate-100">
-                            <span>@game.Title</span>
+                            <span>@game.Title@(game.ReleaseYear is { } year ? $" ({year})" : "")</span>
                             @if (game.IncludedTitles is { Count: > 0 })
                             {
                                 <ul class="mt-1 text-xs text-slate-300">
                                     @foreach (var title in game.IncludedTitles)
                                     {
-                                        <li>@title</li>
+                                        <li>@title.Title@(title.ReleaseYear is { } includedYear ? $" ({includedYear})" : "")</li>
                                     }
                                 </ul>
                             }
                         </div>
                         <div class="flex gap-2">
                         <button class="rounded-xl border border-green-400/50 bg-green-500/20 px-3 py-1 text-xs font-bold text-green-100"
-                                @onclick="() => EditIncludedTitles(game)">Edit included titles</button>
+                                @onclick="() => EditGameDetails(game)">Edit details</button>
                         <button class="inline-flex items-center rounded-xl border border-rose-400/50 bg-rose-500/20 px-3 py-1 text-xs font-black uppercase tracking-wide text-rose-100 transition hover:bg-rose-500/35"
                                 @onclick="() => PromptRemoveGame(game)">
                             Remove
@@ -226,8 +246,7 @@ else
     private List<Game> _games = [];
     private Game? _gamePendingRemoval;
     private string _inputText = string.Empty;
-    private string _entryTitle = string.Empty;
-    private string _includedTitlesText = string.Empty;
+    private Game _entry = new();
     private Guid? _editingGameId;
     private string _message = string.Empty;
     private string _alertClass = "alert-success";
@@ -265,18 +284,32 @@ else
 
     private void SaveEntry()
     {
-        if (string.IsNullOrWhiteSpace(_entryTitle))
+        if (string.IsNullOrWhiteSpace(_entry.Title))
+        {
+            _alertClass = "alert-warning";
+            _message = "Enter a game title.";
             return;
-
-        var includedTitles = _includedTitlesText.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        }
+        if (_entry.ReleaseYear is < 1 or > 9999 || _entry.IncludedTitles.Any(t => t.ReleaseYear is < 1 or > 9999))
+        {
+            _alertClass = "alert-warning";
+            _message = "Release years must be between 1 and 9999, or left blank.";
+            return;
+        }
+        if (_entry.IncludedTitles.Any(t => string.IsNullOrWhiteSpace(t.Title)))
+        {
+            _alertClass = "alert-warning";
+            _message = "Enter a title for each included title, or remove its row.";
+            return;
+        }
         var saved = _editingGameId is { } gameId
-            ? GameService.UpdateIncludedTitles(gameId, includedTitles)
-            : GameService.ImportGames(new[] { new Game { Title = _entryTitle, IncludedTitles = includedTitles.ToList() } }) > 0;
+            ? GameService.UpdateGameDetails(gameId, _entry.ReleaseYear, _entry.IncludedTitles)
+            : GameService.ImportGames(new[] { _entry }) > 0;
 
         _alertClass = saved ? "alert-success" : "alert-warning";
         _message = saved
-            ? (_editingGameId is null ? "Added game and its included titles." : "Updated included titles.")
-            : "Could not save. If this title already exists, use its Edit included titles button below.";
+            ? (_editingGameId is null ? "Added game and its included titles." : "Updated game details.")
+            : "Could not save. If this title already exists, use its Edit details button below.";
         if (saved)
         {
             ResetEntryForm();
@@ -284,18 +317,21 @@ else
         }
     }
 
-    private void EditIncludedTitles(Game game)
+    private void EditGameDetails(Game game)
     {
         _editingGameId = game.Id;
-        _entryTitle = game.Title;
-        _includedTitlesText = string.Join("\n", game.IncludedTitles ?? []);
+        _entry = new Game
+        {
+            Title = game.Title,
+            ReleaseYear = game.ReleaseYear,
+            IncludedTitles = (game.IncludedTitles ?? []).Select(t => new IncludedTitle { Title = t.Title, ReleaseYear = t.ReleaseYear }).ToList()
+        };
     }
 
     private void ResetEntryForm()
     {
         _editingGameId = null;
-        _entryTitle = string.Empty;
-        _includedTitlesText = string.Empty;
+        _entry = new Game();
     }
 
     private void PromptRemoveGame(Game game)

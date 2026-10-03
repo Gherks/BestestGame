@@ -1,0 +1,193 @@
+@page "/goty"
+@rendermode InteractiveServer
+@using BestestGame.Models
+@using BestestGame.Services
+@inject GameService GameService
+@inject NavigationManager Navigation
+
+<PageTitle>GOTY Time Machine | BestestGame</PageTitle>
+
+<section class="goty-hero">
+    <div class="goty-orbit" aria-hidden="true">🛸</div>
+    <p class="goty-eyebrow">🏆 THE HALL OF TEMPORAL DANKNESS</p>
+    <h1 class="font-display">GOTY <span class="rainbow-text">TIME MACHINE</span></h1>
+    <p class="goty-tagline">Same questionable taste. Different space-time coordinates.</p>
+    @if (_tournament is not null)
+    {
+        <p class="goty-arena">🏟️ @_tournament.Name <span>• @(_tournament.Duels.Any(d => !d.IsCompleted) ? "Voting in progress" : "No pending duels")</span></p>
+    }
+</section>
+
+@if (_tournament is null)
+{
+    <section class="goty-empty">
+        <p class="goty-big-emoji">🕳️</p>
+        <h2>No arena. No timeline. Only the void.</h2>
+        <p>Select a tournament to explore its releases.</p>
+        <a href="/tournaments" class="goty-button">Choose your arena →</a>
+    </section>
+}
+else if (_years.Count == 0)
+{
+    <section class="goty-empty">
+        <p class="goty-big-emoji">📅</p>
+        <h2>This timeline needs some dates.</h2>
+        <p>Add release years to games or included titles to unlock the archive.</p>
+        <a href="/import" class="goty-button">Assign release years →</a>
+    </section>
+}
+else
+{
+    <section class="goty-controls" aria-label="Choose a release year">
+        <button class="goty-button goty-secondary" disabled="@(_yearIndex <= 0)" @onclick="() => Travel(_years[_yearIndex - 1])">← Earlier</button>
+        <label class="goty-year-select">Destination year
+            <select value="@_selectedYear" @onchange="ChangeYear">
+                @if (!_years.Contains(_selectedYear))
+                {
+                    <option value="@_selectedYear">@_selectedYear — no releases</option>
+                }
+                @foreach (var year in _years.AsEnumerable().Reverse())
+                {
+                    <option value="@year">@year · @_entries.Count(e => e.Year == year) releases</option>
+                }
+            </select>
+        </label>
+        <button class="goty-button goty-secondary" disabled="@(_yearIndex < 0 || _yearIndex >= _years.Count - 1)" @onclick="() => Travel(_years[_yearIndex + 1])">Later →</button>
+        <button class="goty-button" @onclick="SurpriseMe">🎲 YEET ME THROUGH TIME</button>
+    </section>
+
+    <nav class="goty-timeline" aria-label="Release years">
+        @foreach (var year in _years)
+        {
+            <a href="@YearUrl(year)" class="@(year == _selectedYear ? "goty-year-chip selected" : "goty-year-chip")" aria-current="@(year == _selectedYear ? "page" : null)">@year</a>
+        }
+    </nav>
+
+    <div class="goty-explainer">
+        <p>Ranked by points from the full tournament, then completed head-to-head wins among the tied entries in this year. Included titles inherit their group's score and duel results. Unresolved ties share a rank.</p>
+        @if (_unassigned > 0)
+        {
+            <p>📭 @_unassigned title(s) have no year and are outside the archive. <a href="/import">Assign years</a></p>
+        }
+    </div>
+
+    @if (_nominees.Count == 0)
+    {
+        <section class="goty-empty">
+            <p class="goty-big-emoji">🦗</p>
+            <h2>@_selectedYear: the crickets have taken the podium.</h2>
+            <p>No titles from this tournament have this release year. Choose another destination.</p>
+        </section>
+    }
+    else
+    {
+        var leaders = _nominees.Where(e => e.SharesRankWith(_nominees[0])).ToList();
+        var hasPoints = _nominees[0].Points > 0;
+        <section class="goty-crown" @key="_selectedYear">
+            <div class="goty-crown-icon" aria-hidden="true">@(hasPoints ? "👑" : "🎮")</div>
+            <p class="goty-eyebrow">@(hasPoints ? (leaders.Count > 1 ? "SHARED CROWN. DOUBLE THE CHAOS." : "CURRENT FRONT-RUNNER. MAXIMUM AURA.") : "NO POINTS YET. THE THRONE IS OPEN.")</p>
+            <div class="goty-massive-year">@_selectedYear</div>
+            @if (hasPoints)
+            {
+                @foreach (var leader in leaders)
+                {
+                    <h2 class="font-display">@leader.Title</h2>
+                    @if (leader.GroupTitle is not null)
+                    {
+                        <p class="goty-source">Shared score from @leader.GroupTitle</p>
+                    }
+                }
+                <p class="goty-champion-score">⭐ @leaders[0].Points <span>tournament points</span></p>
+            }
+            else
+            {
+                <h2 class="font-display">Your next vote could make history.</h2>
+            }
+            <p class="goty-roster-count">@_nominees.Count releases · @_nominees.Select(e => e.GameId).Distinct().Count() tournament entries</p>
+            <a href="/vote" class="goty-button goty-secondary">⚔️ Back to the arena</a>
+        </section>
+
+        <section class="goty-list" aria-label="Yearly leaderboard">
+            <div class="goty-section-heading">
+                <h2 class="font-display">📼 THE @_selectedYear ROSTER</h2>
+                <span>Equal points? Head-to-head decides.</span>
+            </div>
+            <ol>
+                @for (var index = 0; index < _nominees.Count; index++)
+                {
+                    var nominee = _nominees[index];
+                    var rank = _nominees.FindIndex(e => e.SharesRankWith(nominee)) + 1;
+                    <li class="@(rank == 1 && hasPoints ? "goty-nominee first" : "goty-nominee")">
+                        <span class="goty-rank">@(rank == 1 && hasPoints ? "👑" : $"#{rank}")</span>
+                        <div class="goty-nominee-title">
+                            <h3>@nominee.Title</h3>
+                            @if (nominee.GroupTitle is not null)
+                            {
+                                <p>↳ Shared score from @nominee.GroupTitle</p>
+                            }
+                            @if (_nominees.Where(e => e.Points == nominee.Points).Select(e => e.GameId).Distinct().Count() > 1)
+                            {
+                                <p>⚔️ @nominee.HeadToHeadWins head-to-head wins among tied entries</p>
+                            }
+                        </div>
+                        <span class="goty-points">@nominee.Points <small>pts</small></span>
+                    </li>
+                }
+            </ol>
+        </section>
+    }
+
+    <details class="goty-archive" open>
+        <summary class="font-display">🗃️ THE MULTIVERSE OF GOTY · @_years.Count YEARS</summary>
+        <p>Every year, its current leaders. Pick a portal.</p>
+        <div class="goty-archive-grid">
+            @foreach (var year in _years.AsEnumerable().Reverse())
+            {
+                var releases = _entries.Where(e => e.Year == year).ToList();
+                var bestPoints = releases[0].Points;
+                var leaders = releases.Where(e => e.SharesRankWith(releases[0])).ToList();
+                <a href="@YearUrl(year)" class="@(year == _selectedYear ? "goty-portal active" : "goty-portal")">
+                    <span class="goty-portal-year">@year <span>@(bestPoints > 0 ? "👑" : "⏳")</span></span>
+                    <strong>@(bestPoints > 0 ? leaders[0].Title : "Crown unclaimed")</strong>
+                    @if (bestPoints > 0 && leaders.Count > 1)
+                    {
+                        <span>+ @(leaders.Count - 1) tied for first</span>
+                    }
+                    <small>@releases.Count releases · @bestPoints pts at the top →</small>
+                </a>
+            }
+        </div>
+    </details>
+}
+
+@code {
+    [SupplyParameterFromQuery(Name = "year")]
+    public int? Year { get; set; }
+
+    private Tournament? _tournament;
+    private List<ReleaseRankings.Entry> _entries = [];
+    private List<ReleaseRankings.Entry> _nominees = [];
+    private List<int> _years = [];
+    private int _selectedYear;
+    private int _unassigned;
+    private int _yearIndex => _years.IndexOf(_selectedYear);
+
+    protected override void OnParametersSet()
+    {
+        _tournament = GameService.GetCurrentTournament();
+        _entries = ReleaseRankings.GetEntries(_tournament?.Games ?? [], _tournament?.Duels);
+        _years = _entries.Select(e => e.Year).Distinct().Order().ToList();
+        _selectedYear = Year ?? _years.LastOrDefault();
+        _nominees = _entries.Where(e => e.Year == _selectedYear).ToList();
+        _unassigned = ReleaseRankings.CountUnassigned(_tournament?.Games ?? []);
+    }
+
+    private static string YearUrl(int year) => $"/goty?year={year}";
+    private void Travel(int year) => Navigation.NavigateTo(YearUrl(year));
+    private void ChangeYear(ChangeEventArgs args)
+    {
+        if (int.TryParse(args.Value?.ToString(), out var year))
+            Travel(year);
+    }
+    private void SurpriseMe() => Travel(_years[Random.Shared.Next(_years.Count)]);
+}

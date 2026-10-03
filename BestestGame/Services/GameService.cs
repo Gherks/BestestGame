@@ -206,6 +206,7 @@ public class GameService
             .Select(g => new Game
             {
                 Title = g.Title.Trim(),
+                ReleaseYear = ValidateReleaseYear(g.ReleaseYear),
                 IncludedTitles = CleanIncludedTitles(g.IncludedTitles)
             })
             .ToList();
@@ -235,20 +236,29 @@ public class GameService
         return newGames.Count;
     }
 
-    public bool UpdateIncludedTitles(Guid gameId, IEnumerable<string> includedTitles)
+    public bool UpdateGameDetails(Guid gameId, int? releaseYear, IEnumerable<IncludedTitle> includedTitles)
     {
         var db = Load();
         var game = GetCurrentTournament(db)?.Games.FirstOrDefault(g => g.Id == gameId);
         if (game is null)
             return false;
 
+        game.ReleaseYear = ValidateReleaseYear(releaseYear);
         game.IncludedTitles = CleanIncludedTitles(includedTitles);
         Save(db);
         return true;
     }
 
-    private static List<string> CleanIncludedTitles(IEnumerable<string>? titles)
-        => (titles ?? []).Where(t => !string.IsNullOrWhiteSpace(t)).Select(t => t.Trim()).ToList();
+    private static List<IncludedTitle> CleanIncludedTitles(IEnumerable<IncludedTitle>? titles)
+        => (titles ?? []).Where(t => !string.IsNullOrWhiteSpace(t.Title))
+            .Select(t => new IncludedTitle { Title = t.Title.Trim(), ReleaseYear = ValidateReleaseYear(t.ReleaseYear) }).ToList();
+
+    private static int? ValidateReleaseYear(int? year)
+    {
+        if (year is < 1 or > 9999)
+            throw new ArgumentOutOfRangeException(nameof(year), "Release year must be between 1 and 9999.");
+        return year;
+    }
 
     /// <summary>
     /// Removes a game from the current tournament and deletes all duels that include it.

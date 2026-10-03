@@ -4,6 +4,7 @@
 @using BestestGame.Services
 @inject GameService GameService
 @inject NavigationManager Navigation
+@inject NavigationManager Navigation
 
 <PageTitle>1v1 Me Bro | MLG Vote Arena 🎺</PageTitle>
 
@@ -153,10 +154,29 @@ else
 
 <!-- STANDINGS - The Hall of Dank -->
 <section class="mt-8 rounded-3xl border-2 border-green-400/20 bg-white/10 p-6 shadow-xl shadow-slate-950/50 backdrop-blur-xl md:p-8 animate-fade-in-up" style="animation-delay: 0.3s;">
-    <div class="flex items-center gap-3">
+    <div class="flex items-center gap-3 flex-wrap">
         <h2 class="font-display text-2xl font-black text-white">🏆 Hall of Dank™</h2>
         <span class="text-xs font-black uppercase tracking-widest text-yellow-300/50 animate-pulse">LEADERBOARD</span>
+        <a href="@(LeaderboardYear is { } year ? $"/goty?year={year}" : "/goty")" class="rounded-xl border border-yellow-400/50 bg-yellow-500/10 px-3 py-2 text-sm font-bold text-yellow-200">🛸 GOTY Time Machine →</a>
     </div>
+
+    @if (_games.Count > 0)
+    {
+        <div class="mt-4 flex flex-wrap items-center gap-3">
+            <label for="leaderboardYear" class="text-sm font-bold text-slate-200">📅 Release year</label>
+            <select id="leaderboardYear" @bind="LeaderboardYear" @bind:after="UpdateLeaderboardYearUrl" class="rounded-xl border border-fuchsia-400/40 bg-slate-950 px-3 py-2 text-sm text-slate-100">
+                <option value="">All years</option>
+                @foreach (var releaseYear in _leaderboardYears)
+                {
+                    <option value="@releaseYear">@releaseYear</option>
+                }
+            </select>
+            @if (LeaderboardYear is not null)
+            {
+                <span class="text-xs text-slate-300">Groups appear when an included title matches. Points remain from the full tournament.</span>
+            }
+        </div>
+    }
 
     @if (_games.Count == 0)
     {
@@ -165,6 +185,10 @@ else
             <p class="text-slate-200 font-bold">No games imported yet.</p>
             <p class="mt-1 text-sm text-slate-400">Go to the <a href="/import" class="font-bold text-fuchsia-300 hover:text-fuchsia-200 transition">Yeet Games In</a> page to add games, you absolute walnut.</p>
         </div>
+    }
+    else if (_leaderboardGames.Count == 0)
+    {
+        <p class="mt-5 text-slate-300">No entries for this release year. Select another year or All years.</p>
     }
     else
     {
@@ -204,10 +228,10 @@ else
                 </thead>
                 <tbody class="divide-y divide-fuchsia-500/10 text-slate-100">
                     @{int rank = 1;}
-                    @foreach (var game in _games)
+                    @foreach (var game in _leaderboardGames)
                     {
                         var r = rank;
-                        var titleDisplay = GetTitleDisplay(game);
+                        var titleDisplay = GetLeaderboardTitleDisplay(game);
                         <tr class="@GetRowAnimClass(game, r)"
                             style="@GetRowAnimStyle(r)">
                             <td class="px-4 py-3 font-display text-lg font-black @GetRankColor(r)">
@@ -403,6 +427,24 @@ else
 }
 
 @code {
+    [SupplyParameterFromQuery(Name = "year")]
+    public int? LeaderboardYear { get; set; }
+    private void UpdateLeaderboardYearUrl()
+        => Navigation.NavigateTo(Navigation.GetUriWithQueryParameter("year", LeaderboardYear));
+    private List<int> _leaderboardYears => _games
+        .SelectMany(g => (g.IncludedTitles ?? []).Select(t => t.ReleaseYear).Append(g.ReleaseYear))
+        .Where(year => year.HasValue).Select(year => year!.Value).Distinct().OrderDescending().ToList();
+    private List<Game> _leaderboardGames => LeaderboardYear is { } year
+        ? _games.Where(game => ReleaseRankings.MatchesYear(game, year)).ToList() : _games;
+
+    private TitleDisplay GetLeaderboardTitleDisplay(Game game)
+    {
+        if (LeaderboardYear is { } year && game.IncludedTitles is { Count: > 0 })
+            return new(FormatTitleWithYear(game.Title, game.ReleaseYear), string.Join(", ", game.IncludedTitles
+                .Where(t => t.ReleaseYear == year).Select(t => FormatTitleWithYear(t.Title, t.ReleaseYear))));
+        return GetTitleDisplay(game);
+    }
+
     private Tournament? _currentTournament;
     private Duel? _currentDuel;
     private Game? _game1;
@@ -758,7 +800,7 @@ else
     private void ShowBeatenBy(Guid gameId, string gameTitle, List<GameService.LossDetail> beatenBy)
     {
         _beatenByGameId = gameId;
-        _beatenByGameTitle = gameTitle;
+        _beatenByGameTitle = FormatTitleWithYear(gameTitle, _games.FirstOrDefault(g => g.Id == gameId)?.ReleaseYear);
         _beatenByList = beatenBy.ToList();
         _showBeatenByDialog = true;
     }
@@ -785,7 +827,7 @@ else
     private void ShowWinsOver(Guid gameId, string gameTitle, List<GameService.LossDetail> winsOver)
     {
         _winsOverGameId = gameId;
-        _winsOverGameTitle = gameTitle;
+        _winsOverGameTitle = FormatTitleWithYear(gameTitle, _games.FirstOrDefault(g => g.Id == gameId)?.ReleaseYear);
         _winsOverList = winsOver.ToList();
         _showWinsOverDialog = true;
     }
@@ -799,7 +841,7 @@ else
     private void ShowPendingMatches(Guid gameId, string gameTitle)
     {
         _pendingMatchesGameId = gameId;
-        _pendingMatchesGameTitle = gameTitle;
+        _pendingMatchesGameTitle = FormatTitleWithYear(gameTitle, _games.FirstOrDefault(g => g.Id == gameId)?.ReleaseYear);
         _pendingMatchOptions = GetPendingMatchOptions(gameId);
         _showPendingMatchesDialog = true;
     }
@@ -846,9 +888,24 @@ else
     private static TitleDisplay GetTitleDisplay(Game game)
     {
         if (game.IncludedTitles is { Count: > 0 })
-            return new(game.Title, string.Join(", ", game.IncludedTitles));
+            return new(FormatTitleWithYear(game.Title, game.ReleaseYear),
+                string.Join(", ", game.IncludedTitles.Select(t => FormatTitleWithYear(t.Title, t.ReleaseYear))));
+
+        // A stored year distinguishes titles such as "Prey (2017)" from legacy
+        // titles whose parentheses were used to describe a group of games.
+        if (game.ReleaseYear.HasValue)
+            return new(FormatTitleWithYear(game.Title, game.ReleaseYear), null);
 
         return GetTitleDisplay(game.Title);
+    }
+
+    private static string FormatTitleWithYear(string title, int? year)
+    {
+        if (year is null)
+            return title;
+
+        var suffix = $" ({year})";
+        return title.TrimEnd().EndsWith(suffix, StringComparison.Ordinal) ? title : title + suffix;
     }
 
     private static TitleDisplay GetTitleDisplay(string gameTitle)

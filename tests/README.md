@@ -6,9 +6,31 @@ dotnet run --project tests/BestestGame.Checks
 
 Checks use an isolated temporary database and delete it afterward.
 
-Game entries support an optional `IncludedTitles` string array. Old entries
-without the property load with an empty list; saving writes it for every game.
-On the import page, use the separate title and included-titles fields to add a
-group, or choose **Edit included titles** on an existing game. Enter one included
-title per line. Names are independent of the main title, and the group remains
-one participant with shared points and duels. Plain bulk import remains available.
+Games have an optional `ReleaseYear` and an `IncludedTitles` array of objects:
+
+```json
+{
+  "Title": "A collection",
+  "ReleaseYear": null,
+  "IncludedTitles": [
+    { "Title": "An independently named game", "ReleaseYear": 2007 }
+  ]
+}
+```
+
+Unknown years are `null`; assigned years must be integers from 1 to 9999.
+Older databases with string-based included titles or missing years still load.
+Saving writes included titles as objects with optional years.
+
+On the import page, use **Add a game** and **Add included title** to assign years
+independently. Use **Edit details** to change or clear years on existing entries.
+The group remains one participant with shared points and duels. Plain bulk import
+remains available; its entries can be edited afterward to assign years.
+
+The GOTY Time Machine (`/goty?year=2007`) ranks releases by their current full
+tournament score, then completed head-to-head wins among tied entries in that year.
+Unresolved ties retain shared ranks. Collections contribute included titles
+with their shared score and a source label; unknown years stay outside the archive.
+The Hall of Dank also supports filtering (`/vote?year=2007`), keeping grouped
+participants intact and showing only included titles matching the chosen year.
+These views do not change scores or generate separate year-specific duels.

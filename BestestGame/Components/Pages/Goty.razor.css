@@ -1,0 +1,65 @@
+.goty-hero { position: relative; overflow: hidden; padding: 2rem; border: 2px solid #e879f980; border-radius: 1.75rem; background: radial-gradient(ellipse at top right, #a855f740, transparent 65%), linear-gradient(135deg, #17102f, #091b21); box-shadow: 0 0 60px #a855f720; }
+.goty-eyebrow { color: #f0abfc; font-size: .7rem; font-weight: 900; letter-spacing: .22em; }
+.goty-hero h1 { position: relative; max-width: 85%; margin-top: .75rem; font-size: clamp(2rem, 5vw, 3.8rem); font-weight: 900; line-height: 1.05; }
+.goty-hero h1 span { display: block; }
+.goty-tagline { margin-top: 1rem; color: #cbd5e1; }
+.goty-arena { margin-top: 1.25rem; color: #fef08a; font-weight: 700; font-size: .8rem; }
+.goty-arena span { color: #94a3b8; font-weight: 400; }
+.goty-orbit { position: absolute; top: 1.75rem; right: 1.25rem; font-size: 3.5rem; animation: goty-hover 5s ease-in-out infinite; }
+.goty-controls { display: flex; align-items: end; flex-wrap: wrap; gap: .75rem; margin: 1.75rem 0 1rem; }
+.goty-button { display: inline-flex; justify-content: center; align-items: center; padding: .8rem 1rem; border: 1px solid #e879f980; border-radius: .85rem; background: linear-gradient(120deg, #86198f, #6d28d9); color: white; font-size: .75rem; font-weight: 900; text-decoration: none; transition: transform .2s, box-shadow .2s; cursor: pointer; }
+.goty-button:hover { transform: translateY(-2px); box-shadow: 0 0 20px #d946ef40; }
+.goty-button:disabled { opacity: .35; cursor: default; transform: none; box-shadow: none; }
+.goty-secondary { background: #0f172a; border-color: #64748b80; }
+.goty-year-select { display: flex; flex: 1; min-width: 150px; flex-direction: column; gap: .4rem; color: #cbd5e1; font-size: .7rem; font-weight: 700; }
+.goty-year-select select { border: 1px solid #e879f980; border-radius: .85rem; background: #0f172a; color: #fef08a; padding: .75rem; font-weight: 900; font-size: 1rem; }
+.goty-timeline { display: flex; overflow-x: auto; gap: .45rem; padding: .5rem 0 1rem; scrollbar-color: #a855f7 #0f172a; }
+.goty-year-chip { flex-shrink: 0; padding: .55rem .8rem; border: 1px solid #334155; border-radius: .7rem; color: #cbd5e1; background: #0f172a; font-size: .8rem; font-weight: 700; text-decoration: none; }
+.goty-year-chip:hover, .goty-year-chip.selected { border-color: #facc15; color: #fef08a; background: #713f1230; }
+.goty-explainer { margin: .5rem 0 1.5rem; color: #94a3b8; font-size: .8rem; line-height: 1.6; }
+.goty-explainer p + p { margin-top: .4rem; }
+.goty-explainer a { color: #f0abfc; text-decoration: underline; }
+.goty-crown { position: relative; overflow: hidden; isolation: isolate; text-align: center; padding: 2rem 1.5rem; border: 2px solid #facc1580; border-radius: 1.75rem; background: radial-gradient(ellipse at center, #ca8a041c, transparent 75%), #0f172acc; box-shadow: 0 0 50px #eab30815; animation: goty-arrival .5s ease-out; }
+.goty-crown::before { content: ''; position: absolute; inset: 0; z-index: -1; background: repeating-conic-gradient(from 0deg at 50% 35%, transparent 0deg 18deg, #eab30806 18deg 36deg); }
+.goty-crown-icon { font-size: 3.2rem; animation: goty-hover 4s ease-in-out infinite; }
+.goty-crown .goty-eyebrow { color: #fde68a; margin-top: .75rem; }
+.goty-massive-year { font-size: clamp(4rem, 12vw, 7rem); font-weight: 900; letter-spacing: -.05em; line-height: 1.15; color: #fde047; text-shadow: 0 0 30px #eab30840; }
+.goty-crown h2 { margin: .75rem auto 0; max-width: 32rem; font-size: clamp(1.4rem, 4vw, 2.2rem); font-weight: 900; overflow-wrap: anywhere; }
+.goty-source { color: #cbd5e1; margin-top: .35rem; font-size: .8rem; }
+.goty-champion-score { font-size: 1.75rem; font-weight: 900; color: #86efac; margin-top: 1rem; }
+.goty-champion-score span { font-size: .8rem; font-weight: 600; }
+.goty-roster-count { color: #94a3b8; font-size: .8rem; margin: .6rem 0 1.2rem; }
+.goty-list { margin: 2rem 0; }
+.goty-section-heading { display: flex; align-items: center; justify-content: space-between; gap: .75rem; flex-wrap: wrap; margin-bottom: .85rem; }
+.goty-section-heading h2 { font-size: 1.25rem; font-weight: 900; }
+.goty-section-heading span { font-size: .7rem; color: #94a3b8; }
+.goty-list ol { list-style: none; display: grid; gap: .6rem; padding: 0; }
+.goty-nominee { display: flex; align-items: center; gap: 1rem; padding: 1rem; border: 1px solid #47556980; border-radius: 1rem; background: #0f172acc; }
+.goty-nominee.first { border-color: #facc1580; background: linear-gradient(120deg, #713f1225, #0f172a); }
+.goty-rank { min-width: 2.5rem; color: #d8b4fe; font-size: 1.25rem; font-weight: 900; text-align: center; }
+.goty-nominee-title { flex: 1; min-width: 0; }
+.goty-nominee h3 { font-weight: 800; overflow-wrap: anywhere; }
+.goty-nominee p { font-size: .7rem; color: #94a3b8; margin-top: .3rem; }
+.goty-points { color: #86efac; font-size: 1.5rem; font-weight: 900; white-space: nowrap; }
+.goty-points small { font-size: .65rem; }
+.goty-archive { margin-top: 2rem; padding: 1.5rem; border: 1px solid #a855f760; border-radius: 1.5rem; background: #170d2580; }
+.goty-archive summary { cursor: pointer; color: #d8b4fe; font-weight: 900; font-size: 1rem; }
+.goty-archive > p { color: #94a3b8; font-size: .8rem; margin-top: .6rem; }
+.goty-archive-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 180px), 1fr)); gap: .75rem; margin-top: 1rem; }
+.goty-portal { display: flex; flex-direction: column; gap: .6rem; padding: 1rem; border: 1px solid #47556980; border-radius: 1rem; background: #0f172a; color: #e2e8f0; text-decoration: none; transition: transform .2s, border-color .2s; }
+.goty-portal:hover { transform: translateY(-3px); border-color: #e879f9; }
+.goty-portal.active { border-color: #facc15; }
+.goty-portal-year { display: flex; justify-content: space-between; color: #f0abfc; font-size: 1.7rem; font-weight: 900; }
+.goty-portal-year span { font-size: 1.2rem; }
+.goty-portal strong { font-size: .85rem; overflow-wrap: anywhere; }
+.goty-portal > span:not(.goty-portal-year), .goty-portal small { color: #94a3b8; font-size: .7rem; }
+.goty-portal small { margin-top: auto; }
+.goty-empty { text-align: center; padding: 3rem 1.5rem; margin-top: 1.5rem; border: 1px dashed #a855f780; border-radius: 1.5rem; background: #0f172a80; }
+.goty-big-emoji { font-size: 3.5rem; }
+.goty-empty h2 { font-weight: 900; font-size: 1.4rem; margin-top: 1rem; }
+.goty-empty > p:not(.goty-big-emoji) { color: #94a3b8; margin: .75rem 0 1.25rem; }
+.goty-button:focus-visible, .goty-year-chip:focus-visible, .goty-portal:focus-visible, summary:focus-visible { outline: 3px solid #f0abfc; outline-offset: 3px; }
+@keyframes goty-hover { 0%, 100% { transform: translateY(0) rotate(-6deg); } 50% { transform: translateY(-8px) rotate(6deg); } }
+@keyframes goty-arrival { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+@media (max-width: 480px) { .goty-hero { padding: 1.5rem; } .goty-orbit { font-size: 2rem; } .goty-controls > .goty-button:last-child { width: 100%; } .goty-nominee { gap: .5rem; padding: .8rem; } }
+@media (prefers-reduced-motion: reduce) { .goty-orbit, .goty-crown-icon, .goty-crown { animation: none; } .goty-button, .goty-portal { transition: none; } }
