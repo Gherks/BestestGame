@@ -1,0 +1,11 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=BestestGame
+Comment=Start BestestGame and open it in your browser
+Exec=/home/gherks/Repos/BestestGame/BestestGame/launch.sh
+Path=/home/gherks/Repos/BestestGame/BestestGame
+Icon=/home/gherks/Repos/BestestGame/BestestGame/BestestGame/wwwroot/favicon.png
+Terminal=true
+Categories=Game;
+StartupNotify=false
