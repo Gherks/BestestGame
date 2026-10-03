@@ -188,18 +188,26 @@ public class GameService
         Save(db);
     }
 
-    public void ImportGames(IEnumerable<string> titles)
+    public int ImportGames(IEnumerable<string> titles)
+        => ImportGames(titles.Select(title => new Game { Title = title }));
+
+    public int ImportGames(IEnumerable<Game> games)
     {
         var db = Load();
         var tournament = GetCurrentTournament(db);
         if (tournament is null)
-            return;
+            return 0;
 
-        var newGames = titles
-            .Select(t => t.Trim())
-            .Where(t => !string.IsNullOrEmpty(t))
-            .Where(t => !tournament.Games.Any(g => string.Equals(g.Title, t, StringComparison.OrdinalIgnoreCase)))
-            .Select(t => new Game { Title = t })
+        var existingTitles = tournament.Games.Select(g => g.Title)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var newGames = games
+            .Where(g => !string.IsNullOrWhiteSpace(g.Title))
+            .Where(g => existingTitles.Add(g.Title.Trim()))
+            .Select(g => new Game
+            {
+                Title = g.Title.Trim(),
+                IncludedTitles = CleanIncludedTitles(g.IncludedTitles)
+            })
             .ToList();
 
         tournament.Games.AddRange(newGames);
@@ -224,7 +232,23 @@ public class GameService
         }
 
         Save(db);
+        return newGames.Count;
     }
+
+    public bool UpdateIncludedTitles(Guid gameId, IEnumerable<string> includedTitles)
+    {
+        var db = Load();
+        var game = GetCurrentTournament(db)?.Games.FirstOrDefault(g => g.Id == gameId);
+        if (game is null)
+            return false;
+
+        game.IncludedTitles = CleanIncludedTitles(includedTitles);
+        Save(db);
+        return true;
+    }
+
+    private static List<string> CleanIncludedTitles(IEnumerable<string>? titles)
+        => (titles ?? []).Where(t => !string.IsNullOrWhiteSpace(t)).Select(t => t.Trim()).ToList();
 
     /// <summary>
     /// Removes a game from the current tournament and deletes all duels that include it.

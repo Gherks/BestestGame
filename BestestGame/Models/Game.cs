@@ -4,5 +4,6 @@ public class Game
 {
     public Guid Id { get; set; } = Guid.NewGuid();
     public string Title { get; set; } = string.Empty;
+    public List<string> IncludedTitles { get; set; } = new();
     public int Points { get; set; } = 0;
 }

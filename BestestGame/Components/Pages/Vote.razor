@@ -71,7 +71,7 @@ else
                     <span class="absolute right-5 top-1/2 text-2xl opacity-0 transition duration-200 group-hover:opacity-100 group-hover:animate-wiggle">⚡</span>
                 </span>
                 <span class="absolute -top-4 -left-4 text-3xl animate-floaty">🔥</span>
-                @{ var leftTitleDisplay = GetTitleDisplay(_game1!.Title); }
+                @{ var leftTitleDisplay = GetTitleDisplay(_game1!); }
                 <span class="relative z-10 flex flex-col items-center text-center group-hover:animate-arena-jitter">
                     <span class="mb-3 inline-flex rotate-[-5deg] rounded-full border border-white/30 bg-black/25 px-4 py-1 text-xs font-black uppercase tracking-[0.35em] text-yellow-200 shadow-neon group-hover:rotate-[7deg] group-hover:scale-110 transition">@_leftButtonBadgeLabel</span>
                     <span class="font-display leading-tight text-3xl md:text-4xl">@leftTitleDisplay.Title</span>
@@ -100,7 +100,7 @@ else
                     <span class="absolute left-5 top-1/2 text-2xl opacity-0 transition duration-200 group-hover:opacity-100 group-hover:animate-wiggle">⚡</span>
                 </span>
                 <span class="absolute -top-4 -right-4 text-3xl animate-floaty" style="animation-delay: 0.5s;">🔥</span>
-                @{ var rightTitleDisplay = GetTitleDisplay(_game2!.Title); }
+                @{ var rightTitleDisplay = GetTitleDisplay(_game2!); }
                 <span class="relative z-10 flex flex-col items-center text-center group-hover:animate-arena-jitter">
                     <span class="mb-3 inline-flex rotate-[5deg] rounded-full border border-white/30 bg-black/25 px-4 py-1 text-xs font-black uppercase tracking-[0.35em] text-pink-200 shadow-neon transition group-hover:rotate-[-7deg] group-hover:scale-110">@_rightButtonBadgeLabel</span>
                     <span class="font-display leading-tight text-3xl md:text-4xl">@rightTitleDisplay.Title</span>
@@ -207,7 +207,7 @@ else
                     @foreach (var game in _games)
                     {
                         var r = rank;
-                        var titleDisplay = GetTitleDisplay(game.Title);
+                        var titleDisplay = GetTitleDisplay(game);
                         <tr class="@GetRowAnimClass(game, r)"
                             style="@GetRowAnimStyle(r)">
                             <td class="px-4 py-3 font-display text-lg font-black @GetRankColor(r)">
@@ -290,7 +290,7 @@ else
             <ul class="mt-4 max-h-64 space-y-2 overflow-y-auto pr-1">
                 @foreach (var loss in _beatenByList)
                 {
-                    var lossDisplay = GetTitleDisplay(loss.WinnerTitle);
+                    var lossDisplay = GetTitleDisplay(_games.First(g => g.Id == loss.WinnerId));
                     <li>
                         <button class="w-full rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-2 text-left text-sm font-bold text-red-100 transition hover:bg-green-500/20 hover:border-green-400/40 hover:text-green-100"
                                 @onclick="() => ChangeLossToWin(loss)">
@@ -323,7 +323,7 @@ else
             <ul class="mt-4 max-h-64 space-y-2 overflow-y-auto pr-1">
                 @foreach (var win in _winsOverList)
                 {
-                    var winDisplay = GetTitleDisplay(win.WinnerTitle);
+                    var winDisplay = GetTitleDisplay(_games.First(g => g.Id == win.WinnerId));
                     <li class="rounded-xl border border-green-500/20 bg-green-500/10 px-4 py-2 text-sm font-bold text-green-100">
                         <span class="flex flex-col leading-tight">
                             <span>🎮 @winDisplay.Title</span>
@@ -362,8 +362,8 @@ else
                 <ul class="mt-4 max-h-80 space-y-3 overflow-y-auto pr-1">
                     @foreach (var pendingMatch in _pendingMatchOptions)
                     {
-                        var homeDisplay = GetTitleDisplay(_pendingMatchesGameTitle);
-                        var opponentDisplay = GetTitleDisplay(pendingMatch.OpponentTitle);
+                        var homeDisplay = GetTitleDisplay(_games.First(g => g.Id == _pendingMatchesGameId));
+                        var opponentDisplay = GetTitleDisplay(_games.First(g => g.Id == pendingMatch.OpponentId));
                         <li class="rounded-xl border border-cyan-500/20 bg-cyan-500/10 px-4 py-3">
                             <div class="grid gap-2 sm:grid-cols-[1fr_auto_1fr] sm:items-center">
                                 <button class="rounded-lg border border-fuchsia-400/50 bg-fuchsia-500/20 px-3 py-2 text-sm font-black text-fuchsia-100 transition hover:bg-fuchsia-500/40"
@@ -841,6 +841,14 @@ else
         _pendingMatchesGameId = null;
         _pendingMatchesGameTitle = string.Empty;
         _pendingMatchOptions = [];
+    }
+
+    private static TitleDisplay GetTitleDisplay(Game game)
+    {
+        if (game.IncludedTitles is { Count: > 0 })
+            return new(game.Title, string.Join(", ", game.IncludedTitles));
+
+        return GetTitleDisplay(game.Title);
     }
 
     private static TitleDisplay GetTitleDisplay(string gameTitle)
