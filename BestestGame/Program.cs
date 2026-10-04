@@ -24,6 +24,8 @@ app.UseHttpsRedirection();
 app.UseStaticFiles();
 app.UseAntiforgery();
 
+app.MapGet("/healthz", () => Results.Text(builder.Configuration["DeploymentId"] ?? "development"));
+
 app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();
 

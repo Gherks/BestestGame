@@ -2,6 +2,8 @@ using System.Text.Json;
 using BestestGame.Models;
 using BestestGame.Services;
 using Microsoft.Extensions.Configuration;
+using Microsoft.AspNetCore.Hosting;
+using Microsoft.Extensions.FileProviders;
 
 var directory = Path.Combine(Path.GetTempPath(), $"bestestgame-checks-{Guid.NewGuid()}");
 Directory.CreateDirectory(directory);
@@ -109,7 +111,15 @@ try
     var cycle = Enumerable.Range(0, 3).Select(i => new Duel { Game1Id = tiedTrio[i].Id, Game2Id = tiedTrio[(i + 1) % 3].Id, WinnerId = tiedTrio[i].Id, IsCompleted = true }).ToList();
     var cycleRanks = ReleaseRankings.GetEntries(tiedTrio, cycle);
     Check(cycleRanks.All(e => e.HeadToHeadWins == 1 && e.SharesRankWith(cycleRanks[0])), "Circular head-to-head results remain tied");
-    Console.WriteLine("All persistence, release-year, and GOTY ranking checks passed.");
+    var liveContents = File.ReadAllText(path);
+    var developmentConfig = new ConfigurationBuilder().AddInMemoryCollection(
+        new Dictionary<string, string?> { ["DatabasePath"] = "development/data.json" }).Build();
+    var developmentService = new GameService(developmentConfig, new CheckEnvironment(directory));
+    Check(developmentService.GetTournaments().Count == 0, "A separate development database starts empty");
+    developmentService.CreateTournament("Development only");
+    Check(File.Exists(Path.Combine(directory, "development", "data.json")), "Relative database paths use the content root and create missing directories");
+    Check(File.ReadAllText(path) == liveContents, "Development writes do not modify the live database");
+    Console.WriteLine("All persistence, release-year, GOTY ranking, and database isolation checks passed.");
 }
 finally
 {
@@ -127,4 +137,14 @@ static void ExpectInvalid(Action action)
     try { action(); }
     catch (ArgumentOutOfRangeException) { return; }
     throw new InvalidOperationException("Invalid release year was accepted");
+}
+
+sealed class CheckEnvironment(string contentRoot) : IWebHostEnvironment
+{
+    public string ContentRootPath { get; set; } = contentRoot;
+    public string WebRootPath { get; set; } = contentRoot;
+    public string ApplicationName { get; set; } = "BestestGame.Checks";
+    public string EnvironmentName { get; set; } = "Development";
+    public IFileProvider ContentRootFileProvider { get; set; } = new NullFileProvider();
+    public IFileProvider WebRootFileProvider { get; set; } = new NullFileProvider();
 }

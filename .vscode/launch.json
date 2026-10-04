@@ -1,0 +1,23 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "BestestGame (development)",
+      "type": "coreclr",
+      "request": "launch",
+      "preLaunchTask": "build-development",
+      "program": "${workspaceFolder}/BestestGame/bin/Debug/net10.0/BestestGame.dll",
+      "args": ["--urls", "http://localhost:5232"],
+      "cwd": "${workspaceFolder}/BestestGame",
+      "env": {
+        "ASPNETCORE_ENVIRONMENT": "Development",
+        "DOTNET_ENVIRONMENT": "Development",
+        "DatabasePath": "${workspaceFolder}/.dev-data/data.json"
+      },
+      "serverReadyAction": {
+        "action": "openExternally",
+        "pattern": "\\bNow listening on:\\s+(https?://\\S+)"
+      }
+    }
+  ]
+}

@@ -13,6 +13,8 @@
 
 # BestestGame runtime database
 BestestGame/publish-linux
+.runtime/
+.dev-data/
 
 # User-specific files (MonoDevelop/Xamarin Studio)
 *.userprefs

@@ -6,6 +6,17 @@ dotnet run --project tests/BestestGame.Checks
 
 Checks use an isolated temporary database and delete it afterward.
 
+Run the Linux startup and deployment transaction checks with:
+
+```bash
+python3 tests/startup_checks.py
+```
+
+These checks mock systemd, .NET, and HTTP commands and use temporary checkouts.
+They cover migration, separate publish artifacts, database backups, concurrent
+updates, and rollback after build, startup, or HTTP failures. They do not change
+your installed service or live database.
+
 Games have an optional `ReleaseYear` and an `IncludedTitles` array of objects:
 
 ```json

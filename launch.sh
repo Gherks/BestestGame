@@ -5,6 +5,7 @@ root_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 project="$root_dir/BestestGame/BestestGame.csproj"
 url="http://localhost:5231"
 server_pid=""
+service_mode=false
 
 fail() {
     printf '\n%s\n' "$1" >&2
@@ -44,21 +45,30 @@ for dependency in dotnet curl flock; do
 done
 
 cd "$root_dir"
-mkdir -p "$root_dir/BestestGame/obj"
-exec 9>"$root_dir/BestestGame/obj/launcher.lock"
-if flock -n 9; then
-    printf 'Building BestestGame...\n'
-    dotnet build "$project" || fail "Build failed. Check the output above; this app requires the .NET 10 SDK."
-    printf 'Starting BestestGame at %s\n' "$url"
-    ASPNETCORE_ENVIRONMENT=Development dotnet run --project "$project" \
-        --no-build --no-launch-profile --urls "$url" 9>&- &
-    server_pid=$!
+if [[ -f "$root_dir/.runtime/live/current/BestestGame.dll" ]]; then
+    command -v systemctl >/dev/null || fail 'Required command missing: systemctl'
+    systemctl --user start bestestgame.service || fail 'Could not start the live service. Check: journalctl --user -u bestestgame.service'
+    service_mode=true
 else
-    printf 'BestestGame is already starting or running.\n'
+    mkdir -p "$root_dir/BestestGame/obj"
+    exec 9>"$root_dir/BestestGame/obj/launcher.lock"
+    if flock -n 9; then
+        printf 'Building BestestGame...\n'
+        dotnet build "$project" || fail "Build failed. Check the output above; this app requires the .NET 10 SDK."
+        printf 'Starting BestestGame at %s\n' "$url"
+        ASPNETCORE_ENVIRONMENT=Development dotnet run --project "$project" \
+            --no-build --no-launch-profile --urls "$url" 9>&- &
+        server_pid=$!
+    else
+        printf 'BestestGame is already starting or running.\n'
+    fi
 fi
 
 ready=false
 for ((attempt = 0; attempt < 120; attempt++)); do
+    if [[ "$service_mode" == true ]] && ! systemctl --user is-active --quiet bestestgame.service; then
+        fail 'The live service stopped. Check: journalctl --user -u bestestgame.service'
+    fi
     if [[ -n "$server_pid" ]] && ! kill -0 "$server_pid" 2>/dev/null; then
         fail "BestestGame stopped during startup. Check the output above."
     fi

@@ -15,7 +15,9 @@ public class GameService
         var configuredPath = configuration["DatabasePath"];
         _dbPath = string.IsNullOrWhiteSpace(configuredPath)
             ? Path.Combine(env.ContentRootPath, "data.json")
-            : Path.GetFullPath(configuredPath);
+            : Path.IsPathRooted(configuredPath)
+                ? Path.GetFullPath(configuredPath)
+                : Path.GetFullPath(configuredPath, env.ContentRootPath);
     }
 
     private GameDatabase Load()
@@ -30,6 +32,7 @@ public class GameService
     private void Save(GameDatabase db)
     {
         var json = JsonSerializer.Serialize(db, new JsonSerializerOptions { WriteIndented = true });
+        Directory.CreateDirectory(Path.GetDirectoryName(_dbPath)!);
         File.WriteAllText(_dbPath, json);
     }
 
