@@ -15,6 +15,8 @@ export function connect(root) {
         }
         if (event.repeat || event.isComposing || event.ctrlKey || event.altKey || event.metaKey ||
             root.dataset.shortcutsEnabled !== "true" ||
+            [...document.querySelectorAll('dialog[open], [role="dialog"][aria-modal="true"]')]
+                .some(dialog => dialog.getClientRects().length > 0) ||
             event.target.closest?.("input, textarea, select, [contenteditable]")) return;
 
         const action = shortcuts[event.key.toLowerCase()];

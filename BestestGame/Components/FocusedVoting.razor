@@ -6,119 +6,120 @@
 @inject IJSRuntime JS
 
 @{ var presentation = _presentation; var current = _session.Current(_useGroups); }
-<div class="focused-voting mt-5" @ref="_root" data-presentation="@presentation"
+<div class="focused-voting stack" @ref="_root" data-presentation="@presentation" data-motion-arena
+     data-vote-revision="@_voteRevision" data-settled-choice="@_settledChoice"
      data-shortcuts-enabled="@(ShortcutsEnabled && _ready && !_busy ? "true" : "false")">
     @if (_game is null)
     {
-        <p class="rounded-xl border border-amber-400/40 bg-amber-500/10 p-4 text-amber-100" role="status">
-            This entry is no longer available in the selected tournament. Choose another entry or return to all duels.
-        </p>
+        <p class="status status--warning" role="status">This entry is no longer available in the selected tournament. Choose another entry or return to all matchups.</p>
     }
     else
     {
-        <div class="flex flex-wrap items-center justify-between gap-3">
-            <div>
-                <h2 class="font-display text-2xl text-green-200">⚡ Finish matchups for @FormatTitle(_game)</h2>
-                <p class="mt-1 text-sm text-slate-300">Keep your entry on the left. Resolve an entire group, or split a mixed group into smaller choices.</p>
+        <div class="focused-header">
+            <div class="stack">
+                <h2>Finish matchups for @FormatTitle(_game)</h2>
+                <p class="helper-text">Your entry stays on the left. Resolve an entire group, or split a mixed group into smaller choices.</p>
             </div>
-            <label class="flex items-center gap-2 rounded-xl border border-cyan-400/30 bg-cyan-500/10 px-3 py-2 text-sm font-bold text-cyan-100">
+            <label class="checkbox-field adaptive-toggle">
                 <input type="checkbox" checked="@_useGroups" disabled="@(!_ready || _busy)" @onchange="ToggleGroups" />
                 Adaptive groups
             </label>
         </div>
 
-        <div class="mt-4" aria-live="polite" aria-atomic="true">
-            <div class="flex flex-wrap justify-between gap-2 text-sm text-slate-200">
+        <div class="focused-progress stack" aria-live="polite" aria-atomic="true">
+            <div class="cluster text-secondary">
                 <span><strong>@_completedCount / @_totalCount</strong> matchups finished for this entry</span>
                 <span><strong>@_session.RemainingCount</strong> available to vote@(_blockedCount > 0 ? $" · {_blockedCount} arena-banned" : "")</span>
             </div>
-            <progress class="focused-progress mt-2" value="@_completedCount" max="@Math.Max(1, _totalCount)"
-                      aria-label="Completed matchups for this entry"></progress>
+            <progress class="progress-bar" value="@_completedCount" max="@Math.Max(1, _totalCount)" aria-label="Completed matchups for this entry"></progress>
         </div>
 
         @if (current.Length == 0)
         {
-            <div class="mt-5 rounded-2xl border-2 border-green-400/40 bg-green-500/10 p-6 text-center" role="status">
+            <div class="status @(_blockedCount > 0 ? "status--warning" : "status--success") stack" role="status" data-motion-result>
                 @if (_blockedCount > 0)
                 {
-                    <p class="font-display text-2xl text-amber-100">Only arena-banned matchups remain</p>
-                    <p class="mt-2 text-sm text-slate-200">Uncheck the banned titles in the standings to finish this entry.</p>
+                    <h3>Only arena-banned matchups remain</h3>
+                    <p>Uncheck the banned titles in the standings to finish this entry.</p>
                 }
                 else
                 {
-                    <p class="font-display text-3xl text-green-100">🎉 This entry is finished!</p>
-                    <p class="mt-2 text-sm text-slate-200">All of its matchups are saved. Add another entry or choose a different one above.</p>
+                    <h3>This entry is finished</h3>
+                    <p>All of its matchups are saved. Add another entry or choose a different one above.</p>
                 }
             </div>
         }
         else
         {
-            <div class="mt-5 grid gap-4 md:grid-cols-[1fr_2fr]">
-                <div class="rounded-2xl border-2 border-fuchsia-400/50 bg-fuchsia-950/40 p-5">
-                    <p class="text-xs font-black uppercase tracking-widest text-fuchsia-200">Your entry</p>
-                    <p class="mt-3 font-display text-3xl text-white">@FormatTitle(_game)</p>
-                    @if (_game.IncludedTitles is { Count: > 0 })
-                    {
-                        <p class="mt-2 text-sm text-slate-300">@IncludedTitles(_game)</p>
-                    }
-                </div>
-                <div class="rounded-2xl border-2 border-cyan-400/40 bg-slate-950/60 p-5">
-                    <p class="text-xs font-black uppercase tracking-widest text-cyan-200">
-                        @(current.Length == 1 ? "Opponent" : $"All {current.Length} opponents")
-                    </p>
-                    <ul class="mt-3 grid gap-2 sm:grid-cols-2">
-                        @foreach (var duelId in current)
+            <div class="stack" data-motion-round>
+                <div class="focused-panels @(current.Length == 1 ? "focused-panels--single" : "")">
+                    <section class="surface surface--well stack" aria-label="Your entry">
+                        <p class="eyebrow">Your entry</p>
+                        <h3>@FormatTitle(_game)</h3>
+                        @if (_game.IncludedTitles is { Count: > 0 })
                         {
-                            var opponent = Opponent(_duels[duelId]);
-                            <li @key="duelId" class="rounded-xl border border-slate-500/40 bg-white/5 px-3 py-2">
-                                <span class="block font-bold text-slate-100">@FormatTitle(opponent)</span>
-                                @if (opponent.IncludedTitles is { Count: > 0 })
-                                {
-                                    <span class="mt-1 block text-xs text-slate-300">@IncludedTitles(opponent)</span>
-                                }
-                            </li>
+                            <p class="helper-text">@IncludedTitles(_game)</p>
                         }
-                    </ul>
+                    </section>
+                    <section class="surface surface--well stack" aria-label="Opponents">
+                        <p class="eyebrow">@(current.Length == 1 ? "Opponent" : $"All {current.Length} opponents")</p>
+                        <ul class="opponent-list @(current.Length == 1 ? "opponent-list--single" : "")">
+                            @foreach (var duelId in current)
+                            {
+                                var opponent = Opponent(_duels[duelId]);
+                                <li @key="duelId" class="opponent-item stack">
+                                    <span class="opponent-title">@FormatTitle(opponent)</span>
+                                    @if (opponent.IncludedTitles is { Count: > 0 })
+                                    {
+                                        <span class="helper-text">@IncludedTitles(opponent)</span>
+                                    }
+                                </li>
+                            }
+                        </ul>
+                    </section>
                 </div>
+                <div class="focused-actions">
+                    <button type="button" class="tactile tactile--large tactile--secondary"
+                            disabled="@(!_ready || _busy)" data-motion-choice="left" data-action="win" aria-keyshortcuts="1 ArrowLeft" @onclick="() => Vote(presentation, true)">
+                        <span @key="presentation" class="tactile__face">
+                            <span class="choice-title">@FormatTitle(_game) @(current.Length == 1 ? "wins" : $"beats all {current.Length}")</span>
+                            <span class="choice-help">1 or ← · Saves @current.Length @(current.Length == 1 ? "result" : "results")</span>
+                        </span>
+                    </button>
+                    <button type="button" class="tactile tactile--large tactile--secondary"
+                            disabled="@(!_ready || _busy)" data-motion-choice="right" data-action="lose" aria-keyshortcuts="2 ArrowRight" @onclick="() => Vote(presentation, false)">
+                        <span @key="presentation" class="tactile__face">
+                            <span class="choice-title">@(current.Length == 1 ? $"{FormatTitle(Opponent(_duels[current[0]]))} wins" : $"All {current.Length} opponents beat {FormatTitle(_game)}")</span>
+                            <span class="choice-help">2 or → · Saves @current.Length @(current.Length == 1 ? "result" : "results")</span>
+                        </span>
+                    </button>
+                </div>
+                @if (current.Length > 1)
+                {
+                    <button type="button" class="tactile tactile--standard tactile--secondary split-action"
+                            disabled="@(!_ready || _busy)" data-action="split" aria-keyshortcuts="M" @onclick="() => Split(presentation)">
+                        <span @key="presentation" class="tactile__face">
+                            <span>Mixed or unsure? Split this group</span>
+                            <span class="choice-help">M · Groups of @((current.Length + 1) / 2) and @(current.Length / 2). No results saved.</span>
+                        </span>
+                    </button>
+                }
             </div>
-
-            <div class="mt-4 grid gap-3 sm:grid-cols-2">
-                <button type="button" class="focused-choice border-fuchsia-400/60 bg-fuchsia-600/30 text-fuchsia-100"
-                        disabled="@(!_ready || _busy)" data-action="win" aria-keyshortcuts="1 ArrowLeft"
-                        @onclick="() => Vote(presentation, true)">
-                    @(_game.Title) @(current.Length == 1 ? "wins" : $"beats all {current.Length}")
-                    <span class="mt-1 block text-xs font-normal">1 or ← · Saves @current.Length @(current.Length == 1 ? "result" : "results")</span>
-                </button>
-                <button type="button" class="focused-choice border-cyan-400/60 bg-cyan-600/30 text-cyan-100"
-                        disabled="@(!_ready || _busy)" data-action="lose" aria-keyshortcuts="2 ArrowRight"
-                        @onclick="() => Vote(presentation, false)">
-                    @(current.Length == 1 ? $"{Opponent(_duels[current[0]]).Title} wins" : $"All {current.Length} opponents beat {_game.Title}")
-                    <span class="mt-1 block text-xs font-normal">2 or → · Saves @current.Length @(current.Length == 1 ? "result" : "results")</span>
-                </button>
-            </div>
-            @if (current.Length > 1)
-            {
-                <button type="button" class="focused-choice mt-3 w-full border-amber-400/50 bg-amber-500/10 text-amber-100"
-                        disabled="@(!_ready || _busy)" data-action="split" aria-keyshortcuts="M"
-                        @onclick="() => Split(presentation)">
-                    Mixed or unsure? Split this group
-                    <span class="mt-1 block text-xs font-normal">M · Smaller groups of @((current.Length + 1) / 2) and @(current.Length / 2). No results saved.</span>
-                </button>
-            }
         }
-
-        <div class="mt-4 flex flex-wrap items-center gap-3">
-            <button type="button" class="rounded-xl border border-yellow-400/50 bg-yellow-500/10 px-4 py-2 text-sm font-bold text-yellow-100 disabled:opacity-40"
-                    disabled="@(!_ready || _busy || _history.Count == 0)" data-action="undo" aria-keyshortcuts="U"
-                    @onclick="() => Undo(presentation)">⏪ Undo last action <span class="text-xs">(U)</span></button>
-            <button type="button" class="rounded-xl border border-slate-400/50 bg-white/5 px-4 py-2 text-sm font-bold text-slate-100 disabled:opacity-40"
-                    disabled="@(!_ready || _busy || current.Length == 0)" data-action="skip" aria-keyshortcuts="S"
-                    @onclick="() => Skip(presentation)">Skip for now <span class="text-xs">(S)</span></button>
-            <span class="text-xs text-slate-400">Votes save immediately. Turn off Adaptive groups for rapid 1v1 voting.</span>
+        <div class="cluster">
+            <button type="button" class="tactile tactile--compact tactile--secondary"
+                    disabled="@(!_ready || _busy || _history.Count == 0)" data-action="undo" aria-keyshortcuts="U" @onclick="() => Undo(presentation)">
+                <span @key="presentation" class="tactile__face">Undo last action <span class="shortcut-label">(U)</span></span>
+            </button>
+            <button type="button" class="tactile tactile--compact tactile--secondary"
+                    disabled="@(!_ready || _busy || current.Length == 0)" data-action="skip" aria-keyshortcuts="S" @onclick="() => Skip(presentation)">
+                <span @key="presentation" class="tactile__face">Skip for now <span class="shortcut-label">(S)</span></span>
+            </button>
         </div>
+        <p class="helper-text">Votes save immediately. Turn off Adaptive groups for rapid 1v1 voting.</p>
         @if (!string.IsNullOrEmpty(_notice))
         {
-            <p class="mt-3 text-sm text-slate-200" role="status">@_notice</p>
+            <p class="status" role="status">@_notice</p>
         }
     }
 </div>
@@ -146,6 +147,8 @@
     private int _totalCount;
     private int _blockedCount;
     private string _notice = "";
+    private long _voteRevision;
+    private string _settledChoice = string.Empty;
     private ElementReference _root;
     private IJSObjectReference? _module;
     private string StorageKey => $"bestestgame:focused:{TournamentId}:{GameId}";
@@ -233,6 +236,11 @@
         }
         Refresh();
         await OnResultsChanged.InvokeAsync();
+        if (recorded.Length > 0)
+        {
+            _settledChoice = entryWins ? "left" : "right";
+            _voteRevision++;
+        }
     });
 
     private Task Split(Guid presentation) => Perform(presentation, () =>
@@ -270,7 +278,7 @@
         _history.Pop();
         _session.Restore(action.Groups);
         Refresh();
-        _notice = action.Results.Length > 0 ? $"Undid all {action.Results.Length} results from that vote." : "Undid the last queue change.";
+        _notice = action.Results.Length > 0 ? $"Undid {action.Results.Length} {(action.Results.Length == 1 ? "result" : "results")} from that vote." : "Undid the last queue change.";
         await OnResultsChanged.InvokeAsync();
     });
 

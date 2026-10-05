@@ -1,0 +1,20 @@
+.import-page :is(h1, #manage-heading):focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+.import-page { gap: var(--space-6); }
+.import-page .page-heading { margin-bottom: 0; }
+#gameTitles { min-height: 12rem; }
+.entry-fields { display: grid; grid-template-columns: minmax(0, 1fr) minmax(10rem, 15rem); gap: var(--space-4); }
+.included-titles { min-width: 0; margin: 0; padding: 0; border: 0; }
+.included-titles legend { margin-bottom: var(--space-3); font-weight: 600; }
+.included-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(10rem, 15rem) auto; align-items: end; gap: var(--space-3); }
+.game-list { margin: 0; padding: 0; list-style: none; }
+.game-row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-4); }
+.game-details { flex: 1 1 18rem; min-width: 0; overflow-wrap: anywhere; }
+.included-summary { margin: var(--space-2) 0 0; padding-left: var(--space-6); font-size: .875rem; list-style: disc; }
+.removal-dialog { width: calc(100% - 2rem); margin: auto; overflow-wrap: anywhere; }
+@media (max-width: 1000px) {
+    .included-row { grid-template-columns: minmax(0, 1fr); justify-items: start; }
+    .included-row .field { width: 100%; }
+}
+@media (max-width: 640px) {
+    .entry-fields { grid-template-columns: minmax(0, 1fr); }
+}

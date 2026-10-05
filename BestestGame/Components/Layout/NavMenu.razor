@@ -1,70 +1,24 @@
-﻿<div class="p-5">
-    <a class="group relative inline-flex w-full items-center justify-center rounded-2xl border-2 border-fuchsia-400/50 bg-gradient-to-r from-fuchsia-600 via-green-500 to-orange-500 bg-[length:300%_100%] px-4 py-3 font-display text-xl font-black tracking-wider text-white shadow-mlg transition hover:animate-sheen"
-       href="">
-        <span class="mr-2 animate-floaty text-2xl">🐕</span>
-        <span class="rainbow-text">BestestGame</span>
-        <span class="ml-2 animate-skull text-2xl">💀</span>
+@inject NavigationManager Navigation
+
+<div class="nav-menu">
+    <a class="brand" href="" aria-label="BestestGame home">
+        <span class="brand-mark" aria-hidden="true">B</span>
+        <span>BestestGame</span>
     </a>
-    <p class="mt-2 text-center text-[10px] font-bold uppercase tracking-widest text-fuchsia-300/60">
-        *tips fedora* 🎩 M'Game
-    </p>
+
+    <nav class="navigation" aria-label="Main navigation">
+        <NavLink class="nav-link" href="" Match="NavLinkMatch.All" aria-current="@CurrentPage("")">Home</NavLink>
+        <NavLink class="nav-link" href="tournaments" aria-current="@CurrentPage("tournaments")">Tournaments</NavLink>
+        <NavLink class="nav-link" href="vote" aria-current="@CurrentPage("vote")">Voting</NavLink>
+        <NavLink class="nav-link" href="import" aria-current="@CurrentPage("import")">Import games</NavLink>
+        <NavLink class="nav-link" href="goty" aria-current="@CurrentPage("goty")">Game of the year</NavLink>
+    </nav>
 </div>
 
-<nav class="space-y-2 px-3 pb-6">
-    <NavLink class="group block rounded-xl border-2 border-transparent px-4 py-3 font-bold text-slate-200 transition hover:-translate-y-1 hover:border-fuchsia-400/40 hover:bg-fuchsia-500/20 hover:text-white hover:shadow-neon"
-             ActiveClass="border-fuchsia-400/50 bg-gradient-to-r from-fuchsia-500/30 via-green-500/20 to-orange-500/20 text-white shadow-mlg animate-pulse-glow"
-             href="" Match="NavLinkMatch.All">
-        <span class="mr-2 inline-block group-hover:animate-wiggle">🏠</span>
-        Home Base
-        <span class="ml-1 text-[10px] text-fuchsia-300/50">(much wow)</span>
-    </NavLink>
-
-    <NavLink class="group block rounded-xl border-2 border-transparent px-4 py-3 font-bold text-slate-200 transition hover:-translate-y-1 hover:border-yellow-400/40 hover:bg-yellow-500/20 hover:text-white hover:shadow-neon"
-             ActiveClass="border-yellow-400/50 bg-gradient-to-r from-yellow-500/30 via-fuchsia-500/20 to-orange-500/20 text-white shadow-mlg animate-pulse-glow"
-             href="tournaments">
-        <span class="mr-2 inline-block group-hover:animate-wiggle">🏟️</span>
-        Tournaments
-        <span class="ml-1 text-[10px] text-yellow-300/50">(pick your arena)</span>
-    </NavLink>
-
-    <NavLink class="group block rounded-xl border-2 border-transparent px-4 py-3 font-bold text-slate-200 transition hover:-translate-y-1 hover:border-green-400/40 hover:bg-green-500/20 hover:text-white hover:shadow-neon"
-             ActiveClass="border-green-400/50 bg-gradient-to-r from-green-500/30 via-fuchsia-500/20 to-orange-500/20 text-white shadow-mlg animate-pulse-glow"
-             href="vote">
-        <span class="mr-2 inline-block group-hover:animate-wiggle">⚔️</span>
-        1v1 Me Bro
-        <span class="ml-1 text-[10px] text-green-300/50">(no items fox only)</span>
-    </NavLink>
-
-    <NavLink class="group block rounded-xl border-2 border-transparent px-4 py-3 font-bold text-slate-200 transition hover:-translate-y-1 hover:border-orange-400/40 hover:bg-orange-500/20 hover:text-white hover:shadow-neon"
-             ActiveClass="border-orange-400/50 bg-gradient-to-r from-orange-500/30 via-fuchsia-500/20 to-green-500/20 text-white shadow-mlg animate-pulse-glow"
-             href="import">
-        <span class="mr-2 inline-block group-hover:animate-wiggle">📥</span>
-        Yeet Games In
-        <span class="ml-1 text-[10px] text-orange-300/50">(SEND IT)</span>
-    </NavLink>
-
-    <NavLink class="group block rounded-xl border-2 border-transparent px-4 py-3 font-bold text-slate-200 transition hover:-translate-y-1 hover:border-yellow-400/40 hover:bg-yellow-500/20 hover:text-white hover:shadow-neon"
-             ActiveClass="border-yellow-400/50 bg-gradient-to-r from-yellow-500/30 via-fuchsia-500/20 to-purple-500/20 text-white shadow-mlg"
-             href="goty">
-        <span class="mr-2 inline-block group-hover:animate-wiggle">🛸</span>
-        GOTY Time Machine
-        <span class="ml-1 text-[10px] text-yellow-300/50">(year yeeter)</span>
-    </NavLink>
-
-    <!-- bonus decorative meme section -->
-    <div class="mt-6 rounded-xl border border-dashed border-fuchsia-500/30 bg-fuchsia-900/20 p-3 text-center">
-        <p class="text-lg animate-floaty">🗿</p>
-        <p class="text-[10px] font-bold uppercase tracking-widest text-fuchsia-300/50 mt-1">
-            "I used to be a gamer like you, then I took an arrow to the knee"
-        </p>
-    </div>
-
-    <div class="mt-3 rounded-xl border border-dashed border-green-500/30 bg-green-900/20 p-3 text-center">
-        <p class="text-xs font-bold text-green-300/60">
-            <span class="animate-skull inline-block">📈</span>
-            STONKS STATUS:
-            <span class="text-green-400 animate-rainbow">RISING</span>
-        </p>
-    </div>
-</nav>
-
+@code {
+    private string? CurrentPage(string path)
+    {
+        var currentPath = Navigation.ToBaseRelativePath(Navigation.Uri).Split('?', '#')[0].Trim('/');
+        return string.Equals(currentPath, path, StringComparison.OrdinalIgnoreCase) ? "page" : null;
+    }
+}

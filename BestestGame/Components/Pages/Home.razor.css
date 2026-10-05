@@ -1,0 +1,15 @@
+.home-page h1:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+.home-page { gap: var(--space-8); }
+.home-introduction { padding: clamp(1.5rem, 4vw, 3rem); }
+.home-introduction .page-heading { margin-bottom: 0; }
+.getting-started {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: var(--space-4);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+@media (max-width: 1000px) {
+    .getting-started { grid-template-columns: minmax(0, 1fr); }
+}

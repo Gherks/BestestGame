@@ -1,29 +1,26 @@
-.focused-choice {
-    border-width: 2px;
-    border-radius: 1rem;
-    padding: 1rem 1.25rem;
-    font-weight: 700;
-    overflow-wrap: anywhere;
-    transition: background-color 100ms ease;
+.focused-voting { margin-top: var(--space-2); gap: var(--space-4); }
+.focused-voting :is(h2, h3) { font-weight: 600; line-height: 1.3; overflow-wrap: anywhere; }
+.focused-voting h2 { font-size: 1.5rem; }
+.focused-voting h3 { font-size: 1.125rem; }
+.focused-header { display: flex; flex-wrap: wrap; align-items: start; justify-content: space-between; gap: var(--space-4); }
+.focused-header > .stack { flex: 1 1 24rem; min-width: 0; gap: var(--space-2); }
+.adaptive-toggle { flex-shrink: 0; font-size: .9375rem; }
+.focused-progress { gap: var(--space-2); font-size: .875rem; }
+.focused-panels { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 2fr); gap: var(--space-4); }
+.focused-panels--single { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.opponent-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-2); margin: 0; padding: 0; list-style: none; }
+.opponent-list--single { grid-template-columns: minmax(0, 1fr); }
+.opponent-item { min-width: 0; gap: var(--space-1); padding: var(--space-3); border: 1px solid var(--border); border-radius: var(--radius-control); background: var(--panel); overflow-wrap: anywhere; }
+.opponent-title { font-size: .9375rem; font-weight: 600; }
+.focused-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-4); }
+.focused-actions > .tactile { width: 100%; }
+.choice-title { font-size: 1.125rem; font-weight: 600; line-height: 1.4; }
+.choice-help, .shortcut-label { font-size: .8125rem; font-weight: 400; line-height: 1.5; }
+.split-action { width: 100%; }
+.split-action > .tactile__face { flex-direction: column; align-items: start; text-align: left; gap: var(--space-2); }
+@media (max-width: 900px) {
+    .focused-panels, .focused-actions { grid-template-columns: minmax(0, 1fr); }
 }
-
-.focused-choice:hover:not(:disabled) {
-    background-color: rgb(255 255 255 / 16%);
-}
-
-.focused-choice:focus-visible {
-    outline: 3px solid #facc15;
-    outline-offset: 3px;
-}
-
-.focused-choice:disabled {
-    opacity: 0.4;
-    cursor: wait;
-}
-
-.focused-progress {
-    display: block;
-    width: 100%;
-    height: 0.65rem;
-    accent-color: #4ade80;
+@media (max-width: 640px) {
+    .opponent-list { grid-template-columns: minmax(0, 1fr); }
 }
