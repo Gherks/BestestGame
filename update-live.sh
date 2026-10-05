@@ -2,10 +2,27 @@
 set -euo pipefail
 
 if [[ ${1:-} == --help || ${1:-} == -h ]]; then
-    printf 'Usage: ./update-live.sh\n\nCheck, publish, and restart the live BestestGame service on port 5231.\n'
+    printf 'Usage: ./update-live.sh [--wait]\n\nPublish to the sibling BestestGameLive folder and restart the live service.\n--wait keeps a desktop terminal open for feedback.\n'
     exit 0
 fi
-[[ $# -eq 0 ]] || { printf 'Usage: ./update-live.sh\n' >&2; exit 1; }
+pause_on_exit=false
+if [[ $# -eq 1 && $1 == --wait ]]; then
+    pause_on_exit=true
+elif [[ $# -ne 0 ]]; then
+    printf 'Usage: ./update-live.sh [--wait]\n' >&2
+    exit 1
+fi
+pause_terminal() {
+    if [[ "$pause_on_exit" == true && -t 0 ]]; then
+        read -r -p 'Press Enter to close...' || true
+    fi
+}
+finish_early() {
+    local result=$?
+    pause_terminal
+    exit "$result"
+}
+trap finish_early EXIT
 
 fail() { printf 'Error: %s\n' "$1" >&2; exit 1; }
 [[ $EUID -ne 0 ]] || fail 'Run this script as your normal user, without sudo.'
@@ -15,10 +32,12 @@ done
 systemctl --user show-environment >/dev/null 2>&1 ||
     fail 'Cannot connect to your systemd user session. Run this after signing in.'
 
-root_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+root_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
 [[ "$root_dir" != *$'\n'* && "$root_dir" != *$'\r'* ]] || fail 'The checkout path cannot contain line breaks.'
 project_dir="$root_dir/BestestGame"
-runtime_dir="$root_dir/.runtime/live"
+runtime_dir="$(dirname -- "$root_dir")/BestestGameLive"
+[[ ! -L "$runtime_dir" ]] || fail 'BestestGameLive must be a separate folder, not a symlink.'
+live_database="$runtime_dir/data/data.json"
 service_name='bestestgame.service'
 config_dir="${XDG_CONFIG_HOME:-$HOME/.config}"
 [[ "$config_dir" == /* ]] || fail 'XDG_CONFIG_HOME must be an absolute path.'
@@ -31,24 +50,27 @@ if [[ -f "$launcher_lock" ]] && ! flock -n "$launcher_lock" true &&
     fail 'Close the terminal running the manual launcher, then run this script again.'
 fi
 
-# Keep the existing live database at its configured location, independent of releases.
-live_database="$(python3 - "$project_dir" <<'PY'
+# The old database is used only to seed the separate live folder on first deployment.
+legacy_database="$(python3 - "$project_dir" <<'PY'
 import json
 from pathlib import Path
 import sys
 project = Path(sys.argv[1])
-value = json.loads((project / 'appsettings.json').read_text()).get('DatabasePath')
+value = json.loads((project / 'appsettings.json').read_text(encoding='utf-8-sig')).get('DatabasePath')
 if not isinstance(value, str) or not value.strip():
     value = 'data.json'
 print((project / value).resolve())
 PY
 )"
 
-mkdir -p -- "$runtime_dir/releases" "$runtime_dir/backups" "$unit_dir"
+mkdir -p -- "$runtime_dir/releases" "$runtime_dir/backups" "$runtime_dir/data" "$unit_dir"
 exec 9>"$runtime_dir/update.lock"
 flock -n 9 || fail 'Another live update is already running.'
 [[ ! -e "$runtime_dir/current" || -L "$runtime_dir/current" ]] ||
     fail 'The live current path must be a symlink, not a directory.'
+[[ ! -L "$live_database" ]] || fail 'The live database must be a separate file, not a symlink.'
+[[ ! -L "$runtime_dir/current" || -f "$live_database" ]] ||
+    fail 'The deployed live database is missing. Restore it before deploying again.'
 
 build_dir="$(mktemp -d "$runtime_dir/build.XXXXXXXX")"
 release_dir=''
@@ -58,6 +80,7 @@ previous_running=false
 previous_enabled=false
 changed=false
 success=false
+database_created=false
 
 switch_release() {
     rm -f -- "$runtime_dir/current.next"
@@ -74,6 +97,9 @@ cleanup() {
         printf 'Update failed; restoring the previous service and release...\n' >&2
         local restored=true
         systemctl --user stop "$service_name" || restored=false
+        if [[ "$database_created" == true && -f "$live_database" ]]; then
+            mv -- "$live_database" "$runtime_dir/backups/failed-migration-$release_id.json" || restored=false
+        fi
         if [[ -n "$previous_release" ]]; then
             switch_release "$previous_release" || restored=false
         else
@@ -97,10 +123,15 @@ cleanup() {
             printf 'Rollback needs attention. Check: systemctl --user status %s\n' "$service_name" >&2
         fi
     fi
-    rm -rf -- "$build_dir"
+    if [[ ${restored:-true} == true ]]; then
+        rm -rf -- "$build_dir"
+    else
+        printf 'Recovery files preserved at %s\n' "$build_dir" >&2
+    fi
     if [[ "$success" != true && "$changed" != true && -n "$release_dir" ]]; then
         rm -rf -- "$release_dir"
     fi
+    pause_terminal
     exit "$result"
 }
 trap cleanup EXIT
@@ -118,6 +149,16 @@ dotnet publish "$project_dir/BestestGame.csproj" --configuration Release \
     --disable-build-servers 9>&-
 [[ -f "$release_dir/BestestGame.dll" ]] || fail 'Publish did not produce BestestGame.dll.'
 release_id="$(basename -- "$release_dir")"
+python3 - "$release_dir/appsettings.json" "$live_database" "$release_id" <<'PY'
+import json
+from pathlib import Path
+import sys
+settings_path = Path(sys.argv[1])
+settings = json.loads(settings_path.read_text(encoding='utf-8-sig'))
+settings['DatabasePath'] = sys.argv[2]
+settings['DeploymentId'] = sys.argv[3]
+settings_path.write_text(json.dumps(settings, indent=2) + '\n')
+PY
 
 unit_quote() {
     local value="$1"
@@ -170,6 +211,34 @@ if [[ -f "$live_database" ]]; then
     backup_path="$runtime_dir/backups/data-$release_id.json"
     cp -p -- "$live_database" "$backup_path"
     printf 'Saved live database backup: %s\n' "$backup_path"
+else
+    if [[ -f "$legacy_database" ]]; then
+        cp -p -- "$legacy_database" "$runtime_dir/backups/data-$release_id.json"
+    fi
+    database_created=true
+    python3 - "$legacy_database" "$live_database" <<'PY'
+import json
+import os
+from pathlib import Path
+import sys
+import tempfile
+source, destination = map(Path, sys.argv[1:])
+snapshot = source.read_bytes() if source.is_file() else b'{"Tournaments": [], "CurrentTournamentId": null}\n'
+if not isinstance(json.loads(snapshot), dict):
+    raise ValueError('The live database must contain a JSON object.')
+temporary_path = None
+try:
+    with tempfile.NamedTemporaryFile(dir=destination.parent, prefix='.migration-', delete=False) as output:
+        temporary_path = Path(output.name)
+        output.write(snapshot)
+        output.flush()
+        os.fsync(output.fileno())
+    os.replace(temporary_path, destination)
+finally:
+    if temporary_path is not None:
+        temporary_path.unlink(missing_ok=True)
+PY
+    printf 'Initialized the independent live database at %s\n' "$live_database"
 fi
 switch_release "$release_dir"
 cp -- "$build_dir/$service_name" "$unit_path.next"

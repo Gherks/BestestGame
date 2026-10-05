@@ -4,7 +4,6 @@
 @using BestestGame.Services
 @inject GameService GameService
 @inject NavigationManager Navigation
-@inject NavigationManager Navigation
 
 <PageTitle>1v1 Me Bro | MLG Vote Arena 🎺</PageTitle>
 
@@ -23,7 +22,7 @@
 }
 else
 {
-<section class="relative overflow-hidden rounded-3xl border-2 border-fuchsia-400/30 bg-white/10 p-6 shadow-2xl shadow-fuchsia-900/50 backdrop-blur-xl md:p-8 animate-fade-in-up">
+<section class="relative overflow-hidden rounded-3xl border-2 border-fuchsia-400/30 bg-white/10 p-6 shadow-2xl shadow-fuchsia-900/50 backdrop-blur-xl md:p-8 @(FocusEntry is null ? "animate-fade-in-up" : "")">
     <div class="pointer-events-none absolute -top-12 right-6 h-48 w-48 rounded-full bg-fuchsia-400/30 blur-3xl animate-pulse"></div>
     <div class="pointer-events-none absolute -bottom-8 left-10 h-36 w-36 rounded-full bg-green-400/25 blur-3xl animate-pulse" style="animation-delay: 0.7s;"></div>
 
@@ -38,6 +37,31 @@ else
     </div>
     <p class="text-xs text-fuchsia-300/60 font-bold mt-1">Final Destination • No Items • Fox Only • Best Game Wins</p>
 
+    @if (_games.Count > 0)
+    {
+        <div class="mt-5 flex flex-wrap items-center gap-3 rounded-2xl border border-cyan-400/30 bg-black/25 p-4">
+            <label for="focusEntry" class="text-sm font-bold text-cyan-100">⚡ Focus on entry</label>
+            <select id="focusEntry" value="@FocusEntry" @onchange="ChangeFocusedEntry"
+                    class="max-w-full rounded-xl border border-cyan-400/40 bg-slate-950 px-3 py-2 text-sm text-slate-100">
+                <option value="">All duels</option>
+                @foreach (var entry in _games.OrderByDescending(game => _pendingPerGame.GetValueOrDefault(game.Id)).ThenBy(game => game.Title))
+                {
+                    <option value="@entry.Id">@entry.Title · @_pendingPerGame.GetValueOrDefault(entry.Id) remaining</option>
+                }
+            </select>
+            <a href="/import" class="text-sm font-bold text-fuchsia-200">Add another entry →</a>
+        </div>
+    }
+
+    @if (FocusEntry is { } focusedId)
+    {
+        <FocusedVoting @key="(_currentTournament.Id, focusedId)" TournamentId="_currentTournament.Id" GameId="focusedId"
+                       BannedGameIds="_arenaBannedGameIds"
+                       ShortcutsEnabled="@(!_showBeatenByDialog && !_showWinsOverDialog && !_showPendingMatchesDialog)"
+                       OnResultsChanged="RefreshStandings" />
+    }
+    else
+    {
     @if (_currentDuel == null)
     {
         @if (_onlyArenaBanMatchesRemain)
@@ -128,6 +152,7 @@ else
         </div>
 
             }
+    }
 
             <div class="mt-4 flex flex-wrap items-center gap-4 text-sm">
                 <div class="rounded-xl border border-fuchsia-500/30 bg-fuchsia-500/10 px-4 py-2">
@@ -136,7 +161,7 @@ else
                 </div>
                 <div class="rounded-xl border border-green-500/30 bg-green-500/10 px-4 py-2">
                     <span class="text-green-300/70 text-xs font-black uppercase tracking-widest">Completed</span>
-                        <span class="ml-2 font-display text-lg font-black text-green-200">@_completedCount / @_totalCount (@((_completedCount * 100) / _totalCount)%)</span>
+                        <span class="ml-2 font-display text-lg font-black text-green-200">@_completedCount / @_totalCount (@((_completedCount * 100) / Math.Max(1, _totalCount))%)</span>
                 </div>
                 @if (_arenaBannedGameIds.Count > 0)
                 {
@@ -250,6 +275,10 @@ else
                                     @if (!string.IsNullOrWhiteSpace(titleDisplay.Subtitle))
                                     {
                                         <span class="mt-1 text-sm font-semibold text-slate-300/80">@titleDisplay.Subtitle</span>
+                                    }
+                                    @if (_pendingPerGame.GetValueOrDefault(game.Id) > 0)
+                                    {
+                                        <a href="@FocusUrl(game.Id)" class="mt-2 text-xs font-bold text-cyan-200">⚡ Finish matchups (@_pendingPerGame.GetValueOrDefault(game.Id))</a>
                                     }
                                 </div>
                             </td>
@@ -429,6 +458,11 @@ else
 @code {
     [SupplyParameterFromQuery(Name = "year")]
     public int? LeaderboardYear { get; set; }
+    [SupplyParameterFromQuery(Name = "focus")]
+    public Guid? FocusEntry { get; set; }
+    private string FocusUrl(Guid? gameId) => Navigation.GetUriWithQueryParameter("focus", gameId);
+    private void ChangeFocusedEntry(ChangeEventArgs args)
+        => Navigation.NavigateTo(FocusUrl(Guid.TryParse(args.Value?.ToString(), out var gameId) ? gameId : null));
     private void UpdateLeaderboardYearUrl()
         => Navigation.NavigateTo(Navigation.GetUriWithQueryParameter("year", LeaderboardYear));
     private List<int> _leaderboardYears => _games
@@ -451,6 +485,7 @@ else
     private Game? _game2;
     private List<Game> _games = new();
     private Dictionary<Guid, int> _matchesPlayed = new();
+    private Dictionary<Guid, int> _pendingPerGame = new();
     private Dictionary<Guid, List<GameService.LossDetail>> _gamesPickedOver = new();
     private Dictionary<Guid, List<GameService.LossDetail>> _winsOver = new();
     private bool _showBeatenByDialog;
@@ -601,6 +636,15 @@ else
         _totalCount = GameService.TotalDuels();
         _completedCount = GameService.CompletedDuels();
         _pendingCount = _totalCount - _completedCount;
+        _pendingPerGame = _games.ToDictionary(game => game.Id, _ => 0);
+        var pending = GameService.GetPendingDuels();
+        _presentablePendingCount = pending.Count(duel => !ContainsArenaBannedTitle(duel));
+        _onlyArenaBanMatchesRemain = _arenaBannedGameIds.Count > 0 && pending.Count > 0 && _presentablePendingCount == 0;
+        foreach (var duel in pending)
+        {
+            if (_pendingPerGame.ContainsKey(duel.Game1Id)) _pendingPerGame[duel.Game1Id]++;
+            if (_pendingPerGame.ContainsKey(duel.Game2Id)) _pendingPerGame[duel.Game2Id]++;
+        }
     }
 
     private async Task CastVote(Guid winnerId, bool isLeft)

@@ -1,0 +1,11 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=Deploy BestestGame (Live)
+Comment=Build and deploy the development version to BestestGameLive, preserving live data
+Exec=/home/gherks/Repos/BestestGame/BestestGame/update-live.sh --wait
+Path=/home/gherks/Repos/BestestGame/BestestGame
+Icon=/home/gherks/Repos/BestestGame/BestestGame/BestestGame/wwwroot/favicon.png
+Terminal=true
+Categories=Game;
+StartupNotify=false

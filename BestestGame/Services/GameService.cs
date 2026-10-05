@@ -6,9 +6,11 @@ namespace BestestGame.Services;
 public class GameService
 {
     public sealed record LossDetail(Guid DuelId, Guid WinnerId, string WinnerTitle);
+    public sealed record DuelResult(Guid DuelId, Guid WinnerId);
 
     private readonly string _dbPath;
     private readonly Random _random = new();
+    private readonly object _databaseLock = new();
 
     public GameService(IConfiguration configuration, IWebHostEnvironment env)
     {
@@ -22,18 +24,24 @@ public class GameService
 
     private GameDatabase Load()
     {
-        if (!File.Exists(_dbPath))
-            return new GameDatabase();
+        lock (_databaseLock)
+        {
+            if (!File.Exists(_dbPath))
+                return new GameDatabase();
 
-        var json = File.ReadAllText(_dbPath);
-        return JsonSerializer.Deserialize<GameDatabase>(json) ?? new GameDatabase();
+            var json = File.ReadAllText(_dbPath);
+            return JsonSerializer.Deserialize<GameDatabase>(json) ?? new GameDatabase();
+        }
     }
 
     private void Save(GameDatabase db)
     {
-        var json = JsonSerializer.Serialize(db, new JsonSerializerOptions { WriteIndented = true });
-        Directory.CreateDirectory(Path.GetDirectoryName(_dbPath)!);
-        File.WriteAllText(_dbPath, json);
+        lock (_databaseLock)
+        {
+            var json = JsonSerializer.Serialize(db, new JsonSerializerOptions { WriteIndented = true });
+            Directory.CreateDirectory(Path.GetDirectoryName(_dbPath)!);
+            File.WriteAllText(_dbPath, json);
+        }
     }
 
     private Tournament? GetCurrentTournament(GameDatabase db)
@@ -66,14 +74,17 @@ public class GameService
     /// </summary>
     public Tournament CreateTournament(string name)
     {
-        ArgumentNullException.ThrowIfNull(name);
+        lock (_databaseLock)
+        {
+            ArgumentNullException.ThrowIfNull(name);
 
-        var db = Load();
-        var tournament = new Tournament { Name = name.Trim() };
-        db.Tournaments.Add(tournament);
-        db.CurrentTournamentId = tournament.Id;
-        Save(db);
-        return tournament;
+            var db = Load();
+            var tournament = new Tournament { Name = name.Trim() };
+            db.Tournaments.Add(tournament);
+            db.CurrentTournamentId = tournament.Id;
+            Save(db);
+            return tournament;
+        }
     }
 
     /// <summary>
@@ -81,13 +92,16 @@ public class GameService
     /// </summary>
     public void SelectTournament(Guid tournamentId)
     {
-        var db = Load();
-        var tournament = db.Tournaments.FirstOrDefault(t => t.Id == tournamentId);
-        if (tournament is null)
-            return;
+        lock (_databaseLock)
+        {
+            var db = Load();
+            var tournament = db.Tournaments.FirstOrDefault(t => t.Id == tournamentId);
+            if (tournament is null)
+                return;
 
-        db.CurrentTournamentId = tournamentId;
-        Save(db);
+            db.CurrentTournamentId = tournamentId;
+            Save(db);
+        }
     }
 
     public List<Game> GetGames()
@@ -173,22 +187,84 @@ public class GameService
 
     public void RecordWinner(Guid duelId, Guid winnerId)
     {
-        var db = Load();
-        var tournament = GetCurrentTournament(db);
-        if (tournament is null)
-            return;
+        lock (_databaseLock)
+        {
+            var tournament = GetCurrentTournament();
+            if (tournament is not null)
+                RecordWinners(tournament.Id, [new(duelId, winnerId)]);
+        }
+    }
 
-        var duel = tournament.Duels.FirstOrDefault(d => d.Id == duelId);
-        if (duel == null) return;
+    /// <summary>
+    /// Saves a group of explicit results in one write. Already completed matches
+    /// are left alone, so repeated or stale input cannot award duplicate points.
+    /// Invalid batches and batches from a different selected tournament do nothing.
+    /// </summary>
+    public IReadOnlyList<DuelResult> RecordWinners(Guid tournamentId, IEnumerable<DuelResult> results)
+    {
+        lock (_databaseLock)
+        {
+            var db = Load();
+            var tournament = GetCurrentTournament(db);
+            if (tournament?.Id != tournamentId)
+                return [];
 
-        duel.IsCompleted = true;
-        duel.WinnerId = winnerId;
+            var votes = results.Distinct().ToArray();
+            var duels = tournament.Duels.ToDictionary(d => d.Id);
+            var games = tournament.Games.ToDictionary(g => g.Id);
+            if (votes.GroupBy(vote => vote.DuelId).Any(group => group.Count() > 1) ||
+                votes.Any(vote => !duels.TryGetValue(vote.DuelId, out var duel) ||
+                    (duel.Game1Id != vote.WinnerId && duel.Game2Id != vote.WinnerId) ||
+                    !games.ContainsKey(vote.WinnerId)))
+                return [];
 
-        var winner = tournament.Games.FirstOrDefault(g => g.Id == winnerId);
-        if (winner != null)
-            winner.Points++;
+            var recorded = votes.Where(vote => !duels[vote.DuelId].IsCompleted).ToArray();
+            foreach (var vote in recorded)
+            {
+                var duel = duels[vote.DuelId];
+                duel.IsCompleted = true;
+                duel.WinnerId = vote.WinnerId;
+                games[vote.WinnerId].Points++;
+            }
 
-        Save(db);
+            if (recorded.Length > 0)
+                Save(db);
+            return recorded;
+        }
+    }
+
+    /// <summary>
+    /// Reverses a complete batch only if its results still match what was saved.
+    /// This prevents undo from erasing a later correction to one of its matches.
+    /// </summary>
+    public bool UndoWinners(Guid tournamentId, IEnumerable<DuelResult> results)
+    {
+        lock (_databaseLock)
+        {
+            var db = Load();
+            var tournament = GetCurrentTournament(db);
+            if (tournament?.Id != tournamentId)
+                return false;
+
+            var votes = results.Distinct().ToArray();
+            var duels = tournament.Duels.ToDictionary(d => d.Id);
+            var games = tournament.Games.ToDictionary(g => g.Id);
+            if (votes.Length == 0 || votes.Any(vote =>
+                    !duels.TryGetValue(vote.DuelId, out var duel) || !duel.IsCompleted ||
+                    duel.WinnerId != vote.WinnerId || !games.ContainsKey(vote.WinnerId)))
+                return false;
+
+            foreach (var vote in votes)
+            {
+                var duel = duels[vote.DuelId];
+                duel.IsCompleted = false;
+                duel.WinnerId = null;
+                games[vote.WinnerId].Points = Math.Max(0, games[vote.WinnerId].Points - 1);
+            }
+
+            Save(db);
+            return true;
+        }
     }
 
     public int ImportGames(IEnumerable<string> titles)
@@ -196,60 +272,66 @@ public class GameService
 
     public int ImportGames(IEnumerable<Game> games)
     {
-        var db = Load();
-        var tournament = GetCurrentTournament(db);
-        if (tournament is null)
-            return 0;
-
-        var existingTitles = tournament.Games.Select(g => g.Title)
-            .ToHashSet(StringComparer.OrdinalIgnoreCase);
-        var newGames = games
-            .Where(g => !string.IsNullOrWhiteSpace(g.Title))
-            .Where(g => existingTitles.Add(g.Title.Trim()))
-            .Select(g => new Game
-            {
-                Title = g.Title.Trim(),
-                ReleaseYear = ValidateReleaseYear(g.ReleaseYear),
-                IncludedTitles = CleanIncludedTitles(g.IncludedTitles)
-            })
-            .ToList();
-
-        tournament.Games.AddRange(newGames);
-
-        // Generate all missing duels (every game vs every other game)
-        var allGames = tournament.Games;
-        for (int i = 0; i < allGames.Count; i++)
+        lock (_databaseLock)
         {
-            for (int j = i + 1; j < allGames.Count; j++)
-            {
-                var g1 = allGames[i];
-                var g2 = allGames[j];
-                bool duelExists = tournament.Duels.Any(d =>
-                    (d.Game1Id == g1.Id && d.Game2Id == g2.Id) ||
-                    (d.Game1Id == g2.Id && d.Game2Id == g1.Id));
+            var db = Load();
+            var tournament = GetCurrentTournament(db);
+            if (tournament is null)
+                return 0;
 
-                if (!duelExists)
+            var existingTitles = tournament.Games.Select(g => g.Title)
+                .ToHashSet(StringComparer.OrdinalIgnoreCase);
+            var newGames = games
+                .Where(g => !string.IsNullOrWhiteSpace(g.Title))
+                .Where(g => existingTitles.Add(g.Title.Trim()))
+                .Select(g => new Game
                 {
-                    tournament.Duels.Add(new Duel { Game1Id = g1.Id, Game2Id = g2.Id });
+                    Title = g.Title.Trim(),
+                    ReleaseYear = ValidateReleaseYear(g.ReleaseYear),
+                    IncludedTitles = CleanIncludedTitles(g.IncludedTitles)
+                })
+                .ToList();
+
+            tournament.Games.AddRange(newGames);
+
+            // Generate all missing duels (every game vs every other game)
+            var allGames = tournament.Games;
+            for (int i = 0; i < allGames.Count; i++)
+            {
+                for (int j = i + 1; j < allGames.Count; j++)
+                {
+                    var g1 = allGames[i];
+                    var g2 = allGames[j];
+                    bool duelExists = tournament.Duels.Any(d =>
+                        (d.Game1Id == g1.Id && d.Game2Id == g2.Id) ||
+                        (d.Game1Id == g2.Id && d.Game2Id == g1.Id));
+
+                    if (!duelExists)
+                    {
+                        tournament.Duels.Add(new Duel { Game1Id = g1.Id, Game2Id = g2.Id });
+                    }
                 }
             }
-        }
 
-        Save(db);
-        return newGames.Count;
+            Save(db);
+            return newGames.Count;
+        }
     }
 
     public bool UpdateGameDetails(Guid gameId, int? releaseYear, IEnumerable<IncludedTitle> includedTitles)
     {
-        var db = Load();
-        var game = GetCurrentTournament(db)?.Games.FirstOrDefault(g => g.Id == gameId);
-        if (game is null)
-            return false;
+        lock (_databaseLock)
+        {
+            var db = Load();
+            var game = GetCurrentTournament(db)?.Games.FirstOrDefault(g => g.Id == gameId);
+            if (game is null)
+                return false;
 
-        game.ReleaseYear = ValidateReleaseYear(releaseYear);
-        game.IncludedTitles = CleanIncludedTitles(includedTitles);
-        Save(db);
-        return true;
+            game.ReleaseYear = ValidateReleaseYear(releaseYear);
+            game.IncludedTitles = CleanIncludedTitles(includedTitles);
+            Save(db);
+            return true;
+        }
     }
 
     private static List<IncludedTitle> CleanIncludedTitles(IEnumerable<IncludedTitle>? titles)
@@ -268,21 +350,24 @@ public class GameService
     /// </summary>
     public bool RemoveGame(Guid gameId)
     {
-        var db = Load();
-        var tournament = GetCurrentTournament(db);
-        if (tournament is null)
-            return false;
+        lock (_databaseLock)
+        {
+            var db = Load();
+            var tournament = GetCurrentTournament(db);
+            if (tournament is null)
+                return false;
 
-        var game = tournament.Games.FirstOrDefault(g => g.Id == gameId);
-        if (game is null)
-            return false;
+            var game = tournament.Games.FirstOrDefault(g => g.Id == gameId);
+            if (game is null)
+                return false;
 
-        tournament.Games.Remove(game);
-        tournament.Duels.RemoveAll(d => d.Game1Id == gameId || d.Game2Id == gameId);
-        RecalculatePoints(tournament);
+            tournament.Games.Remove(game);
+            tournament.Duels.RemoveAll(d => d.Game1Id == gameId || d.Game2Id == gameId);
+            RecalculatePoints(tournament);
 
-        Save(db);
-        return true;
+            Save(db);
+            return true;
+        }
     }
 
     public bool HasPendingDuels() => GetPendingDuels().Count > 0;
@@ -306,26 +391,13 @@ public class GameService
     /// </summary>
     public void UndoMatch(Guid duelId)
     {
-        var db = Load();
-        var tournament = GetCurrentTournament(db);
-        if (tournament is null)
-            return;
-
-        var duel = tournament.Duels.FirstOrDefault(d => d.Id == duelId);
-        if (duel is null || !duel.IsCompleted)
-            return;
-
-        if (duel.WinnerId is { } winnerId)
+        lock (_databaseLock)
         {
-            var winner = tournament.Games.FirstOrDefault(g => g.Id == winnerId);
-            if (winner is not null)
-                winner.Points = Math.Max(0, winner.Points - 1);
+            var tournament = GetCurrentTournament();
+            var duel = tournament?.Duels.FirstOrDefault(d => d.Id == duelId);
+            if (duel?.WinnerId is { } winnerId)
+                UndoWinners(tournament!.Id, [new(duelId, winnerId)]);
         }
-
-        duel.IsCompleted = false;
-        duel.WinnerId = null;
-
-        Save(db);
     }
 
     /// <summary>
@@ -402,35 +474,38 @@ public class GameService
     /// </summary>
     public bool ChangeCompletedDuelWinner(Guid duelId, Guid winnerId)
     {
-        var db = Load();
-        var tournament = GetCurrentTournament(db);
-        if (tournament is null)
-            return false;
+        lock (_databaseLock)
+        {
+            var db = Load();
+            var tournament = GetCurrentTournament(db);
+            if (tournament is null)
+                return false;
 
-        var duel = tournament.Duels.FirstOrDefault(d => d.Id == duelId);
-        if (duel is null || !duel.IsCompleted || !duel.WinnerId.HasValue)
-            return false;
+            var duel = tournament.Duels.FirstOrDefault(d => d.Id == duelId);
+            if (duel is null || !duel.IsCompleted || !duel.WinnerId.HasValue)
+                return false;
 
-        if (duel.Game1Id != winnerId && duel.Game2Id != winnerId)
-            return false;
+            if (duel.Game1Id != winnerId && duel.Game2Id != winnerId)
+                return false;
 
-        var previousWinnerId = duel.WinnerId.Value;
-        if (previousWinnerId == winnerId)
-            return false;
+            var previousWinnerId = duel.WinnerId.Value;
+            if (previousWinnerId == winnerId)
+                return false;
 
-        var previousWinner = tournament.Games.FirstOrDefault(g => g.Id == previousWinnerId);
-        var newWinner = tournament.Games.FirstOrDefault(g => g.Id == winnerId);
-        if (newWinner is null)
-            return false;
+            var previousWinner = tournament.Games.FirstOrDefault(g => g.Id == previousWinnerId);
+            var newWinner = tournament.Games.FirstOrDefault(g => g.Id == winnerId);
+            if (newWinner is null)
+                return false;
 
-        if (previousWinner is not null)
-            previousWinner.Points = Math.Max(0, previousWinner.Points - 1);
+            if (previousWinner is not null)
+                previousWinner.Points = Math.Max(0, previousWinner.Points - 1);
 
-        newWinner.Points++;
-        duel.WinnerId = winnerId;
+            newWinner.Points++;
+            duel.WinnerId = winnerId;
 
-        Save(db);
-        return true;
+            Save(db);
+            return true;
+        }
     }
 
     /// <summary>

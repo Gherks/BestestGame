@@ -45,7 +45,8 @@ for dependency in dotnet curl flock; do
 done
 
 cd "$root_dir"
-if [[ -f "$root_dir/.runtime/live/current/BestestGame.dll" ]]; then
+if [[ -f "$root_dir/../BestestGameLive/current/BestestGame.dll" ||
+      -f "$root_dir/.runtime/live/current/BestestGame.dll" ]]; then
     command -v systemctl >/dev/null || fail 'Required command missing: systemctl'
     systemctl --user start bestestgame.service || fail 'Could not start the live service. Check: journalctl --user -u bestestgame.service'
     service_mode=true

@@ -5,7 +5,7 @@
       "name": "BestestGame (development)",
       "type": "coreclr",
       "request": "launch",
-      "preLaunchTask": "build-development",
+      "preLaunchTask": "prepare-debug",
       "program": "${workspaceFolder}/BestestGame/bin/Debug/net10.0/BestestGame.dll",
       "args": ["--urls", "http://localhost:5232"],
       "cwd": "${workspaceFolder}/BestestGame",

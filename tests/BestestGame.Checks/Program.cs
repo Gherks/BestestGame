@@ -119,7 +119,8 @@ try
     developmentService.CreateTournament("Development only");
     Check(File.Exists(Path.Combine(directory, "development", "data.json")), "Relative database paths use the content root and create missing directories");
     Check(File.ReadAllText(path) == liveContents, "Development writes do not modify the live database");
-    Console.WriteLine("All persistence, release-year, GOTY ranking, and database isolation checks passed.");
+    FocusedVotingChecks.Run(directory);
+    Console.WriteLine("All persistence, release-year, GOTY ranking, focused voting, and database isolation checks passed.");
 }
 finally
 {

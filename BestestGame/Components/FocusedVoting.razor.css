@@ -1,0 +1,29 @@
+.focused-choice {
+    border-width: 2px;
+    border-radius: 1rem;
+    padding: 1rem 1.25rem;
+    font-weight: 700;
+    overflow-wrap: anywhere;
+    transition: background-color 100ms ease;
+}
+
+.focused-choice:hover:not(:disabled) {
+    background-color: rgb(255 255 255 / 16%);
+}
+
+.focused-choice:focus-visible {
+    outline: 3px solid #facc15;
+    outline-offset: 3px;
+}
+
+.focused-choice:disabled {
+    opacity: 0.4;
+    cursor: wait;
+}
+
+.focused-progress {
+    display: block;
+    width: 100%;
+    height: 0.65rem;
+    accent-color: #4ade80;
+}

@@ -1,0 +1,11 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=Stop BestestGame (Live)
+Comment=Stop the live BestestGame service
+Exec=/home/gherks/Repos/BestestGame/BestestGame/stop-live.sh --wait
+Path=/home/gherks/Repos/BestestGame/BestestGame
+Icon=/home/gherks/Repos/BestestGame/BestestGame/BestestGame/wwwroot/favicon.png
+Terminal=true
+Categories=Game;
+StartupNotify=false

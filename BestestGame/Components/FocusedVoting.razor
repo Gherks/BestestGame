@@ -1,0 +1,334 @@
+@using System.Text.Json
+@using BestestGame.Models
+@using BestestGame.Services
+@implements IAsyncDisposable
+@inject GameService GameService
+@inject IJSRuntime JS
+
+@{ var presentation = _presentation; var current = _session.Current(_useGroups); }
+<div class="focused-voting mt-5" @ref="_root" data-presentation="@presentation"
+     data-shortcuts-enabled="@(ShortcutsEnabled && _ready && !_busy ? "true" : "false")">
+    @if (_game is null)
+    {
+        <p class="rounded-xl border border-amber-400/40 bg-amber-500/10 p-4 text-amber-100" role="status">
+            This entry is no longer available in the selected tournament. Choose another entry or return to all duels.
+        </p>
+    }
+    else
+    {
+        <div class="flex flex-wrap items-center justify-between gap-3">
+            <div>
+                <h2 class="font-display text-2xl text-green-200">⚡ Finish matchups for @FormatTitle(_game)</h2>
+                <p class="mt-1 text-sm text-slate-300">Keep your entry on the left. Resolve an entire group, or split a mixed group into smaller choices.</p>
+            </div>
+            <label class="flex items-center gap-2 rounded-xl border border-cyan-400/30 bg-cyan-500/10 px-3 py-2 text-sm font-bold text-cyan-100">
+                <input type="checkbox" checked="@_useGroups" disabled="@(!_ready || _busy)" @onchange="ToggleGroups" />
+                Adaptive groups
+            </label>
+        </div>
+
+        <div class="mt-4" aria-live="polite" aria-atomic="true">
+            <div class="flex flex-wrap justify-between gap-2 text-sm text-slate-200">
+                <span><strong>@_completedCount / @_totalCount</strong> matchups finished for this entry</span>
+                <span><strong>@_session.RemainingCount</strong> available to vote@(_blockedCount > 0 ? $" · {_blockedCount} arena-banned" : "")</span>
+            </div>
+            <progress class="focused-progress mt-2" value="@_completedCount" max="@Math.Max(1, _totalCount)"
+                      aria-label="Completed matchups for this entry"></progress>
+        </div>
+
+        @if (current.Length == 0)
+        {
+            <div class="mt-5 rounded-2xl border-2 border-green-400/40 bg-green-500/10 p-6 text-center" role="status">
+                @if (_blockedCount > 0)
+                {
+                    <p class="font-display text-2xl text-amber-100">Only arena-banned matchups remain</p>
+                    <p class="mt-2 text-sm text-slate-200">Uncheck the banned titles in the standings to finish this entry.</p>
+                }
+                else
+                {
+                    <p class="font-display text-3xl text-green-100">🎉 This entry is finished!</p>
+                    <p class="mt-2 text-sm text-slate-200">All of its matchups are saved. Add another entry or choose a different one above.</p>
+                }
+            </div>
+        }
+        else
+        {
+            <div class="mt-5 grid gap-4 md:grid-cols-[1fr_2fr]">
+                <div class="rounded-2xl border-2 border-fuchsia-400/50 bg-fuchsia-950/40 p-5">
+                    <p class="text-xs font-black uppercase tracking-widest text-fuchsia-200">Your entry</p>
+                    <p class="mt-3 font-display text-3xl text-white">@FormatTitle(_game)</p>
+                    @if (_game.IncludedTitles is { Count: > 0 })
+                    {
+                        <p class="mt-2 text-sm text-slate-300">@IncludedTitles(_game)</p>
+                    }
+                </div>
+                <div class="rounded-2xl border-2 border-cyan-400/40 bg-slate-950/60 p-5">
+                    <p class="text-xs font-black uppercase tracking-widest text-cyan-200">
+                        @(current.Length == 1 ? "Opponent" : $"All {current.Length} opponents")
+                    </p>
+                    <ul class="mt-3 grid gap-2 sm:grid-cols-2">
+                        @foreach (var duelId in current)
+                        {
+                            var opponent = Opponent(_duels[duelId]);
+                            <li @key="duelId" class="rounded-xl border border-slate-500/40 bg-white/5 px-3 py-2">
+                                <span class="block font-bold text-slate-100">@FormatTitle(opponent)</span>
+                                @if (opponent.IncludedTitles is { Count: > 0 })
+                                {
+                                    <span class="mt-1 block text-xs text-slate-300">@IncludedTitles(opponent)</span>
+                                }
+                            </li>
+                        }
+                    </ul>
+                </div>
+            </div>
+
+            <div class="mt-4 grid gap-3 sm:grid-cols-2">
+                <button type="button" class="focused-choice border-fuchsia-400/60 bg-fuchsia-600/30 text-fuchsia-100"
+                        disabled="@(!_ready || _busy)" data-action="win" aria-keyshortcuts="1 ArrowLeft"
+                        @onclick="() => Vote(presentation, true)">
+                    @(_game.Title) @(current.Length == 1 ? "wins" : $"beats all {current.Length}")
+                    <span class="mt-1 block text-xs font-normal">1 or ← · Saves @current.Length @(current.Length == 1 ? "result" : "results")</span>
+                </button>
+                <button type="button" class="focused-choice border-cyan-400/60 bg-cyan-600/30 text-cyan-100"
+                        disabled="@(!_ready || _busy)" data-action="lose" aria-keyshortcuts="2 ArrowRight"
+                        @onclick="() => Vote(presentation, false)">
+                    @(current.Length == 1 ? $"{Opponent(_duels[current[0]]).Title} wins" : $"All {current.Length} opponents beat {_game.Title}")
+                    <span class="mt-1 block text-xs font-normal">2 or → · Saves @current.Length @(current.Length == 1 ? "result" : "results")</span>
+                </button>
+            </div>
+            @if (current.Length > 1)
+            {
+                <button type="button" class="focused-choice mt-3 w-full border-amber-400/50 bg-amber-500/10 text-amber-100"
+                        disabled="@(!_ready || _busy)" data-action="split" aria-keyshortcuts="M"
+                        @onclick="() => Split(presentation)">
+                    Mixed or unsure? Split this group
+                    <span class="mt-1 block text-xs font-normal">M · Smaller groups of @((current.Length + 1) / 2) and @(current.Length / 2). No results saved.</span>
+                </button>
+            }
+        }
+
+        <div class="mt-4 flex flex-wrap items-center gap-3">
+            <button type="button" class="rounded-xl border border-yellow-400/50 bg-yellow-500/10 px-4 py-2 text-sm font-bold text-yellow-100 disabled:opacity-40"
+                    disabled="@(!_ready || _busy || _history.Count == 0)" data-action="undo" aria-keyshortcuts="U"
+                    @onclick="() => Undo(presentation)">⏪ Undo last action <span class="text-xs">(U)</span></button>
+            <button type="button" class="rounded-xl border border-slate-400/50 bg-white/5 px-4 py-2 text-sm font-bold text-slate-100 disabled:opacity-40"
+                    disabled="@(!_ready || _busy || current.Length == 0)" data-action="skip" aria-keyshortcuts="S"
+                    @onclick="() => Skip(presentation)">Skip for now <span class="text-xs">(S)</span></button>
+            <span class="text-xs text-slate-400">Votes save immediately. Turn off Adaptive groups for rapid 1v1 voting.</span>
+        </div>
+        @if (!string.IsNullOrEmpty(_notice))
+        {
+            <p class="mt-3 text-sm text-slate-200" role="status">@_notice</p>
+        }
+    }
+</div>
+
+@code {
+    [Parameter] public Guid TournamentId { get; set; }
+    [Parameter] public Guid GameId { get; set; }
+    [Parameter] public IReadOnlySet<Guid> BannedGameIds { get; set; } = new HashSet<Guid>();
+    [Parameter] public bool ShortcutsEnabled { get; set; } = true;
+    [Parameter] public EventCallback OnResultsChanged { get; set; }
+
+    private readonly AdaptiveDuelSession _session = new();
+    private readonly Stack<VotingAction> _history = new();
+    private Dictionary<Guid, Game> _games = [];
+    private Dictionary<Guid, Duel> _duels = [];
+    private Game? _game;
+    private Guid _presentation = Guid.NewGuid();
+    private bool _initialized;
+    private bool _useGroups;
+    private bool _busy;
+    private bool _ready;
+    private bool _saveSession;
+    private bool _disposed;
+    private int _completedCount;
+    private int _totalCount;
+    private int _blockedCount;
+    private string _notice = "";
+    private ElementReference _root;
+    private IJSObjectReference? _module;
+    private string StorageKey => $"bestestgame:focused:{TournamentId}:{GameId}";
+    private sealed record VotingAction(Guid[][] Groups, GameService.DuelResult[] Results);
+    private sealed record SavedSession(Guid[][] Groups, bool UseGroups);
+
+    protected override void OnParametersSet()
+    {
+        var before = _session.Current(_useGroups);
+        Refresh();
+        if (!_initialized)
+        {
+            _useGroups = _session.RemainingCount >= AdaptiveDuelSession.InitialGroupSize;
+            _initialized = true;
+        }
+        if (!before.SequenceEqual(_session.Current(_useGroups)))
+            AdvancePresentation();
+    }
+
+    private void Refresh()
+    {
+        var tournament = GameService.GetCurrentTournament();
+        _game = tournament?.Id == TournamentId ? tournament.Games.FirstOrDefault(game => game.Id == GameId) : null;
+        if (_game is null)
+            return;
+
+        var standings = tournament!.Games.OrderByDescending(game => game.Points).ToArray();
+        _games = standings.ToDictionary(game => game.Id);
+        var order = standings.Select((game, rank) => (game.Id, rank)).ToDictionary(item => item.Id, item => item.rank);
+        _duels = tournament.Duels.Where(duel => (duel.Game1Id == GameId || duel.Game2Id == GameId) &&
+            _games.ContainsKey(duel.Game1Id) && _games.ContainsKey(duel.Game2Id)).ToDictionary(duel => duel.Id);
+        _totalCount = _duels.Count;
+        _completedCount = _duels.Values.Count(duel => duel.IsCompleted);
+        var pending = _duels.Values.Where(duel => !duel.IsCompleted).ToArray();
+        _blockedCount = pending.Count(IsBanned);
+        _session.Synchronize(pending.Where(duel => !IsBanned(duel))
+            .OrderBy(duel => order[Opponent(duel).Id]).Select(duel => duel.Id));
+        _saveSession = true;
+    }
+
+    private bool IsBanned(Duel duel) => BannedGameIds.Contains(duel.Game1Id) || BannedGameIds.Contains(duel.Game2Id);
+    private Game Opponent(Duel duel) => _games[duel.Game1Id == GameId ? duel.Game2Id : duel.Game1Id];
+    private static string FormatTitle(Game game) => game.ReleaseYear is { } year ? $"{game.Title} ({year})" : game.Title;
+    private static string IncludedTitles(Game game) => string.Join(", ", (game.IncludedTitles ?? []).Select(title =>
+        title.ReleaseYear is { } year ? $"{title.Title} ({year})" : title.Title));
+
+    private void AdvancePresentation()
+    {
+        _presentation = Guid.NewGuid();
+        _saveSession = true;
+    }
+
+    private async Task Perform(Guid presentation, Func<Task> action)
+    {
+        // Events retain the presentation they came from. A double click or queued
+        // shortcut from an old screen must not vote on the next group.
+        if (!_ready || _busy || presentation != _presentation || _game is null)
+            return;
+        _busy = true;
+        try
+        {
+            await action();
+        }
+        finally
+        {
+            _busy = false;
+            AdvancePresentation();
+        }
+    }
+
+    private Task Vote(Guid presentation, bool entryWins) => Perform(presentation, async () =>
+    {
+        var groups = _session.Snapshot();
+        var votes = _session.Current(_useGroups).Select(id =>
+            new GameService.DuelResult(id, entryWins ? GameId : Opponent(_duels[id]).Id)).ToArray();
+        var recorded = GameService.RecordWinners(TournamentId, votes).ToArray();
+        if (recorded.Length > 0)
+        {
+            _history.Push(new(groups, recorded));
+            _notice = $"Saved {recorded.Length} {(recorded.Length == 1 ? "result" : "results")}.";
+        }
+        else
+        {
+            _notice = "These matchups have changed. The available choices have been refreshed.";
+        }
+        Refresh();
+        await OnResultsChanged.InvokeAsync();
+    });
+
+    private Task Split(Guid presentation) => Perform(presentation, () =>
+    {
+        var before = _session.Snapshot();
+        if (_useGroups && _session.SplitCurrent())
+        {
+            _history.Push(new(before, []));
+            _notice = "Group split. No wins or losses recorded.";
+        }
+        return Task.CompletedTask;
+    });
+
+    private Task Skip(Guid presentation) => Perform(presentation, () =>
+    {
+        if (_session.RemainingCount > 0)
+        {
+            _history.Push(new(_session.Snapshot(), []));
+            _session.SkipCurrent(_useGroups);
+            _notice = "Skipped for now. These matchups remain in your queue.";
+        }
+        return Task.CompletedTask;
+    });
+
+    private Task Undo(Guid presentation) => Perform(presentation, async () =>
+    {
+        if (!_history.TryPeek(out var action))
+            return;
+        if (action.Results.Length > 0 && !GameService.UndoWinners(TournamentId, action.Results))
+        {
+            _notice = "This batch has changed since your vote and cannot be undone. Your other results are saved.";
+            Refresh();
+            return;
+        }
+        _history.Pop();
+        _session.Restore(action.Groups);
+        Refresh();
+        _notice = action.Results.Length > 0 ? $"Undid all {action.Results.Length} results from that vote." : "Undid the last queue change.";
+        await OnResultsChanged.InvokeAsync();
+    });
+
+    private void ToggleGroups(ChangeEventArgs args)
+    {
+        if (!_ready || _busy)
+            return;
+        _useGroups = args.Value is true;
+        _notice = _useGroups ? "Adaptive groups enabled." : "Rapid 1v1 voting enabled. Your entry stays on the left.";
+        AdvancePresentation();
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            _module = await JS.InvokeAsync<IJSObjectReference>("import", "./js/focusedVoting.js");
+            if (_disposed)
+                return;
+            var saved = await _module.InvokeAsync<string?>("readSession", StorageKey);
+            if (!string.IsNullOrEmpty(saved))
+            {
+                try
+                {
+                    var state = JsonSerializer.Deserialize<SavedSession>(saved);
+                    if (state is not null && state.Groups is not null && state.Groups.All(group => group is not null))
+                    {
+                        _session.Restore(state.Groups.SelectMany(group => group.Chunk(AdaptiveDuelSession.InitialGroupSize)));
+                        _useGroups = state.UseGroups;
+                        Refresh();
+                    }
+                }
+                catch (JsonException) { }
+            }
+            await _module.InvokeVoidAsync("connect", _root);
+            _ready = true;
+            AdvancePresentation();
+            StateHasChanged();
+        }
+        if (_module is not null && _saveSession && !_disposed)
+        {
+            _saveSession = false;
+            await _module.InvokeVoidAsync("saveSession", StorageKey,
+                JsonSerializer.Serialize(new SavedSession(_session.Snapshot(), _useGroups)));
+        }
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        _disposed = true;
+        if (_module is not null)
+        {
+            try
+            {
+                await _module.InvokeVoidAsync("disconnect", _root);
+                await _module.DisposeAsync();
+            }
+            catch (JSDisconnectedException) { }
+        }
+    }
+}

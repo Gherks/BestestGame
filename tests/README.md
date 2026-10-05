@@ -6,6 +6,23 @@ dotnet run --project tests/BestestGame.Checks
 
 Checks use an isolated temporary database and delete it afterward.
 
+Focused voting checks start with 113 fully ranked entries and verify adaptive
+splitting down to individual duels, batch wins and losses, complete batch undo,
+duplicate and concurrent input, tournament isolation, and finishing all 113 new
+matchups with preferences that do not follow standing order.
+
+After adding an entry, use **Finish matchups** to open `/vote?focus=<entry-id>`.
+The arena also has a **Focus on entry** selector, with entries ordered by remaining
+duels from most to fewest and alphabetically when counts are tied. Adaptive voting starts with
+groups of up to ten opponents in standing order; **Mixed or unsure?** halves the
+current group without recording results. Either winning button records all of
+that group's individual duels. Turn off **Adaptive groups** for rapid 1v1 voting.
+Shortcuts are **1 / Left arrow** for the focused entry, **2 / Right arrow** for its
+opponents, **M** to split, **U** to undo, and **S** to skip. Skipped matches remain
+pending, arena bans are respected, and undo reverses the entire last batch.
+Votes persist in the database; the current split queue and mode also survive a
+reload in the same browser tab. Undo history lasts for the current visit.
+
 Run the Linux startup and deployment transaction checks with:
 
 ```bash
@@ -13,9 +30,11 @@ python3 tests/startup_checks.py
 ```
 
 These checks mock systemd, .NET, and HTTP commands and use temporary checkouts.
-They cover migration, separate publish artifacts, database backups, concurrent
-updates, and rollback after build, startup, or HTTP failures. They do not change
-your installed service or live database.
+They cover migration to the sibling `BestestGameLive` folder, separate publish
+artifacts, preservation of the live database across deployments, backups, concurrent
+updates, rollback after build, startup, or HTTP failures, and refreshing the
+development database before debugging. They do not change your installed service
+or live database.
 
 Games have an optional `ReleaseYear` and an `IncludedTitles` array of objects:
 
