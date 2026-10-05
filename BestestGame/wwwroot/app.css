@@ -37,6 +37,7 @@
     --radius-control: 5px;
     --radius-panel: 8px;
     --button-travel: 6px;
+    --button-hover-lift: 1px;
     --button-return-time: 210ms;
     --button-return-overshoot: 1.1;
     --button-return-settle: 0.92;
@@ -92,6 +93,7 @@ a { color: inherit; cursor: pointer; }
 .tactile {
     --tactile-scale: 1;
     --tactile-travel: calc(var(--button-travel) * var(--tactile-scale));
+    --tactile-hover-travel: calc((var(--button-travel) + var(--button-hover-lift)) * var(--tactile-scale));
     --tactile-face: var(--face);
     --tactile-top: var(--face-top);
     --tactile-chassis: var(--edge);
@@ -104,8 +106,8 @@ a { color: inherit; cursor: pointer; }
     min-width: 44px;
     min-height: 44px;
     max-width: 100%;
-    /* Keep the full stroke and rebound inside a stable native hit target. */
-    padding: calc(var(--tactile-travel) * var(--button-return-overshoot)) 0 0;
+    /* Keep the hover lift, full stroke and rebound inside a stable native hit target. */
+    padding: max(var(--tactile-hover-travel), calc(var(--tactile-travel) * var(--button-return-overshoot))) 0 0;
     border: 0;
     border-radius: var(--radius-control);
     background: transparent;
@@ -122,7 +124,7 @@ a { color: inherit; cursor: pointer; }
 .tactile::before {
     content: "";
     position: absolute;
-    inset: calc(var(--tactile-travel) * var(--button-return-overshoot)) 0 0;
+    inset: max(var(--tactile-hover-travel), calc(var(--tactile-travel) * var(--button-return-overshoot))) 0 0;
     border-radius: inherit;
     background: var(--tactile-chassis);
     box-shadow: 0 2px 0 1px var(--shadow), 0 5px 9px -4px var(--shadow);
@@ -160,7 +162,10 @@ a { color: inherit; cursor: pointer; }
 .tactile--danger { --tactile-face: var(--danger-surface); --tactile-top: var(--danger-surface); --tactile-border: var(--danger); --tactile-text: var(--danger); }
 .tactile:focus-visible { outline: 2px solid var(--accent); outline-offset: 4px; }
 @media (hover: hover) {
-    .tactile:not(:disabled):not([aria-disabled="true"]):hover > .tactile__face { filter: brightness(1.04); }
+    .tactile:not(:disabled):not([aria-disabled="true"]):not(.is-pressed):not(.is-returning):hover > .tactile__face {
+        transform: translateY(calc(-1 * var(--tactile-hover-travel)));
+        filter: brightness(1.04);
+    }
 }
 .tactile.is-pressed > .tactile__face { transform: translateY(-0.5px); filter: brightness(.97); animation: none; }
 .tactile.is-returning > .tactile__face { animation: tactile-return var(--button-return-time) ease both; }
