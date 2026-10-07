@@ -1,0 +1,119 @@
+@using System.Globalization
+@using BestestGame.Services
+
+@{ var segments = OpponentBar.Build(Opponents, Groups); }
+@if (segments.Count > 0)
+{
+    <div class="matchup-map">
+        <div class="matchup-bar" role="group" aria-label="All opponents, from highest to lowest ranked">
+            @foreach (var segment in segments)
+            {
+                var count = segment.DuelIds.Count;
+                var isPending = segment.Status == OpponentBar.Status.Pending;
+                var isCurrent = segment.Group == 0;
+                // A click puts the whole queue group up for a vote, so that is what the popover lists.
+                var listed = segment.Group >= 0 ? Groups[segment.Group] : segment.DuelIds;
+                var more = listed.Count - PopoverTitles;
+                var heading = segment.Status switch
+                {
+                    OpponentBar.Status.Won => "Won",
+                    OpponentBar.Status.Lost => "Lost",
+                    OpponentBar.Status.Banned => "Arena-banned",
+                    _ => isCurrent ? "Current group" : "To vote"
+                } + $" · {(listed.Count == 1 ? "1 opponent" : $"{listed.Count} opponents")}";
+                var hint = segment.Group > 0 ? Single is null ? "Click to vote on this group" : "Click to jump to this group" : null;
+                var label = $"{heading}: {string.Join(", ", listed.Take(PopoverTitles).Select(TitleOf))}{(more > 0 ? $" and {more} more" : "")}";
+                var slot = isCurrent && Single is { } single ? segment.DuelIds.TakeWhile(id => id != single).Count() : count;
+                var fill = $"bar-fill bar-fill--{segment.Status.ToString().ToLowerInvariant()}"
+                    + (isCurrent ? " bar-fill--current" : "")
+                    + (isCurrent && Single is not null ? " bar-fill--single" : "")
+                    + (slot < count ? " bar-fill--slot" : "")
+                    + (JustSplit && isCurrent ? " bar-fill--split-kept" : "")
+                    + (JustSplit && segment.Group == 1 ? " bar-fill--split-off" : "");
+                var style = $"flex-grow:{count};--center:{Percent(segment.Start + count / 2.0, Opponents.Count)}"
+                    + (slot < count ? $";--slot-start:{Percent(slot, count)};--slot-end:{Percent(slot + 1, count)}" : "")
+                    // The cut is only previewed when the whole group is one segment.
+                    + (isCurrent && Single is null && count > 1 && count == Groups[0].Length ? $";--split-at:{Percent((count + 1) / 2, count)}" : "");
+                RenderFragment content = @<text>
+                    <span class="@fill"></span>
+                    <span class="bar-popover" aria-hidden="true">
+                        <span class="bar-popover__heading">@heading</span>
+                        @foreach (var id in listed.Take(PopoverTitles))
+                        {
+                            <span class="@(slot < count && id == Single ? "bar-popover__now" : null)">@TitleOf(id)</span>
+                        }
+                        @if (more > 0)
+                        {
+                            <span class="bar-popover__hint">and @more more</span>
+                        }
+                        @if (hint is not null)
+                        {
+                            <span class="bar-popover__hint">@hint</span>
+                        }
+                    </span>
+                </text>;
+                @if (segment.Group >= 0)
+                {
+                    var groupId = listed[0];
+                    <button type="button" class="bar-segment bar-segment--pending" style="@style" disabled="@Disabled"
+                            aria-current="@(isCurrent ? "true" : null)" aria-label="@label" @onclick="() => OnSelect.InvokeAsync(groupId)">
+                        @content
+                    </button>
+                }
+                else
+                {
+                    <span class="bar-segment @(isPending ? "bar-segment--pending" : null)" style="@style" role="img" aria-label="@label">
+                        @content
+                    </span>
+                }
+            }
+        </div>
+        <div class="bar-key text-secondary">
+            <span>Highest ranked</span>
+            <ul class="bar-legend">
+                @if (Groups.Length > 0)
+                {
+                    <li><span class="bar-swatch bar-fill--pending bar-fill--current" aria-hidden="true"></span>Current</li>
+                }
+                @if (segments.Any(segment => segment.Status == OpponentBar.Status.Pending && segment.Group != 0))
+                {
+                    <li><span class="bar-swatch bar-fill--pending" aria-hidden="true"></span>To vote</li>
+                }
+                @if (Count(OpponentBar.Status.Won) is > 0 and var won)
+                {
+                    <li><span class="bar-swatch bar-fill--won" aria-hidden="true"></span>Won @won</li>
+                }
+                @if (Count(OpponentBar.Status.Lost) is > 0 and var lost)
+                {
+                    <li><span class="bar-swatch bar-fill--lost" aria-hidden="true"></span>Lost @lost</li>
+                }
+                @if (Count(OpponentBar.Status.Banned) > 0)
+                {
+                    <li><span class="bar-swatch bar-fill--banned" aria-hidden="true"></span>Arena-banned</li>
+                }
+            </ul>
+            <span>Lowest ranked</span>
+        </div>
+    </div>
+}
+
+@code {
+    /// <summary>One entry's opponents from highest to lowest ranked, each identified by its duel.</summary>
+    [Parameter, EditorRequired] public IReadOnlyList<(Guid DuelId, OpponentBar.Status Status)> Opponents { get; set; } = [];
+    [Parameter, EditorRequired] public Func<Guid, string> TitleOf { get; set; } = _ => "";
+    /// <summary>The voting queue, current group first. Without it the bar is a read-only overview.</summary>
+    [Parameter] public Guid[][] Groups { get; set; } = [];
+    /// <summary>Rapid 1v1: the one opponent up for a vote. Null while a whole group is.</summary>
+    [Parameter] public Guid? Single { get; set; }
+    [Parameter] public bool JustSplit { get; set; }
+    [Parameter] public bool Disabled { get; set; }
+    /// <summary>A full group always fits by default; longer finished runs are summarized.</summary>
+    [Parameter] public int PopoverTitles { get; set; } = AdaptiveDuelSession.InitialGroupSize;
+    /// <summary>Receives a duel from the selected group.</summary>
+    [Parameter] public EventCallback<Guid> OnSelect { get; set; }
+
+    private int Count(OpponentBar.Status status) => Opponents.Count(opponent => opponent.Status == status);
+    // CSS needs a decimal point whatever the server's culture is.
+    private static string Percent(double part, double whole)
+        => (part / whole * 100).ToString("0.###", CultureInfo.InvariantCulture) + "%";
+}

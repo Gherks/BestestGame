@@ -160,6 +160,12 @@ Undo, Skip and Split can interrupt the transition. Reduced motion uses instant
 updates. Voting surfaces and loading status stay static. See
 [the vote-transition validation report](docs/ux-duel-transitions.md).
 
+Native disclosures (Voting options, included titles, row Actions, the mobile menu
+and the Home/GOTY explanations) unfold from their summary and fold back over
+240ms. This is CSS only, in `app.css`, and needs a disclosure's content to be a
+single child element. Reduced motion and browsers without `::details-content`
+toggle instantly.
+
 Headings and game titles use **Bricolage Grotesque**; controls and supporting
 copy use **DM Sans**. Both variable fonts are bundled locally with their licenses,
 preloaded and served by the application, with automatic optical sizing and system
@@ -168,11 +174,24 @@ and voting titles scale from 24px to 30px. Sizes use `rem` so browser text setti
 still apply. See [font asset provenance](BestestGame/wwwroot/fonts/README.md) and
 [the typography validation report](docs/ux-typography.md).
 
-Focused Voting (`/vote?focus=<entry-id>`) shows one entry heading/progress summary
-and compact opponent rows. Native included-title disclosures retain collection,
-legacy-label and release-year context. Both tactile winning actions name **all**
-opponents and the current group size. A mobile action bar keeps entry/group
-context, **Split group**, **Undo** and **Skip for now** reachable while reading;
+Focused Voting (`/vote?focus=<entry-id>`) shows a progress summary above two
+equal-width tactile choices: the entry on the left and its compact opponent rows
+on the right. Included titles appear as text inside each choice, retaining
+collection, legacy-label and release-year context. Activating a choice records
+that side as the winner of **every** listed matchup; the group size is stated
+below the choices. A bar the width of both choices sits just under them and shows
+every opponent in a fixed standing order, highest ranked on the left: hollow
+segments are groups still to vote on, the taller filled one is current, and
+finished opponents can be shown as won or lost segments. Hovering or focusing a segment
+lists its titles; selecting one makes that group the current duel without saving
+anything. **Split group** previews its cut on the bar and divides the segment in
+place. Rapid 1v1 keeps the bar and marks the current opponent inside its group.
+**Show won and lost** is off by default, so the remaining groups fill the bar;
+turning it on adds the finished segments, and the choice lasts for the browser tab.
+The same bar (`MatchupBar`) opens each entry's Details dialog on Rankings as a
+read-only overview of its won, lost and pending opponents.
+A mobile action bar keeps group context, **Split group**,
+**Undo** and **Skip for now** reachable while reading;
 very short viewports use normal flow. Splitting saves no results, and Undo reverses
 the whole last vote or queue change. **Adaptive groups** can switch to rapid 1v1;
 **Voting options** contains all shortcut guidance. The split queue and mode survive

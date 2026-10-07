@@ -1,0 +1,49 @@
+/* Segments stay unpositioned so every popover is placed against the full bar. */
+.matchup-map { display: grid; gap: var(--space-1); min-width: 0; }
+.matchup-bar { --popover-width: min(18rem, 100%); position: relative; display: flex; min-width: 0; }
+/* The target is taller than the strip it draws, for easier pointing. */
+.bar-segment { display: flex; flex: 1 1 0; align-items: center; min-width: 0; height: 2rem; margin: 0 0.5px; padding: 0; border: 0; background: none; color: inherit; }
+.bar-segment--pending { margin-inline: 1.5px; }
+.bar-segment:first-child { margin-left: 0; }
+.bar-segment:last-child { margin-right: 0; }
+.bar-segment[aria-current], span.bar-segment { cursor: default; }
+.bar-segment:focus-visible { outline-offset: 1px; }
+.bar-fill, .bar-swatch { border: 1px solid transparent; border-radius: 3px; }
+.bar-fill { display: block; width: 100%; height: 0.75rem; }
+.bar-swatch { flex: none; width: 1rem; height: 0.75rem; }
+/* Hollow is still to vote, filled is saved, tall is current: never colour alone. */
+.bar-fill--pending { background: var(--well); border-color: var(--face-border); }
+.bar-fill--current { height: 1.25rem; background: var(--primary); border-color: var(--primary); }
+.bar-fill--won { background: var(--winner); }
+.bar-fill--lost { background: var(--danger); }
+.bar-fill--banned { border: 1px dashed var(--quiet); }
+/* Rapid 1v1 tints the group and fills only the current opponent's place in it. */
+.bar-fill--single { background: var(--accent-soft); }
+.bar-fill--slot { background: linear-gradient(to right, var(--accent-soft) var(--slot-start), var(--primary) 0 max(var(--slot-end), calc(var(--slot-start) + 4px)), var(--accent-soft) 0); }
+/* After a split the halves part, and the half set aside fades out of the current style. */
+.bar-fill--split-kept { animation: bar-split-kept 0.45s ease-out; }
+.bar-fill--split-off { animation: bar-split-off 0.45s ease-out; }
+@keyframes bar-split-kept { from { translate: 1.5px; } 45% { translate: -3px; } }
+@keyframes bar-split-off { from { height: 1.25rem; background-color: var(--primary); border-color: var(--primary); translate: -1.5px; } 45% { translate: 3px; } }
+/* Hidden popovers leave the layout, so they never add scrollable space under the bar. */
+.bar-popover { position: absolute; z-index: 3; top: 100%; left: clamp(0px, calc(var(--center) - var(--popover-width) / 2), calc(100% - var(--popover-width))); display: none; flex-direction: column; gap: var(--space-1); width: var(--popover-width); padding: var(--space-3); border: 1px solid var(--border); border-radius: var(--radius-control); background: var(--panel-raised); box-shadow: var(--dialog-shadow); color: var(--text); font-size: var(--text-support); font-weight: 400; line-height: 1.35; text-align: left; overflow-wrap: anywhere; pointer-events: none; }
+.bar-segment:focus-visible > .bar-popover { display: flex; }
+@keyframes bar-popover-in { from { opacity: 0; } }
+.bar-popover__heading { color: var(--accent); font-weight: 500; letter-spacing: 0.04em; }
+.bar-popover__hint { color: var(--muted); }
+.bar-popover__now { color: var(--primary); font-weight: 600; }
+.bar-key { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-1) var(--space-4); font-size: var(--text-support); }
+.bar-legend { display: flex; flex-wrap: wrap; justify-content: center; gap: var(--space-1) var(--space-4); padding: 0; list-style: none; }
+.bar-legend > li { display: flex; align-items: center; gap: var(--space-2); }
+@media (hover: hover) {
+    .bar-segment:enabled:not([aria-current]):hover > .bar-fill { background: var(--face-top); border-color: var(--text); }
+    /* Touch has no hover: in voting a tap selects the group and the choice lists its titles. */
+    .bar-segment:hover > .bar-popover { display: flex; animation: bar-popover-in 0.12s 0.1s backwards; }
+}
+@media (prefers-reduced-motion: reduce) {
+    .bar-fill--split-kept, .bar-fill--split-off { animation: none; }
+    .bar-segment:hover > .bar-popover { animation: none; }
+}
+@media (max-width: 640px) {
+    .bar-legend { order: 1; flex-basis: 100%; justify-content: flex-start; }
+}

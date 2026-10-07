@@ -1,5 +1,5 @@
 // Layout only: reserve the dock's actual height, including enlarged text/feedback.
-// Keep keyboard focus above the dock while reading opponents and entry context.
+// Keep keyboard focus above the dock while moving between choices and entry context.
 const controls = new WeakMap();
 
 export function connect(root) {
@@ -16,11 +16,14 @@ export function connect(root) {
         const target = event.target;
         if (!(target instanceof HTMLElement) || dock.contains(target)) return;
         setTimeout(() => {
-            if (!root.isConnected || getComputedStyle(dock).position !== "sticky") return;
+            // A tap on a tall choice must not move the page under the pointer.
+            if (!root.isConnected || !target.matches(":focus-visible") ||
+                getComputedStyle(dock).position !== "sticky") return;
             const bounds = target.getBoundingClientRect();
             const dockBounds = dock.getBoundingClientRect();
+            // A choice taller than the space above the dock keeps its top in view.
             if (dockBounds.top < innerHeight && bounds.bottom > dockBounds.top - 12)
-                window.scrollBy({ top: bounds.bottom - dockBounds.top + 12, behavior: "instant" });
+                window.scrollBy({ top: Math.min(bounds.bottom - dockBounds.top + 12, Math.max(0, bounds.top)), behavior: "instant" });
         }, 0);
     };
     controls.set(root, { observer, onFocus });

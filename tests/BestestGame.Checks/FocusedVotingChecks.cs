@@ -62,6 +62,56 @@ static class FocusedVotingChecks
         Check(session.Current(true).SequenceEqual(initialQueue[1]) && session.Snapshot()[^1].SequenceEqual(initialQueue[0]),
             "Skipping a group moves the whole group to the end without resolving it");
         session.Restore(initialQueue);
+        Check(!session.BringToFront(initialQueue[0][3]) && !session.BringToFront(Guid.NewGuid()) &&
+            session.Snapshot().SelectMany(group => group).SequenceEqual(pending.Select(duel => duel.Id)),
+            "Selecting the current group or an unknown duel leaves the queue alone");
+        Check(session.BringToFront(initialQueue[4][7]) && session.Current(true).SequenceEqual(initialQueue[4]) &&
+            session.Snapshot().Skip(1).SelectMany(group => group).SequenceEqual(
+                initialQueue.Where((_, index) => index != 4).SelectMany(group => group)) &&
+            session.RemainingCount == 113 && File.ReadAllText(path) == contentsBeforeSplit,
+            "Selecting a group makes it current without reordering the rest or recording results");
+
+        var opponents = pending.Select(duel => (duel.Id, OpponentBar.Status.Pending)).ToArray();
+        var bar = OpponentBar.Build(opponents, session.Snapshot());
+        Check(bar.Count == 12 && bar.Select(segment => segment.Start).SequenceEqual(Enumerable.Range(0, 12).Select(index => index * 10)) &&
+            bar[4].Group == 0 && bar[0].Group == 1 && bar.SelectMany(segment => segment.DuelIds).SequenceEqual(pending.Select(duel => duel.Id)),
+            "The opponent bar stays in standing order whichever group is current");
+        session.SplitCurrent();
+        bar = OpponentBar.Build(opponents, session.Snapshot());
+        Check(bar.Count == 13 && bar[4] is { Group: 0, Start: 40, DuelIds.Count: 5 } && bar[5] is { Group: 1, Start: 45, DuelIds.Count: 5 },
+            "A split divides the current segment in place");
+        session.Restore(initialQueue);
+        var mixed = pending.Select((duel, index) => (duel.Id, index < 25 ? OpponentBar.Status.Lost : index < 27 ? OpponentBar.Status.Banned :
+            index < 100 ? OpponentBar.Status.Pending : OpponentBar.Status.Won)).ToArray();
+        var unfinished = new AdaptiveDuelSession();
+        unfinished.Synchronize(mixed.Where(opponent => opponent.Item2 == OpponentBar.Status.Pending).Select(opponent => opponent.Id));
+        bar = OpponentBar.Build(mixed, unfinished.Snapshot());
+        Check(bar.Count == 11 && bar[0] is { Status: OpponentBar.Status.Lost, Group: -1, Start: 0, DuelIds.Count: 25 } &&
+            bar[1] is { Status: OpponentBar.Status.Banned, Group: -1, Start: 25, DuelIds.Count: 2 } &&
+            bar[2] is { Status: OpponentBar.Status.Pending, Group: 0, Start: 27 } &&
+            bar[^1] is { Status: OpponentBar.Status.Won, Group: -1, Start: 100, DuelIds.Count: 13 },
+            "Finished and banned neighbours merge into one segment each beside the remaining groups");
+        bar = OpponentBar.Build(opponents.Take(3), [[pending[0].Id, pending[2].Id], [pending[1].Id]]);
+        Check(bar.Select(segment => segment.Group).SequenceEqual(new[] { 0, 1, 0 }),
+            "A group whose opponents are no longer neighbours is drawn in pieces at their own places");
+
+        // Opponents on 4, 3, 3, 3 with the entry on 0: one of the third opponent's points came from the entry.
+        var ranked = new[] { 4, 3, 3, 3, 0 }.Select((points, index) => new Game { Title = $"Ranked {index}", Points = points }).ToList();
+        var entry = ranked[^1];
+        var own = ranked.Take(4).Reverse().Select(game => new Duel { Game1Id = game.Id, Game2Id = entry.Id }).ToList();
+        own[1].IsCompleted = true;
+        own[1].WinnerId = ranked[2].Id;
+        own[3].IsCompleted = true;
+        own[3].WinnerId = entry.Id;
+        var unrelated = new Duel { Game1Id = ranked[0].Id, Game2Id = ranked[1].Id };
+        var removed = new Duel { Game1Id = Guid.NewGuid(), Game2Id = entry.Id };
+        var ordered = OpponentBar.StandingOrder(ranked, own.Append(unrelated).Append(removed), entry.Id);
+        Check(ordered.Select(duel => OpponentBar.OpponentId(duel, entry.Id)).SequenceEqual(
+                new[] { ranked[0].Id, ranked[1].Id, ranked[3].Id, ranked[2].Id }),
+            "An opponent's standing ignores the point it won from the entry, and only the entry's own duels with known games are laid out");
+        Check(ordered.Select(duel => OpponentBar.StatusOf(duel, entry.Id, new HashSet<Guid> { ranked[1].Id })).SequenceEqual(new[] {
+                OpponentBar.Status.Won, OpponentBar.Status.Banned, OpponentBar.Status.Pending, OpponentBar.Status.Lost }),
+            "Each opponent is won, lost, arena-banned or still to vote from the entry's side");
 
         var wins = session.Current(true).Select(id => new GameService.DuelResult(id, newcomer.Id)).ToArray();
         Check(service.RecordWinners(tournament.Id, wins).Count == 10, "One group vote records ten individual results");

@@ -151,7 +151,14 @@ else
         @if (!_showBeatenByDialog && !_showWinsOverDialog && !_showPendingMatchesDialog)
         {
             var includedTitleLines = GetIncludedTitleLines(detailsGame, LeaderboardYear);
+            var barDuels = OpponentBar.StandingOrder(_games, _duels, detailsGame.Id);
+            var barTitles = barDuels.ToDictionary(duel => duel.Id,
+                duel => GetTitleDisplay(_games.First(game => game.Id == OpponentBar.OpponentId(duel, detailsGame.Id))).Title);
             <p id="details-description" class="helper-text">Full tournament results for this entry.</p>
+            <div class="entry-bar">
+                <MatchupBar Opponents="@barDuels.Select(duel => (duel.Id, OpponentBar.StatusOf(duel, detailsGame.Id, _arenaBannedGameIds))).ToArray()"
+                            TitleOf="@(id => barTitles[id])" PopoverTitles="6" />
+            </div>
             @if (includedTitleLines.Count > 0)
             {
                 <details class="entry-included-titles">
@@ -312,6 +319,7 @@ else
 
     private Tournament? _currentTournament;
     private List<Game> _games = [];
+    private List<Duel> _duels = [];
     private Dictionary<Guid, int> _matchesPlayed = [];
     private Dictionary<Guid, int> _pendingPerGame = [];
     private Dictionary<Guid, List<GameService.LossDetail>> _gamesPickedOver = [];
@@ -356,6 +364,7 @@ else
     private void RefreshStandings()
     {
         _games = GameService.GetGames();
+        _duels = GameService.GetCurrentTournament()?.Duels ?? [];
         _rankedStandings = TournamentStandings.Rank(_games, LeaderboardYear);
         _matchesPlayed = GameService.GetMatchesPlayedPerGame();
         _gamesPickedOver = GameService.GetGamesPickedOverDetails();

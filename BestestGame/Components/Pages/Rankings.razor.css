@@ -28,7 +28,7 @@
 .voting-dialog { width: calc(100% - 2rem); max-width: 48rem; margin: auto; overflow-wrap: anywhere; }
 .voting-dialog .dialog__header > h2 { min-width: 0; flex: 1; }
 .voting-dialog .dialog__header > button { flex-shrink: 0; }
-.entry-included-titles, .entry-statistics, .entry-detail-actions, .entry-completion, .entry-exclusion { margin-top: var(--space-4); }
+.entry-bar, .entry-included-titles, .entry-statistics, .entry-detail-actions, .entry-completion, .entry-exclusion { margin-top: var(--space-4); }
 .entry-included-titles summary { min-height: 44px; padding-block: var(--space-3); }
 .included-title-list { margin: 0; padding-left: var(--space-6); }
 .included-title-list > li + li { margin-top: var(--space-1); }

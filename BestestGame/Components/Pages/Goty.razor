@@ -141,6 +141,8 @@
 
         <details class="goty-archive">
             <summary>Release-year archive · @_years.Count @(_years.Count == 1 ? "year" : "years")</summary>
+            @* One wrapper: the disclosure animation unfolds a single child. *@
+            <div>
             <div class="goty-explore">
                 <button type="button" class="button" @onclick="SurpriseMe"><span class="button__content">Random year</span></button>
             </div>
@@ -162,6 +164,7 @@
                         </span>
                     </a>
                 }
+            </div>
             </div>
         </details>
     }

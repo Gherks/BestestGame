@@ -165,7 +165,11 @@ else
                     <label for="focusEntry" class="field-label">Focus on entry</label>
                     <select id="focusEntry" value="@FocusEntry" @onchange="ChangeFocusedEntry" class="form-control" disabled="@(!_sessionReady)">
                         <option value="">All matchups</option>
-                        @foreach (var entry in _games.OrderByDescending(game => _pendingPerGame.GetValueOrDefault(game.Id)).ThenBy(game => game.Title))
+                        @* Finished entries are hidden, except the focused one so the selector matches the page.
+                           The stable sort keeps tournament placement among equal remaining counts. *@
+                        @foreach (var entry in TournamentStandings.Rank(_games).Select(standing => standing.Game)
+                            .Where(game => _pendingPerGame.GetValueOrDefault(game.Id) > 0 || game.Id == FocusEntry)
+                            .OrderByDescending(game => _pendingPerGame.GetValueOrDefault(game.Id)))
                         {
                             <option value="@entry.Id">@GetTitleDisplay(entry).Title · @_pendingPerGame.GetValueOrDefault(entry.Id) remaining</option>
                         }
@@ -180,7 +184,7 @@ else
                 }
                 else
                 {
-                    <p class="helper-text">Votes save immediately. Turn off Adaptive groups for rapid 1v1. Shortcuts: 1 / Left chooses your entry; 2 / Right chooses all current opponents. M splits without saving; U undoes the last vote or queue change; S skips.</p>
+                    <p class="helper-text">Votes save immediately. Turn off Adaptive groups for rapid 1v1. Shortcuts: 1 / Left chooses your entry; 2 / Right chooses all current opponents. M splits without saving; U undoes the last vote or queue change; S skips. The bar under the choices shows every opponent from highest to lowest ranked; select a segment to vote on that group next.</p>
                 }
                 </div>
             </details>

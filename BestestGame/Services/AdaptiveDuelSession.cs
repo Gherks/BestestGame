@@ -47,6 +47,19 @@ public sealed class AdaptiveDuelSession
         return true;
     }
 
+    /// <summary>Makes the group holding this duel current. The rest of the queue keeps its order.</summary>
+    public bool BringToFront(Guid duelId)
+    {
+        var index = _groups.FindIndex(group => group.Contains(duelId));
+        if (index <= 0)
+            return false;
+
+        var group = _groups[index];
+        _groups.RemoveAt(index);
+        _groups.Insert(0, group);
+        return true;
+    }
+
     public void Remove(IEnumerable<Guid> duelIds)
     {
         var removed = duelIds.ToHashSet();

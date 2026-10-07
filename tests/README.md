@@ -24,14 +24,21 @@ commit and asset hashes are in [font provenance](../BestestGame/wwwroot/fonts/RE
 Focused voting checks start with 113 fully ranked entries and verify adaptive
 splitting down to individual duels, batch wins and losses, complete batch undo,
 duplicate and concurrent input, tournament isolation, and finishing all 113 new
-matchups with preferences that do not follow standing order.
+matchups with preferences that do not follow standing order. They also cover
+selecting another group without reordering the rest of the queue or saving
+results, and the opponent bar's layout: fixed standing order whichever group is
+current, a split dividing its segment in place, finished and banned neighbours
+merging, and a group drawn in pieces when its opponents are no longer adjacent.
+The bar's hover/focus popovers, split preview and animation, and rapid 1v1 marker
+need a browser.
 
 After adding an entry, use **Finish matchups** to open `/vote?focus=<entry-id>`.
-**Voting options** contains the **Focus on entry** selector, with entries ordered by remaining
-duels from most to fewest and alphabetically when counts are tied. Adaptive voting starts with
+**Voting options** contains the **Focus on entry** selector, listing only entries with remaining
+duels, ordered from most to fewest and by tournament placement when counts are tied. Adaptive voting starts with
 groups of up to ten opponents in standing order; **Split group** halves the
 current group without recording results. Either winning button records all of
-that group's individual duels. Turn off **Adaptive groups** for rapid 1v1 voting.
+that group's individual duels. Select a segment of the bar under the choices to
+vote on that group next. Turn off **Adaptive groups** for rapid 1v1 voting.
 Shortcuts are **1 / Left arrow** for the focused entry, **2 / Right arrow** for its
 opponents, **M** to split, **U** to undo, and **S** to skip. Skipped matches remain
 pending, arena bans are respected, and undo reverses the entire last batch.
@@ -92,7 +99,9 @@ search, preservation of ranks while searching, collection/included-title and
 Unicode matching without duplicate participants, blank/no-result/unknown-year
 cases, zero-point ties, read-only game data and the separate GOTY tie-breaks.
 Rankings exposes completed/pending counts and all matchup/exclusion actions
-through its native entry Details dialog. Browser checks are needed for responsive
+through its native entry Details dialog, which opens with a read-only opponent bar.
+`FocusedVotingChecks` covers the bar's standing order and won/lost/banned/pending
+status for an entry. Browser checks are needed for responsive
 rows, native search/filter input, dialog keyboard/focus behavior and those actions.
 
 The same .NET check command also covers Rankings route compatibility, shared
