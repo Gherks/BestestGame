@@ -1,0 +1,548 @@
+@page "/rankings"
+@rendermode InteractiveServer
+@implements IAsyncDisposable
+@inject IJSRuntime JS
+@using BestestGame.Models
+@using BestestGame.Services
+@using static BestestGame.Components.EntryTitles
+@inject GameService GameService
+@inject NavigationManager Navigation
+
+<PageTitle>Rankings | BestestGame</PageTitle>
+
+@if (_currentTournament is null)
+{
+    <section class="surface stack">
+        <header class="page-heading"><h1>Rankings</h1><p>Select a tournament to browse its results.</p></header>
+        <div class="empty-state stack">
+            <h2>No tournament selected</h2>
+            <p>Create or select a tournament to view its rankings.</p>
+            <div><a href="/tournaments" class="button button--primary"><span class="button__content">Go to tournaments</span></a></div>
+        </div>
+    </section>
+}
+else
+{
+<section class="standings stack" aria-labelledby="standings-heading">
+    <header class="page-heading">
+        <h1 id="standings-heading" @ref="_standingsHeading" tabindex="-1">Rankings</h1>
+        <p>Full tournament scores for <strong>@_currentTournament.Name</strong>.</p>
+        <div class="cluster">
+        <a href="/vote" class="button"><span class="button__content">Continue voting</span></a>
+        <a href="@(LeaderboardYear is { } year ? $"/goty?year={year}" : "/goty")" class="button"><span class="button__content">Game of the year</span></a>
+        </div>
+    </header>
+    @if (!string.IsNullOrEmpty(_voteNotice))
+    {
+        <div class="cluster">
+            <p class="vote-notice text-secondary" role="status">@_voteNotice</p>
+            <button type="button" class="button" disabled="@(!_canUndo || !_sessionReady)" @onclick="UndoLastVote"><span class="button__content">Undo last vote</span></button>
+        </div>
+    }
+    @if (_games.Count > 0)
+    {
+        <div class="standings-filter">
+            <div class="field standings-search">
+                <label for="standings-search" class="field-label">Search titles</label>
+                <input id="standings-search" type="search" class="form-control" placeholder="Title or collection"
+                       aria-describedby="standings-search-help" @bind="_search" @bind:event="oninput" />
+                <p id="standings-search-help" class="helper-text">Search collection names and included titles.</p>
+            </div>
+            <div class="field standings-year">
+                <label for="leaderboardYear" class="field-label">Release year</label>
+                <select id="leaderboardYear" @bind="LeaderboardYear" @bind:after="UpdateLeaderboardYearUrl" class="form-control">
+                    <option value="">All years</option>
+                    @if (LeaderboardYear is { } selectedYear && !_leaderboardYears.Contains(selectedYear))
+                    {
+                        <option value="@selectedYear">@selectedYear — no entries</option>
+                    }
+                    @foreach (var releaseYear in _leaderboardYears)
+                    {
+                        <option value="@releaseYear">@releaseYear</option>
+                    }
+                </select>
+            </div>
+            <button type="button" class="button standings-clear" disabled="@string.IsNullOrEmpty(_search)" @onclick="() => _search = string.Empty"><span class="button__content">Clear search</span></button>
+        </div>
+        @if (LeaderboardYear is not null)
+        {
+            <p class="helper-text">Collections appear when an included title matches the year. Points remain from the full tournament.</p>
+        }
+        @if (_pendingMatchupCount > 0)
+        {
+            <p class="standings-progress helper-text">Rankings are still taking shape. @_pendingMatchupCount @(_pendingMatchupCount == 1 ? "matchup remains" : "matchups remain").</p>
+        }
+        <p class="helper-text" role="status">Showing @_visibleStandings.Count of @_rankedStandings.Count entries@(_rankedStandings.Count != _games.Count ? " for this year" : "").</p>
+    }
+    @if (_games.Count == 0)
+    {
+        <div class="surface empty-state stack">
+            <h3>No games imported yet</h3>
+            @if (LeaderboardYear is { } emptyYear)
+            {
+                <p>No entries for @emptyYear in this tournament. <a href="/rankings" class="text-link">View all years</a>.</p>
+            }
+            <p><a href="/import" class="text-link">Import games</a> to start this tournament.</p>
+        </div>
+    }
+    else if (_rankedStandings.Count == 0)
+    {
+        <p class="surface empty-state">No entries for this release year. Select another year or All years.</p>
+    }
+    else if (_visibleStandings.Count == 0)
+    {
+        <p class="surface empty-state">No titles match your search. Clear the search or try another title.</p>
+    }
+    else
+    {
+        <table class="data-table standings-table">
+            <caption>Equal points share a rank. Search keeps these positions.</caption>
+            <colgroup><col class="standings-rank-column" /><col /><col class="standings-points-column" /></colgroup>
+            <thead><tr><th scope="col">Rank</th><th scope="col">Title</th><th scope="col">Points</th></tr></thead>
+            <tbody>
+                @foreach (var entry in _visibleStandings)
+                {
+                    var game = entry.Game;
+                    var display = GetTitleDisplay(game);
+                    <tr @key="game.Id" data-game-id="@game.Id" class="@(entry.Rank == 1 ? "standings-leader" : "")">
+                        <td class="standings-rank">@entry.Rank</td>
+                        <th scope="row" class="standings-title">
+                            <div class="standings-entry">
+                                <div class="standings-entry-title">
+                                    <span>@display.Title</span>
+                                    <div class="standings-markers helper-text">
+                                        @if (game.IncludedTitles is { Count: > 0 })
+                                        {
+                                            <span>Collection · @game.IncludedTitles.Count titles</span>
+                                        }
+                                        else if (!string.IsNullOrWhiteSpace(display.Subtitle))
+                                        {
+                                            <span>Collection</span>
+                                        }
+                                        @if (_pendingPerGame.GetValueOrDefault(game.Id) > 0)
+                                        {
+                                            <span class="standings-unfinished">Unfinished</span>
+                                        }
+                                    </div>
+                                </div>
+                                <button type="button" class="button" data-entry-details="@game.Id" disabled="@(!_sessionReady)" aria-haspopup="dialog"
+                                        aria-label="@($"Details for {display.Title}")" @onclick="() => ShowEntryDetails(game.Id)"><span class="button__content">Details</span></button>
+                            </div>
+                        </th>
+                        <td class="standings-points">@game.Points</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+</section>
+
+<dialog @ref="_detailsDialog" class="dialog voting-dialog" aria-labelledby="details-heading" aria-describedby="details-description" aria-modal="true">
+    @if (_detailsGame is { } detailsGame)
+    {
+        <div class="dialog__header">
+            <h2 id="details-heading">@(_showBeatenByDialog ? $"Losses for {_beatenByGameTitle}" : _showWinsOverDialog ? $"Wins for {_winsOverGameTitle}" : _showPendingMatchesDialog ? $"Pending matchups for {_pendingMatchesGameTitle}" : $"Details for {GetTitleDisplay(detailsGame).Title}")</h2>
+            <button type="button" autofocus class="button" aria-label="Close matchup details" @onclick="CloseVotingDialog"><span class="button__content">Close</span></button>
+        </div>
+        @if (_showBeatenByDialog || _showWinsOverDialog || _showPendingMatchesDialog)
+        {
+            <div><button type="button" class="button" @onclick="BackToEntryDetails"><span class="button__content">Back to entry details</span></button></div>
+        }
+        @if (!_showBeatenByDialog && !_showWinsOverDialog && !_showPendingMatchesDialog)
+        {
+            var includedTitleLines = GetIncludedTitleLines(detailsGame, LeaderboardYear);
+            <p id="details-description" class="helper-text">Full tournament results for this entry.</p>
+            @if (includedTitleLines.Count > 0)
+            {
+                <details class="entry-included-titles">
+                    <summary>Included titles@(LeaderboardYear is { } includedYear ? $" from {includedYear}" : detailsGame.IncludedTitles is { Count: > 0 } titles ? $" ({titles.Count})" : "")</summary>
+                    <ul class="included-title-list helper-text">
+                        @foreach (var title in includedTitleLines)
+                        {
+                            <li>@title</li>
+                        }
+                    </ul>
+                </details>
+            }
+            @if (LeaderboardYear is { } detailYear && detailsGame.IncludedTitles is { Count: > 0 } includedTitles && includedTitles.Any(title => title.ReleaseYear != detailYear))
+            {
+                <details class="entry-included-titles">
+                    <summary>All included titles (@detailsGame.IncludedTitles.Count)</summary>
+                    <ul class="included-title-list helper-text">
+                        @foreach (var title in GetIncludedTitleLines(detailsGame))
+                        {
+                            <li>@title</li>
+                        }
+                    </ul>
+                </details>
+            }
+            <dl class="entry-statistics">
+                <div><dt>Points</dt><dd>@detailsGame.Points</dd></div>
+                <div><dt>Completed matchups</dt><dd>@_matchesPlayed.GetValueOrDefault(detailsGame.Id)</dd></div>
+                <div><dt>Pending matchups</dt><dd>@_pendingPerGame.GetValueOrDefault(detailsGame.Id)</dd></div>
+            </dl>
+            <div class="entry-detail-actions cluster">
+                <button type="button" class="button" data-details="wins" @onclick="() => ShowWinsOver(detailsGame.Id, detailsGame.Title, _winsOver.GetValueOrDefault(detailsGame.Id, []))"><span class="button__content">Wins (@_winsOver.GetValueOrDefault(detailsGame.Id, []).Count)</span></button>
+                <button type="button" class="button" data-details="losses" @onclick="() => ShowBeatenBy(detailsGame.Id, detailsGame.Title, _gamesPickedOver.GetValueOrDefault(detailsGame.Id, []))"><span class="button__content">Losses (@_gamesPickedOver.GetValueOrDefault(detailsGame.Id, []).Count)</span></button>
+                <button type="button" class="button" data-details="pending" @onclick="() => ShowPendingMatches(detailsGame.Id, detailsGame.Title)"><span class="button__content">Pending (@_pendingPerGame.GetValueOrDefault(detailsGame.Id))</span></button>
+            </div>
+            @if (_pendingPerGame.GetValueOrDefault(detailsGame.Id) > 0)
+            {
+                <p class="entry-completion"><a href="@FocusUrl(detailsGame.Id)" class="text-link">Finish this entry's matchups in Voting</a></p>
+            }
+            <label class="checkbox-field entry-exclusion"><input type="checkbox" disabled="@(!_sessionReady)" aria-label="@($"Arena ban for {detailsGame.Title}")" checked="@_arenaBannedGameIds.Contains(detailsGame.Id)" @onchange="(args) => ToggleArenaBanAsync(detailsGame.Id, args.Value is bool isChecked && isChecked)" /><span>Exclude from voting arenas</span></label>
+            <p class="helper-text">Applies in this tab. Results and points stay unchanged.</p>
+        }
+        else if (_showBeatenByDialog)
+        {
+            <p id="details-description" class="helper-text">These games were chosen over this entry. Change a result below if you selected the wrong winner.</p>
+            @if (_beatenByList.Count == 0)
+            {
+                <p class="empty-state">No losses remain for this entry.</p>
+            }
+            else
+            {
+                <ul class="details-list stack">
+                    @foreach (var loss in _beatenByList)
+                    {
+                        var display = GetTitleDisplay(_games.First(g => g.Id == loss.WinnerId));
+                        <li @key="loss.DuelId" class="surface surface--well stack">
+                            <h3>@display.Title</h3>
+                            @if (!string.IsNullOrWhiteSpace(display.Subtitle)) { <p class="helper-text">@display.Subtitle</p> }
+                            <div><button type="button" class="button" @onclick="() => ChangeLossToWin(loss)"><span class="button__content">Change to win for @_beatenByGameTitle</span></button></div>
+                        </li>
+                    }
+                </ul>
+            }
+        }
+        else if (_showWinsOverDialog)
+        {
+            <p id="details-description" class="helper-text">This entry won its matchups against the games below.</p>
+            @if (_winsOverList.Count == 0)
+            {
+                <p class="empty-state">No wins recorded for this entry yet.</p>
+            }
+            else
+            {
+                <ul class="details-list stack">
+                    @foreach (var win in _winsOverList)
+                    {
+                        var display = GetTitleDisplay(_games.First(g => g.Id == win.WinnerId));
+                        <li @key="win.DuelId" class="surface surface--well stack"><h3>@display.Title</h3>@if (!string.IsNullOrWhiteSpace(display.Subtitle)) { <p class="helper-text">@display.Subtitle</p> }</li>
+                    }
+                </ul>
+            }
+        }
+        else
+        {
+            <p id="details-description" class="helper-text">Choose a winner for each pending matchup. Results save immediately.</p>
+            @if (_pendingMatchOptions.Count == 0)
+            {
+                <p class="empty-state">No pending matchups for this entry.</p>
+            }
+            else
+            {
+                <ul class="details-list stack">
+                    @foreach (var pendingMatch in _pendingMatchOptions)
+                    {
+                        var home = GetTitleDisplay(_games.First(g => g.Id == _pendingMatchesGameId));
+                        var opponent = GetTitleDisplay(_games.First(g => g.Id == pendingMatch.OpponentId));
+                        <li @key="pendingMatch.DuelId" class="pending-match" data-duel-id="@pendingMatch.DuelId">
+                            <button type="button" class="button" data-pending-choice="entry" @onclick="() => PickPendingMatchWinner(pendingMatch, true)"><span class="button__content"><span>@home.Title wins</span>@if (!string.IsNullOrWhiteSpace(home.Subtitle)) { <span class="helper-text">@home.Subtitle</span> }</span></button>
+                            <span class="text-secondary" aria-hidden="true">vs</span>
+                            <button type="button" class="button" data-pending-choice="opponent" @onclick="() => PickPendingMatchWinner(pendingMatch, false)"><span class="button__content"><span>@opponent.Title wins</span>@if (!string.IsNullOrWhiteSpace(opponent.Subtitle)) { <span class="helper-text">@opponent.Subtitle</span> }</span></button>
+                        </li>
+                    }
+                </ul>
+            }
+        }
+        @if (!string.IsNullOrEmpty(_dialogNotice)) { <p class="status" role="status">@_dialogNotice</p> }
+    }
+</dialog>
+}
+
+@code {
+    [SupplyParameterFromQuery(Name = "year")]
+    public int? LeaderboardYear { get; set; }
+    private string FocusUrl(Guid gameId) => VotingRoutes.Focus(gameId, LeaderboardYear);
+    private void UpdateLeaderboardYearUrl()
+        => Navigation.NavigateTo(Navigation.GetUriWithQueryParameter("year", LeaderboardYear));
+    private List<int> _leaderboardYears => _games
+        .SelectMany(g => (g.IncludedTitles ?? []).Select(t => t.ReleaseYear).Append(g.ReleaseYear))
+        .Where(year => year.HasValue).Select(year => year!.Value).Distinct().OrderDescending().ToList();
+    private string _search = string.Empty;
+    private List<TournamentStandings.Entry> _rankedStandings = [];
+    private List<TournamentStandings.Entry> _visibleStandings => TournamentStandings.Search(_rankedStandings, _search);
+    private int _pendingMatchupCount;
+    private Guid? _detailsGameId;
+    private Game? _detailsGame => _games.FirstOrDefault(game => game.Id == _detailsGameId);
+
+    private void ShowEntryDetails(Guid gameId)
+    {
+        if (!_sessionReady) return;
+        BackToEntryDetails();
+        _detailsGameId = gameId;
+    }
+
+    private void BackToEntryDetails()
+    {
+        CloseBeatenByDialog();
+        CloseWinsOverDialog();
+        ClosePendingMatchesDialog();
+        _dialogNotice = string.Empty;
+    }
+
+    private static List<string> GetIncludedTitleLines(Game game, int? year = null)
+    {
+        if (game.IncludedTitles is { Count: > 0 })
+            return game.IncludedTitles
+                .Where(title => year is null || title.ReleaseYear == year)
+                .Select(title => FormatTitleWithYear(title.Title, title.ReleaseYear)).ToList();
+
+        var display = GetTitleDisplay(game);
+        if (string.IsNullOrWhiteSpace(display.Subtitle)) return [];
+
+        // Legacy collections store their members inside the final parentheses.
+        // Split those members, so commas in the collection name stay intact.
+        var legacyTitle = game.Title.Trim();
+        return legacyTitle[(legacyTitle.LastIndexOf('(') + 1)..^1]
+            .Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries)
+            .Select(part => $"{display.Title} {part}").ToList();
+    }
+
+    private Tournament? _currentTournament;
+    private List<Game> _games = [];
+    private Dictionary<Guid, int> _matchesPlayed = [];
+    private Dictionary<Guid, int> _pendingPerGame = [];
+    private Dictionary<Guid, List<GameService.LossDetail>> _gamesPickedOver = [];
+    private Dictionary<Guid, List<GameService.LossDetail>> _winsOver = [];
+    private bool _showBeatenByDialog;
+    private Guid? _beatenByGameId;
+    private string _beatenByGameTitle = string.Empty;
+    private List<GameService.LossDetail> _beatenByList = [];
+    private bool _showWinsOverDialog;
+    private Guid? _winsOverGameId;
+    private string _winsOverGameTitle = string.Empty;
+    private List<GameService.LossDetail> _winsOverList = [];
+    private bool _showPendingMatchesDialog;
+    private Guid? _pendingMatchesGameId;
+    private string _pendingMatchesGameTitle = string.Empty;
+    private List<PendingMatchOption> _pendingMatchOptions = [];
+    private readonly ArenaExclusionSession _exclusions = new();
+    private IReadOnlySet<Guid> _arenaBannedGameIds => _exclusions.GetIds(_currentTournament?.Id);
+    private bool _restoreExclusions = true;
+    private bool _sessionReady => !_restoreExclusions && _currentTournament is not null && _exclusions.IsReadyFor(_currentTournament.Id);
+    private Guid? _lastCompletedDuelId;
+    private bool _canUndo;
+    private string _voteNotice = string.Empty;
+    private record PendingMatchOption(Guid DuelId, Guid OpponentId, string OpponentTitle);
+
+    protected override void OnParametersSet()
+    {
+        var tournament = GameService.GetCurrentTournament();
+        if (_currentTournament?.Id != tournament?.Id)
+        {
+            _search = string.Empty;
+            _lastCompletedDuelId = null;
+            _canUndo = false;
+            _voteNotice = string.Empty;
+        }
+        _currentTournament = tournament;
+        _restoreExclusions = true;
+        CloseVotingDialog();
+        RefreshStandings();
+    }
+
+    private void RefreshStandings()
+    {
+        _games = GameService.GetGames();
+        _rankedStandings = TournamentStandings.Rank(_games, LeaderboardYear);
+        _matchesPlayed = GameService.GetMatchesPlayedPerGame();
+        _gamesPickedOver = GameService.GetGamesPickedOverDetails();
+        _winsOver = GameService.GetWinsOverDetails();
+        _pendingPerGame = _games.ToDictionary(game => game.Id, _ => 0);
+        var pendingDuels = GameService.GetPendingDuels();
+        _pendingMatchupCount = pendingDuels.Count;
+        foreach (var duel in pendingDuels)
+        {
+            if (_pendingPerGame.ContainsKey(duel.Game1Id)) _pendingPerGame[duel.Game1Id]++;
+            if (_pendingPerGame.ContainsKey(duel.Game2Id)) _pendingPerGame[duel.Game2Id]++;
+        }
+    }
+
+    private async Task ToggleArenaBanAsync(Guid gameId, bool isChecked)
+    {
+        if (!_sessionReady) return;
+        await _exclusions.SetAsync(gameId, isChecked);
+        _canUndo = false;
+        _voteNotice = string.Empty;
+    }
+
+    private Task RecordVote(Guid duelId, Guid winnerId)
+    {
+        if (!_sessionReady || _currentTournament is null ||
+            GameService.RecordWinners(_currentTournament.Id, [new(duelId, winnerId)]).Count == 0)
+            return Task.CompletedTask;
+        var winner = _games.FirstOrDefault(game => game.Id == winnerId);
+        _voteNotice = winner is null ? "Vote recorded." : $"Vote recorded for {GetTitleDisplay(winner).Title}.";
+        _lastCompletedDuelId = duelId;
+        _canUndo = true;
+        RefreshStandings();
+        return Task.CompletedTask;
+    }
+
+    private void UndoLastVote()
+    {
+        if (!_sessionReady || !_canUndo || _lastCompletedDuelId is null) return;
+        GameService.UndoMatch(_lastCompletedDuelId.Value);
+        _canUndo = false;
+        _lastCompletedDuelId = null;
+        _voteNotice = "Last vote undone.";
+        RefreshStandings();
+    }
+
+    private void ShowBeatenBy(Guid gameId, string gameTitle, List<GameService.LossDetail> beatenBy)
+    {
+        _beatenByGameId = gameId;
+        _beatenByGameTitle = FormatTitleWithYear(gameTitle, _games.FirstOrDefault(g => g.Id == gameId)?.ReleaseYear);
+        _beatenByList = beatenBy.ToList();
+        _dialogNotice = string.Empty;
+        _showBeatenByDialog = true;
+    }
+
+    private void ChangeLossToWin(GameService.LossDetail loss)
+    {
+        if (_beatenByGameId is null)
+            return;
+
+        if (!GameService.ChangeCompletedDuelWinner(loss.DuelId, _beatenByGameId.Value))
+            return;
+
+        _beatenByList.RemoveAll(x => x.DuelId == loss.DuelId);
+        _dialogNotice = "Result updated. This entry is now the winner of that matchup.";
+        RefreshStandings();
+    }
+
+    private void CloseBeatenByDialog()
+    {
+        _showBeatenByDialog = false;
+        _beatenByGameId = null;
+    }
+
+    private void ShowWinsOver(Guid gameId, string gameTitle, List<GameService.LossDetail> winsOver)
+    {
+        _winsOverGameId = gameId;
+        _winsOverGameTitle = FormatTitleWithYear(gameTitle, _games.FirstOrDefault(g => g.Id == gameId)?.ReleaseYear);
+        _winsOverList = winsOver.ToList();
+        _dialogNotice = string.Empty;
+        _showWinsOverDialog = true;
+    }
+
+    private void CloseWinsOverDialog()
+    {
+        _showWinsOverDialog = false;
+        _winsOverGameId = null;
+    }
+
+    private void ShowPendingMatches(Guid gameId, string gameTitle)
+    {
+        _pendingMatchesGameId = gameId;
+        _pendingMatchesGameTitle = FormatTitleWithYear(gameTitle, _games.FirstOrDefault(g => g.Id == gameId)?.ReleaseYear);
+        _pendingMatchOptions = GetPendingMatchOptions(gameId);
+        _dialogNotice = string.Empty;
+        _showPendingMatchesDialog = true;
+    }
+
+    private List<PendingMatchOption> GetPendingMatchOptions(Guid gameId)
+    {
+        var gameTitlesById = _games.ToDictionary(g => g.Id, g => g.Title);
+
+        return GameService.GetPendingDuels()
+            .Where(d => d.Game1Id == gameId || d.Game2Id == gameId)
+            .Select(d =>
+            {
+                var opponentId = d.Game1Id == gameId ? d.Game2Id : d.Game1Id;
+                gameTitlesById.TryGetValue(opponentId, out var opponentTitle);
+                return new PendingMatchOption(d.Id, opponentId, opponentTitle ?? "Unknown title");
+            })
+            .OrderBy(x => x.OpponentTitle)
+            .ToList();
+    }
+
+    private async Task PickPendingMatchWinner(PendingMatchOption pendingMatch, bool pickCurrentRowGame)
+    {
+        if (_pendingMatchesGameId is null)
+            return;
+
+        var winnerId = pickCurrentRowGame ? _pendingMatchesGameId.Value : pendingMatch.OpponentId;
+        await RecordVote(pendingMatch.DuelId, winnerId);
+
+        _pendingMatchOptions = GetPendingMatchOptions(_pendingMatchesGameId.Value);
+        if (_pendingMatchOptions.Count == 0)
+        {
+            CloseVotingDialog();
+        }
+    }
+
+    private void ClosePendingMatchesDialog()
+    {
+        _showPendingMatchesDialog = false;
+        _pendingMatchesGameId = null;
+        _pendingMatchesGameTitle = string.Empty;
+        _pendingMatchOptions = [];
+    }
+
+    private ElementReference _detailsDialog;
+    private ElementReference _standingsHeading;
+    private IJSObjectReference? _dialogModule;
+    private DotNetObjectReference<Rankings>? _dialogReference;
+    private string _dialogNotice = string.Empty;
+
+    private void CloseVotingDialog()
+    {
+        BackToEntryDetails();
+        _detailsGameId = null;
+    }
+
+    [JSInvokable]
+    public void CloseVotingDialogFromKeyboard()
+    {
+        CloseVotingDialog();
+        StateHasChanged();
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (_currentTournament is null) return;
+        var restored = _restoreExclusions;
+        if (restored)
+        {
+            await _exclusions.RestoreAsync(JS, _currentTournament.Id, _games.Select(game => game.Id));
+            _restoreExclusions = false;
+        }
+        if (_dialogModule is null)
+        {
+            _dialogModule = await JS.InvokeAsync<IJSObjectReference>("import", "./js/importDialog.js");
+            _dialogReference = DotNetObjectReference.Create(this);
+            await _dialogModule.InvokeVoidAsync("initialize", _detailsDialog, _dialogReference, "CloseVotingDialogFromKeyboard");
+        }
+        if (_dialogModule is not null)
+            await _dialogModule.InvokeVoidAsync("sync", _detailsDialog, _detailsGame is not null, _standingsHeading);
+        if (restored) StateHasChanged();
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        await _exclusions.DisposeAsync();
+        if (_dialogModule is not null)
+        {
+            try
+            {
+                await _dialogModule.InvokeVoidAsync("dispose", _detailsDialog);
+                await _dialogModule.DisposeAsync();
+            }
+            catch (JSDisconnectedException) { }
+        }
+        _dialogReference?.Dispose();
+    }
+}

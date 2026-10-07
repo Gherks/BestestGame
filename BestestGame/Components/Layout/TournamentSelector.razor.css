@@ -1,0 +1,6 @@
+.tournament-selector { margin: 0 .25rem 1rem; }
+.tournament-selector .field-label { font-size: var(--text-control); }
+.tournament-selector select { min-width: 0; max-width: 100%; font-size: var(--text-control); }
+@media (max-width: 767px) {
+    .tournament-selector { margin: 0; }
+}

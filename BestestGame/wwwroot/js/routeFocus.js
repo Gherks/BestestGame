@@ -26,3 +26,34 @@ new MutationObserver(() => {
     if (!heading.hasAttribute('tabindex')) heading.setAttribute('tabindex', '-1');
     heading.focus({ preventScroll: true });
 }).observe(document.body, { childList: true, subtree: true });
+
+// The mobile disclosure works before hydration. Collapse it on navigation and
+// let Escape return keyboard focus to its summary without trapping the page.
+document.addEventListener('keydown', event => {
+    if (event.key !== 'Escape') return;
+    const menu = document.activeElement?.closest('[data-mobile-menu][open]');
+    if (!menu) return;
+    event.preventDefault();
+    menu.open = false;
+    menu.querySelector('summary')?.focus();
+});
+
+let menuNavigation = false;
+document.addEventListener('click', event => {
+    if (event.button !== 0 || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;
+    if (event.target instanceof Element && event.target.closest('[data-mobile-menu] a[href]'))
+        menuNavigation = true;
+});
+
+Blazor.addEventListener('enhancedload', () => {
+    document.querySelectorAll('[data-mobile-menu][open]').forEach(menu => { menu.open = false; });
+    if (!menuNavigation) return;
+    menuNavigation = false;
+    // A same-page link may leave focus on the body when its menu collapses.
+    // Restore the heading, then the existing observer retains it through hydration.
+    if (document.activeElement !== document.body && !document.activeElement?.closest('[data-mobile-menu]')) return;
+    const heading = document.querySelector('#main-content h1');
+    if (!(heading instanceof HTMLElement)) return;
+    if (!heading.hasAttribute('tabindex')) heading.setAttribute('tabindex', '-1');
+    heading.focus({ preventScroll: true });
+});

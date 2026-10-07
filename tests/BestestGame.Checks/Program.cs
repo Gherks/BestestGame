@@ -120,7 +120,13 @@ try
     Check(File.Exists(Path.Combine(directory, "development", "data.json")), "Relative database paths use the content root and create missing directories");
     Check(File.ReadAllText(path) == liveContents, "Development writes do not modify the live database");
     FocusedVotingChecks.Run(directory);
-    Console.WriteLine("All persistence, release-year, GOTY ranking, focused voting, and database isolation checks passed.");
+    await RankingsNavigationChecks.RunAsync();
+    TournamentStandingsChecks.Run();
+    TournamentNavigationChecks.Run();
+    TournamentOverviewChecks.Run();
+    GameLibraryChecks.Run();
+    OrdinaryDuelChecks.Run(directory);
+    Console.WriteLine("All persistence, release-year, GOTY ranking, focused voting, database isolation, Rankings navigation/display/session, tournament rank/search, switching, Home overview, Games library, and ordinary voting checks passed.");
 }
 finally
 {

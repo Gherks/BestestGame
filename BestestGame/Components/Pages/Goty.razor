@@ -7,37 +7,34 @@
 
 <PageTitle>Game of the year | BestestGame</PageTitle>
 
-<div class="goty-page stack">
-<header class="surface page-heading">
-    <h1>Game of the year</h1>
-    <p>Explore release years and their leading games.</p>
-    @if (_tournament is not null)
-    {
-        <p><strong>@_tournament.Name</strong> · @(_tournament.Duels.Any(d => !d.IsCompleted) ? "Voting in progress" : "No pending matchups")</p>
-    }
-</header>
+<section class="surface goty-page stack" aria-labelledby="goty-heading">
+    <header class="page-heading">
+        <h1 id="goty-heading">Game of the year</h1>
+    </header>
 
-@if (_tournament is null)
-{
-    <section class="empty-state stack">
-        <h2>No tournament selected</h2>
-        <p>Select a tournament to explore its releases.</p>
-        <div><a href="/tournaments" class="tactile tactile--standard tactile--primary"><span class="tactile__face">Choose a tournament</span></a></div>
-    </section>
-}
-else if (_years.Count == 0)
-{
-    <section class="empty-state stack">
-        <h2>No release years assigned</h2>
-        <p>Add release years to games or included titles to populate the archive.</p>
-        <p>@_unassigned title(s) have no release year.</p>
-        <div><a href="/import" class="tactile tactile--standard tactile--primary"><span class="tactile__face">Assign release years</span></a></div>
-    </section>
-}
-else
-{
-    <section class="goty-controls cluster" aria-label="Choose a release year">
-        <button type="button" class="tactile tactile--compact tactile--secondary" disabled="@(_yearIndex <= 0)" @onclick="() => Travel(_years[_yearIndex - 1])"><span class="tactile__face">Earlier</span></button>
+    @if (_tournament is null)
+    {
+        <div class="empty-state stack">
+            <h2>No tournament selected</h2>
+            <p>Select a tournament to explore its releases.</p>
+            <div><a href="/tournaments" class="button button--primary"><span class="button__content">Choose a tournament</span></a></div>
+        </div>
+    }
+    else if (_years.Count == 0)
+    {
+        <div class="empty-state stack">
+            <h2>@(Year is { } emptyYear ? $"No releases in {emptyYear}" : "No release years assigned")</h2>
+            <p>Add release years to games or included titles to populate the archive.</p>
+            <p>@_unassigned @(_unassigned == 1 ? "title has" : "titles have") no release year.</p>
+            @if (Year is not null)
+            {
+                <p><a href="/goty" class="text-link">View all years</a></p>
+            }
+            <div><a href="/import" class="button button--primary"><span class="button__content">Assign release years</span></a></div>
+        </div>
+    }
+    else
+    {
         <div class="field goty-year-select">
             <label for="archive-year" class="field-label">Release year</label>
             <select id="archive-year" class="form-control" value="@_selectedYear" @onchange="ChangeYear">
@@ -51,112 +48,124 @@ else
                 }
             </select>
         </div>
-        <button type="button" class="tactile tactile--compact tactile--secondary" disabled="@(_yearIndex < 0 || _yearIndex >= _years.Count - 1)" @onclick="() => Travel(_years[_yearIndex + 1])"><span class="tactile__face">Later</span></button>
-        <button type="button" class="tactile tactile--standard tactile--secondary" @onclick="SurpriseMe"><span class="tactile__face">Random year</span></button>
-    </section>
 
-    <nav class="goty-timeline" aria-label="Release years">
-        @foreach (var year in _years)
+        @if (_nominees.Count == 0)
         {
-            <a href="@YearUrl(year)" class="text-link goty-year-link" aria-current="@(year == _selectedYear ? "page" : null)">@year</a>
+            <div class="empty-state stack">
+                <h2>No releases in @_selectedYear</h2>
+                <p>No titles from this tournament have this release year. Choose another year above.</p>
+            </div>
         }
-    </nav>
-
-    <div class="helper-text stack">
-        <p>Ranked by points from the full tournament, then completed head-to-head wins among the tied entries in this year. Included titles inherit their collection's score and matchup results. Unresolved ties share a rank.</p>
-        @if (_unassigned > 0)
+        else
         {
-            <p>@_unassigned title(s) have no year and are outside the archive. <a href="/import" class="text-link">Assign years</a></p>
-        }
-    </div>
-
-    @if (_nominees.Count == 0)
-    {
-        <section class="empty-state stack">
-            <h2>No releases in @_selectedYear</h2>
-            <p>No titles from this tournament have this release year. Choose another year above.</p>
-        </section>
-    }
-    else
-    {
-        var leaders = _nominees.Where(e => e.SharesRankWith(_nominees[0])).ToList();
-        var hasPoints = _nominees[0].Points > 0;
-        <section class="surface goty-leaders stack" aria-labelledby="leaders-heading" @key="_selectedYear">
-            <h2 id="leaders-heading">@_selectedYear · @(hasPoints ? (leaders.Count > 1 ? "Shared leaders" : "Current leader") : "No points recorded")</h2>
-            @if (hasPoints)
-            {
-                @foreach (var leader in leaders)
+            var leaders = _nominees.Where(e => e.SharesRankWith(_nominees[0])).ToList();
+            var hasPoints = _nominees[0].Points > 0;
+            var votingInProgress = _tournament.Duels.Any(d => !d.IsCompleted);
+            var leaderLabel = !hasPoints ? "No points recorded" : votingInProgress
+                ? (leaders.Count > 1 ? "Current shared leaders" : "Current leader")
+                : (leaders.Count > 1 ? "Shared winners" : "Winner");
+            <section class="goty-leaders stack" aria-labelledby="leaders-heading" @key="_selectedYear">
+                <h2 id="leaders-heading">@_selectedYear · @leaderLabel</h2>
+                @if (hasPoints)
                 {
-                    <div class="stack goty-leader">
-                        <h3>@leader.Title</h3>
-                        @if (leader.GroupTitle is not null)
-                        {
-                            <p class="helper-text">Shared score from @leader.GroupTitle</p>
-                        }
-                    </div>
-                }
-                <p class="goty-leader-score">@leaders[0].Points <span>tournament points</span></p>
-            }
-            else
-            {
-                <p class="text-secondary">Start voting to establish the leaders for this year.</p>
-            }
-            <p class="helper-text">@_nominees.Count releases · @_nominees.Select(e => e.GameId).Distinct().Count() tournament entries</p>
-            <div><a href="/vote" class="tactile tactile--standard tactile--primary"><span class="tactile__face">Continue voting</span></a></div>
-        </section>
-
-        <section class="goty-list stack" aria-labelledby="roster-heading">
-            <h2 id="roster-heading">@_selectedYear releases</h2>
-            <ol class="stack">
-                @for (var index = 0; index < _nominees.Count; index++)
-                {
-                    var nominee = _nominees[index];
-                    var rank = _nominees.FindIndex(e => e.SharesRankWith(nominee)) + 1;
-                    <li class="surface goty-nominee @(rank == 1 && hasPoints ? "goty-nominee--leader" : null)">
-                        <span class="goty-rank" aria-label="@($"Rank {rank}")">@rank</span>
-                        <div class="goty-nominee-title stack">
-                            <h3>@nominee.Title</h3>
-                            @if (nominee.GroupTitle is not null)
+                    @foreach (var leader in leaders)
+                    {
+                        <div class="goty-leader" data-leader-game-id="@leader.GameId">
+                            <h3>@leader.Title</h3>
+                            @if (leader.GroupTitle is not null)
                             {
-                                <p class="helper-text">Shared score from @nominee.GroupTitle</p>
-                            }
-                            @if (_nominees.Where(e => e.Points == nominee.Points).Select(e => e.GameId).Distinct().Count() > 1)
-                            {
-                                <p class="helper-text">@nominee.HeadToHeadWins head-to-head wins among tied entries</p>
+                                <p class="helper-text">Shared score from @leader.GroupTitle</p>
                             }
                         </div>
-                        <span class="goty-points">@nominee.Points <small>points</small></span>
-                    </li>
+                    }
+                    <p class="goty-leader-score">@leaders[0].Points <span>points from the full tournament</span></p>
                 }
-            </ol>
-        </section>
-    }
-
-    <details class="surface goty-archive" open>
-        <summary>Release-year archive · @_years.Count years</summary>
-        <p class="helper-text">Choose a year to view its releases and current leaders.</p>
-        <div class="goty-archive-grid">
-            @foreach (var year in _years.AsEnumerable().Reverse())
-            {
-                var releases = _entries.Where(e => e.Year == year).ToList();
-                var bestPoints = releases[0].Points;
-                var leaders = releases.Where(e => e.SharesRankWith(releases[0])).ToList();
-                <a href="@YearUrl(year)" class="tactile tactile--standard tactile--secondary goty-portal" aria-current="@(year == _selectedYear ? "page" : null)">
-                    <span class="tactile__face">
-                        <span class="goty-portal-year">@year</span>
-                        <strong>@(bestPoints > 0 ? leaders[0].Title : "No points recorded")</strong>
-                        @if (bestPoints > 0 && leaders.Count > 1)
+                else
+                {
+                    <p class="text-secondary">Start voting to establish the leaders for this year. Points come from the full tournament.</p>
+                }
+                <p class="helper-text">@_nominees.Count @(_nominees.Count == 1 ? "release" : "releases") · @_nominees.Select(e => e.GameId).Distinct().Count() tournament @(_nominees.Select(e => e.GameId).Distinct().Count() == 1 ? "entry" : "entries")</p>
+                @if (votingInProgress || !hasPoints)
+                {
+                    <div class="goty-voting-context cluster">
+                        @if (votingInProgress)
                         {
-                            <span class="helper-text">+ @(leaders.Count - 1) tied for first</span>
+                            <span class="helper-text">Voting in progress</span>
                         }
-                        <span class="helper-text">@releases.Count releases</span>
-                    </span>
-                </a>
-            }
-        </div>
-    </details>
-}
-</div>
+                        <a href="/vote" class="button @(hasPoints ? "" : "button--primary")"><span class="button__content">Continue voting</span></a>
+                    </div>
+                }
+                else
+                {
+                    <p class="helper-text">All tournament matchups are saved.</p>
+                }
+            </section>
+
+            <table class="data-table goty-list">
+                <caption>@_selectedYear nominees</caption>
+                <colgroup><col class="goty-rank-column" /><col /><col class="goty-points-column" /></colgroup>
+                <thead><tr><th scope="col">Rank</th><th scope="col">Title</th><th scope="col">Points</th></tr></thead>
+                <tbody>
+                    @foreach (var nominee in _nominees)
+                    {
+                        var rank = _nominees.FindIndex(e => e.SharesRankWith(nominee)) + 1;
+                        <tr class="goty-nominee @(rank == 1 && hasPoints ? "goty-nominee--leader" : null)" data-game-id="@nominee.GameId">
+                            <td class="goty-rank">@rank</td>
+                            <th scope="row" class="goty-nominee-title">
+                                <span>@nominee.Title</span>
+                                @if (nominee.GroupTitle is not null)
+                                {
+                                    <p class="helper-text">Shared score from @nominee.GroupTitle</p>
+                                }
+                                @if (_nominees.Where(e => e.Points == nominee.Points).Select(e => e.GameId).Distinct().Count() > 1)
+                                {
+                                    <p class="helper-text">@nominee.HeadToHeadWins head-to-head @(nominee.HeadToHeadWins == 1 ? "win" : "wins") among tied entries</p>
+                                }
+                            </th>
+                            <td class="goty-points">@nominee.Points</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        }
+
+        @if (_unassigned > 0)
+        {
+            <p class="helper-text goty-unassigned">@_unassigned @(_unassigned == 1 ? "title has" : "titles have") no year and @(_unassigned == 1 ? "is" : "are") outside the archive. <a href="/import" class="text-link">Assign years</a></p>
+        }
+
+        <details class="goty-scoring">
+            <summary>How yearly rankings work</summary>
+            <p class="helper-text">Releases use points from the full tournament, then completed head-to-head wins among entries tied on points in the selected year. Unresolved ties share a rank. Included titles inherit their collection's score and matchup results; each collection counts once in head-to-head comparisons. Titles without a release year stay outside the archive.</p>
+        </details>
+
+        <details class="goty-archive">
+            <summary>Release-year archive · @_years.Count @(_years.Count == 1 ? "year" : "years")</summary>
+            <div class="goty-explore">
+                <button type="button" class="button" @onclick="SurpriseMe"><span class="button__content">Random year</span></button>
+            </div>
+            <div class="goty-archive-grid">
+                @foreach (var year in _years.AsEnumerable().Reverse())
+                {
+                    var releases = _entries.Where(e => e.Year == year).ToList();
+                    var bestPoints = releases[0].Points;
+                    var leaders = releases.Where(e => e.SharesRankWith(releases[0])).ToList();
+                    <a href="@YearUrl(year)" class="goty-portal button" aria-current="@(year == _selectedYear ? "page" : null)">
+                        <span class="button__content">
+                            <span class="goty-portal-year">@year</span>
+                            <span>@(bestPoints > 0 ? leaders[0].Title : "No points recorded")</span>
+                            @if (bestPoints > 0 && leaders.Count > 1)
+                            {
+                                <span class="helper-text">+ @(leaders.Count - 1) tied for first</span>
+                            }
+                            <span class="helper-text">@releases.Count @(releases.Count == 1 ? "release" : "releases")</span>
+                        </span>
+                    </a>
+                }
+            </div>
+        </details>
+    }
+</section>
 
 @code {
     [SupplyParameterFromQuery(Name = "year")]
@@ -168,7 +177,6 @@ else
     private List<int> _years = [];
     private int _selectedYear;
     private int _unassigned;
-    private int _yearIndex => _years.IndexOf(_selectedYear);
 
     protected override void OnParametersSet()
     {

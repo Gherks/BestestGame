@@ -1,33 +1,21 @@
-.tournaments-page h1:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+.tournaments-page :is(h1, #create-heading):focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
 .tournaments-page { gap: var(--space-6); }
+.tournaments-page h1 { font-size: clamp(1.75rem, 3vw, 2.5rem); }
+.tournaments-page :is(h2, h3) { font-weight: 600; overflow-wrap: anywhere; }
+.tournaments-page h2 { font-size: 1.5rem; }
+.tournaments-page h3 { font-size: 1.125rem; }
 .tournaments-page .page-heading { margin-bottom: 0; }
-.create-form {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) auto;
-    align-items: center;
-    gap: var(--space-4);
-}
+.tournaments-create-link { margin-top: var(--space-3); }
+.creation-next-step .status { margin: 0; }
+.create-form { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: var(--space-4); }
 .tournament-list { margin: 0; padding: 0; list-style: none; }
-.tournament-row {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    justify-content: space-between;
-    gap: var(--space-4);
-}
-.tournament-row--active { border-color: var(--input-border); }
+.tournament-row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-4); }
+.tournament-row--active { background: var(--panel-raised); }
 .tournament-details { flex: 1 1 18rem; min-width: 0; gap: var(--space-2); }
-.tournament-summary { display: flex; flex-wrap: wrap; gap: .25rem var(--space-4); font-size: .875rem; }
+.tournament-summary { display: flex; flex-wrap: wrap; gap: .25rem var(--space-4); font-size: var(--text-support); }
 .tournament-actions { flex: 0 1 auto; }
-.active-marker {
-    padding: .125rem .5rem;
-    border: 1px solid var(--face-border);
-    border-radius: var(--radius-control);
-    background: var(--accent-soft);
-    color: var(--accent);
-    font-size: .75rem;
-    font-weight: 600;
-}
+.tournament-actions .button[aria-pressed="true"] { background: transparent; color: var(--muted); }
+.active-marker { padding: .125rem .5rem; border: 1px solid transparent; border-radius: var(--radius-control); background: var(--accent-soft); color: var(--accent); font-size: var(--text-support); }
 @media (max-width: 640px) {
     .create-form { grid-template-columns: minmax(0, 1fr); justify-items: start; }
     .create-form .field { width: 100%; }

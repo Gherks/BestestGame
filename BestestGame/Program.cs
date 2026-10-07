@@ -8,6 +8,7 @@ builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
 
 builder.Services.AddSingleton<GameService>();
+builder.Services.AddScoped<TournamentSelectionNotifications>();
 
 var app = builder.Build();
 

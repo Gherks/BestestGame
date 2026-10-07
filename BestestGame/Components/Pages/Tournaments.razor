@@ -3,104 +3,95 @@
 @using BestestGame.Models
 @using BestestGame.Services
 @inject GameService GameService
+@inject TournamentSelectionNotifications SelectionNotifications
 
 <PageTitle>Tournaments | BestestGame</PageTitle>
 
 <div class="tournaments-page stack">
     <header class="page-heading">
         <h1>Tournaments</h1>
-        <p>Create a tournament for your game list. Select a tournament to manage its games and continue voting.</p>
+        <p>@(_tournaments.Count == 0 ? "Start your first game list, then add the games you want to compare." : "Choose a tournament to continue, or start a new game list.")</p>
+        @if (_tournaments.Count > 0)
+        {
+            <div class="tournaments-create-link"><a href="/tournaments#create-heading" data-enhance-nav="false" class="button"><span class="button__content">Create a tournament</span></a></div>
+        }
     </header>
 
-    <section class="surface stack" aria-labelledby="create-heading">
-        <h2 id="create-heading">Create a tournament</h2>
-        <form class="create-form" @onsubmit="CreateTournament" @onsubmit:preventDefault="true">
-            <div class="field">
-                <label class="field-label" for="tournament-name">Tournament name</label>
-                <input id="tournament-name" type="text" class="form-control"
-                       placeholder="e.g. Favourite games of 2026"
-                       aria-describedby="tournament-name-help"
-                       @bind="_newTournamentName" @bind:event="oninput" />
-                <p id="tournament-name-help" class="helper-text">Each tournament has its own games and rankings.</p>
-            </div>
-            <button type="submit" class="tactile tactile--standard tactile--primary"
-                    disabled="@string.IsNullOrWhiteSpace(_newTournamentName)">
-                <span class="tactile__face">Create tournament</span>
-            </button>
-        </form>
-        @if (!string.IsNullOrEmpty(_createMessage))
-        {
+    @if (!string.IsNullOrEmpty(_createMessage))
+    {
+        <section class="creation-next-step stack" aria-label="Next step for your new tournament">
             <p class="status status--success" role="status">@_createMessage</p>
-        }
-    </section>
+            <div><a @ref="_createdAction" href="/import" class="button button--primary" data-created-next><span class="button__content">Add games</span></a></div>
+        </section>
+    }
 
-    <section class="stack" aria-labelledby="tournament-list-heading">
-        <h2 id="tournament-list-heading">Your tournaments</h2>
-        @if (_tournaments.Count == 0)
-        {
-            <div class="surface empty-state">
-                <h3>No tournaments yet</h3>
-                <p>Create your first tournament above, then add the games you want to compare.</p>
-            </div>
-        }
-        else
-        {
+    @if (_tournaments.Count > 0)
+    {
+        <section class="stack" aria-labelledby="tournament-list-heading">
+            <h2 id="tournament-list-heading">Your tournaments</h2>
             <ul class="tournament-list stack">
-                @foreach (var tournament in _tournaments)
+                @foreach (var tournament in _tournaments.OrderByDescending(t => t.Id == _currentTournamentId).ThenBy(t => t.Name, StringComparer.OrdinalIgnoreCase))
                 {
                     var isActive = tournament.Id == _currentTournamentId;
                     var gameCount = tournament.Games.Count;
-                    var duelCount = tournament.Duels.Count;
                     var completedCount = tournament.Duels.Count(d => d.IsCompleted);
-
-                    <li @key="tournament.Id" class="surface tournament-row @(isActive ? "tournament-row--active" : "")">
+                    var nextTask = TournamentOverview.GetNextTask(tournament, true);
+                    <li @key="tournament.Id" data-tournament-id="@tournament.Id" class="surface tournament-row @(isActive ? "tournament-row--active" : "")">
                         <div class="tournament-details stack">
                             <div class="cluster">
                                 <h3>@tournament.Name</h3>
-                                @if (isActive)
-                                {
-                                    <span class="active-marker">Active</span>
-                                }
+                                @if (isActive) { <span class="active-marker">Active</span> }
                             </div>
                             <p class="tournament-summary text-secondary">
-                                <span>@gameCount @(gameCount == 1 ? "game" : "games")</span>
-                                <span>@completedCount of @duelCount matchups completed</span>
+                                <span>@gameCount @(gameCount == 1 ? "entry" : "entries")</span>
+                                @if (gameCount < 2)
+                                {
+                                    <span>@(gameCount == 0 ? "Add games to begin" : "Add another entry to begin")</span>
+                                }
+                                else
+                                {
+                                    <span>@completedCount of @tournament.Duels.Count matchups finished</span>
+                                }
                             </p>
                         </div>
                         <div class="tournament-actions cluster">
-                            <button type="button" class="tactile tactile--compact tactile--secondary"
-                                    aria-label="@($"Select tournament: {tournament.Name}")"
-                                    aria-pressed="@(isActive ? "true" : "false")"
-                                    @onclick="() => SelectTournament(tournament.Id)">
-                                <span class="tactile__face">@(isActive ? "Selected" : "Select tournament")</span>
-                            </button>
-                            @if (isActive)
+                            <button type="button" class="button" aria-label="@($"Select tournament: {tournament.Name}")" aria-pressed="@(isActive ? "true" : "false")" @onclick="() => SelectTournament(tournament.Id)"><span class="button__content">@(isActive ? "Selected" : "Select tournament")</span></button>
+                            @if (isActive && string.IsNullOrEmpty(_createMessage))
                             {
-                                <a href="/import" class="tactile tactile--compact tactile--secondary">
-                                    <span class="tactile__face">Import games</span>
-                                </a>
-                                <a href="/vote" class="tactile tactile--compact tactile--primary">
-                                    <span class="tactile__face">Vote</span>
-                                </a>
+                                <a @ref="_selectedAction" href="@nextTask.Href" class="button button--primary" data-selected-next><span class="button__content">@nextTask.Label</span></a>
                             }
                         </div>
                     </li>
                 }
             </ul>
-        }
+        </section>
+    }
+
+    <section class="surface stack" aria-labelledby="create-heading">
+        <h2 id="create-heading" tabindex="-1">Create a tournament</h2>
+        <form class="create-form" @onsubmit="CreateTournament" @onsubmit:preventDefault="true">
+            <div class="field">
+                <label class="field-label" for="tournament-name">Tournament name</label>
+                <input id="tournament-name" type="text" class="form-control" placeholder="e.g. Favourite games of 2026"
+                       aria-describedby="tournament-name-help" @bind="_newTournamentName" @bind:event="oninput" />
+                <p id="tournament-name-help" class="helper-text">Each tournament has its own games and matchups.</p>
+            </div>
+            <button type="submit" class="button @(_tournaments.Count == 0 ? "button--primary" : "")" disabled="@string.IsNullOrWhiteSpace(_newTournamentName)"><span class="button__content">Create tournament</span></button>
+        </form>
     </section>
 </div>
 
 @code {
-    private List<Tournament> _tournaments = new();
+    private List<Tournament> _tournaments = [];
     private Guid? _currentTournamentId;
     private string _newTournamentName = string.Empty;
     private string _createMessage = string.Empty;
+    private ElementReference _createdAction;
+    private ElementReference _selectedAction;
+    private bool _focusCreatedAction;
+    private bool _focusSelectedAction;
 
-    protected override void OnInitialized()
-    {
-        LoadTournaments();
-    }
+    protected override void OnInitialized() => LoadTournaments();
 
     private void LoadTournaments()
     {
@@ -110,13 +101,14 @@
 
     private void CreateTournament()
     {
-        if (string.IsNullOrWhiteSpace(_newTournamentName))
-            return;
-
+        if (string.IsNullOrWhiteSpace(_newTournamentName)) return;
         var tournament = GameService.CreateTournament(_newTournamentName);
         _createMessage = $"Tournament \"{tournament.Name}\" created. It is now the active tournament.";
         _newTournamentName = string.Empty;
         LoadTournaments();
+        SelectionNotifications.NotifyChanged();
+        _focusCreatedAction = true;
+        _focusSelectedAction = false;
     }
 
     private void SelectTournament(Guid tournamentId)
@@ -124,5 +116,22 @@
         GameService.SelectTournament(tournamentId);
         _createMessage = string.Empty;
         LoadTournaments();
+        SelectionNotifications.NotifyChanged();
+        _focusCreatedAction = false;
+        _focusSelectedAction = _currentTournamentId is not null;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (_focusCreatedAction)
+        {
+            _focusCreatedAction = false;
+            await _createdAction.FocusAsync();
+        }
+        else if (_focusSelectedAction)
+        {
+            _focusSelectedAction = false;
+            await _selectedAction.FocusAsync();
+        }
     }
 }

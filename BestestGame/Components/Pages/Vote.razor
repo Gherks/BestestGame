@@ -5,6 +5,7 @@
 @inject PersistentComponentState PageState
 @using BestestGame.Models
 @using BestestGame.Services
+@using static BestestGame.Components.EntryTitles
 @inject GameService GameService
 @inject NavigationManager Navigation
 
@@ -17,50 +18,65 @@
         <div class="empty-state stack">
             <h2>No tournament selected</h2>
             <p>Create or select a tournament before you start voting.</p>
-            <div><a href="/tournaments" class="tactile tactile--standard tactile--primary"><span class="tactile__face">Go to tournaments</span></a></div>
+            <div><a href="/tournaments" class="button button--primary"><span class="button__content">Go to tournaments</span></a></div>
         </div>
     </section>
 }
 else
 {
-    <section class="surface voting-arena stack" aria-labelledby="voting-heading" data-motion-arena
-             data-presentation="@_currentDuel?.Id" data-vote-revision="@_voteRevision" data-settled-choice="@_settledChoice">
+    <section @ref="_root" class="surface voting-arena stack @(FocusEntry is null ? "ordinary-voting" : "")" aria-labelledby="voting-heading"
+             data-shortcuts-enabled="@(_sessionReady && FocusEntry is null ? "true" : "false")"
+             data-presentation="@_ordinary.Presentation">
         <header class="page-heading">
             <h1 id="voting-heading">Voting</h1>
-            <p>Choose the game you prefer in <strong>@_currentTournament.Name</strong>.</p>
+            <p>@(FocusEntry is null ? "Choose the game you prefer." : $"Focused voting in {_currentTournament.Name}.")</p>
         </header>
-        @if (_games.Count > 0)
-        {
-            <div class="focus-controls">
-                <div class="field">
-                    <label for="focusEntry" class="field-label">Focus on entry</label>
-                    <select id="focusEntry" value="@FocusEntry" @onchange="ChangeFocusedEntry" class="form-control">
-                        <option value="">All matchups</option>
-                        @foreach (var entry in _games.OrderByDescending(game => _pendingPerGame.GetValueOrDefault(game.Id)).ThenBy(game => game.Title))
-                        {
-                            <option value="@entry.Id">@entry.Title · @_pendingPerGame.GetValueOrDefault(entry.Id) remaining</option>
-                        }
-                    </select>
-                </div>
-                <a href="/import" class="text-link">Add another entry</a>
-            </div>
-        }
-
         @if (FocusEntry is { } focusedId)
         {
-            <FocusedVoting @key="(_currentTournament.Id, focusedId)" TournamentId="_currentTournament.Id" GameId="focusedId"
-                           BannedGameIds="_arenaBannedGameIds"
-                           ShortcutsEnabled="@(!_showBeatenByDialog && !_showWinsOverDialog && !_showPendingMatchesDialog)"
-                           OnResultsChanged="RefreshStandings" />
+            @if (_sessionReady)
+            {
+                <FocusedVoting @key="(_currentTournament.Id, focusedId)" TournamentId="_currentTournament.Id" GameId="focusedId"
+                               BannedGameIds="_arenaBannedGameIds" RankingsUrl="@RankingsUrl" OnResultsChanged="RefreshVoting" />
+            }
+            else
+            {
+                <p class="loading-state" role="status">Loading voting settings…</p>
+            }
+
         }
         else
         {
-            @if (_games.Count < 2)
+            var presentation = _ordinary.Presentation;
+            @if (!_tournamentChanged)
+            {
+            <div class="voting-progress compact-progress">
+                <div class="cluster text-secondary">
+                    <span><strong>@_completedCount</strong> of @_totalCount matchups complete</span>
+                    <span>@_pendingCount remaining</span>
+                </div>
+                <progress class="progress-bar" value="@_completedCount" max="@Math.Max(1, _totalCount)" aria-label="Completed tournament matchups">@_completedCount of @_totalCount</progress>
+                @if (_arenaBannedGameIds.Count > 0)
+                {
+                    <p class="helper-text">@_presentablePendingCount available with your voting exclusions.</p>
+                }
+            </div>
+            }
+            <div class="duel-stage" data-duel-stage data-duel-key="@_currentDuel?.Id">
+            <div data-duel-content>
+            @if (_tournamentChanged)
+            {
+                <div class="status status--warning stack" role="status">
+                    <h2>Tournament changed</h2>
+                    <p>Reload Voting to use the active tournament.</p>
+                    <div><a href="@Navigation.Uri" data-enhance-nav="false" class="button button--primary"><span class="button__content">Reload Voting</span></a></div>
+                </div>
+            }
+            else if (_games.Count < 2)
             {
                 <div class="empty-state stack">
                     <h2>Add games to start voting</h2>
                     <p>A matchup needs at least two entries in this tournament.</p>
-                    <div><a href="/import" class="tactile tactile--standard tactile--primary"><span class="tactile__face">Import games</span></a></div>
+                    <div><a href="/import" class="button button--primary"><span class="button__content">Import games</span></a></div>
                 </div>
             }
             else if (_currentDuel is null)
@@ -69,14 +85,15 @@ else
                 {
                     <div class="status status--warning stack">
                         <h2>Only arena-banned matchups remain</h2>
-                        <p>Every remaining matchup includes an arena-banned entry. Uncheck a title in the standings to resume voting.</p>
+                        <p>Every remaining matchup includes an arena-banned entry. Uncheck a title on <a href="@RankingsUrl" class="text-link">Rankings</a> to resume voting.</p>
                     </div>
                 }
                 else
                 {
-                    <div class="status status--success stack" data-motion-result>
+                    <div class="status status--success stack">
                         <h2>All matchups complete</h2>
-                        <p>Review the standings below, or add more games to continue.</p>
+                        <p>Your results are ready.</p>
+                        <div><a href="@RankingsUrl" class="button button--primary"><span class="button__content">View rankings</span></a></div>
                     </div>
                 }
             }
@@ -87,12 +104,19 @@ else
                 var rightId = _game2.Id;
                 var leftDisplay = GetTitleDisplay(_game1);
                 var rightDisplay = GetTitleDisplay(_game2);
-                <div class="matchup-grid" data-motion-round>
-                    <button type="button" class="tactile tactile--large tactile--secondary voting-choice" data-motion-choice="left" data-choice="left" data-duel-id="@duelId" data-winner-id="@leftId"
-                            aria-label="@($"Vote for {leftDisplay.Title}")" @onclick="() => CastVote(duelId, leftId)">
+                <div class="matchup-grid">
+                    <button type="button" class="tactile tactile--large tactile--secondary voting-choice" disabled="@(!_sessionReady)" data-choice="left" data-action="left" data-duel-id="@duelId" data-winner-id="@leftId"
+                            aria-label="@($"Vote for {leftDisplay.Title}")" @onclick="() => CastVote(presentation, duelId, leftId)">
                         <span @key="(duelId, leftId)" class="tactile__face">
-                            <span class="choice-prompt">Choose this game</span>
                             <span class="choice-title">@leftDisplay.Title</span>
+                            @if (_game1.IncludedTitles is { Count: > 0 } included1)
+                            {
+                                <span class="choice-context">Collection · @included1.Count included @(included1.Count == 1 ? "title" : "titles")</span>
+                            }
+                            else if (!string.IsNullOrWhiteSpace(leftDisplay.Subtitle))
+                            {
+                                <span class="choice-context">Collection</span>
+                            }
                             @if (!string.IsNullOrWhiteSpace(leftDisplay.Subtitle))
                             {
                                 <span class="choice-subtitle">@leftDisplay.Subtitle</span>
@@ -100,11 +124,18 @@ else
                         </span>
                     </button>
                     <span class="matchup-versus" aria-hidden="true">vs</span>
-                    <button type="button" class="tactile tactile--large tactile--secondary voting-choice" data-motion-choice="right" data-choice="right" data-duel-id="@duelId" data-winner-id="@rightId"
-                            aria-label="@($"Vote for {rightDisplay.Title}")" @onclick="() => CastVote(duelId, rightId)">
+                    <button type="button" class="tactile tactile--large tactile--secondary voting-choice" disabled="@(!_sessionReady)" data-choice="right" data-action="right" data-duel-id="@duelId" data-winner-id="@rightId"
+                            aria-label="@($"Vote for {rightDisplay.Title}")" @onclick="() => CastVote(presentation, duelId, rightId)">
                         <span @key="(duelId, rightId)" class="tactile__face">
-                            <span class="choice-prompt">Choose this game</span>
                             <span class="choice-title">@rightDisplay.Title</span>
+                            @if (_game2.IncludedTitles is { Count: > 0 } included2)
+                            {
+                                <span class="choice-context">Collection · @included2.Count included @(included2.Count == 1 ? "title" : "titles")</span>
+                            }
+                            else if (!string.IsNullOrWhiteSpace(rightDisplay.Subtitle))
+                            {
+                                <span class="choice-context">Collection</span>
+                            }
                             @if (!string.IsNullOrWhiteSpace(rightDisplay.Subtitle))
                             {
                                 <span class="choice-subtitle">@rightDisplay.Subtitle</span>
@@ -113,183 +144,50 @@ else
                     </button>
                 </div>
             }
+            </div>
+            </div>
             @if (!string.IsNullOrEmpty(_voteNotice))
             {
                 <p class="vote-notice text-secondary" role="status">@_voteNotice</p>
             }
             <div class="cluster arena-actions">
-                <button type="button" class="tactile tactile--compact tactile--secondary" disabled="@(!_canUndo)" @onclick="UndoLastVote"><span class="tactile__face">Undo last vote</span></button>
-                <button type="button" class="tactile tactile--compact tactile--secondary" disabled="@(_currentDuel is null)" @onclick="RandomizeMatch"><span class="tactile__face">Randomize matchup</span></button>
-                <p class="helper-text">Randomizing leaves the matchup pending.</p>
+                <button type="button" class="button" data-action="undo" disabled="@(!_ordinary.CanUndo || !_sessionReady)" @onclick="() => UndoLastVote(presentation)"><span class="button__content">Undo</span></button>
+                <button type="button" class="button" data-action="skip" disabled="@(_currentDuel is null || !_sessionReady)" @onclick="() => SkipMatch(presentation)"><span class="button__content">Skip for now</span></button>
             </div>
         }
-        <div class="voting-progress stack">
-            <div class="cluster text-secondary">
-                <span>Remaining: <strong>@_pendingCount</strong></span>
-                <span>Completed: <strong>@_completedCount / @_totalCount</strong> (@((_completedCount * 100) / Math.Max(1, _totalCount))%)</span>
-                @if (_arenaBannedGameIds.Count > 0)
+        @if (_games.Count > 0)
+        {
+            <details class="voting-options">
+                <summary>Voting options · @(FocusEntry is not null ? $"Focused: {FocusedEntryTitle}" : "All matchups")</summary>
+                <div class="stack options-content">
+                <div class="focus-controls">
+                <div class="field">
+                    <label for="focusEntry" class="field-label">Focus on entry</label>
+                    <select id="focusEntry" value="@FocusEntry" @onchange="ChangeFocusedEntry" class="form-control" disabled="@(!_sessionReady)">
+                        <option value="">All matchups</option>
+                        @foreach (var entry in _games.OrderByDescending(game => _pendingPerGame.GetValueOrDefault(game.Id)).ThenBy(game => game.Title))
+                        {
+                            <option value="@entry.Id">@GetTitleDisplay(entry).Title · @_pendingPerGame.GetValueOrDefault(entry.Id) remaining</option>
+                        }
+                    </select>
+                </div>
+                <a href="/import" class="text-link">Add another entry</a>
+                </div>
+                <div><a href="@RankingsUrl" class="text-link">View rankings and voting exclusions</a></div>
+                @if (FocusEntry is null)
                 {
-                    <span>Available before banned-only matchups: <strong>@_presentablePendingCount</strong></span>
+                    <p class="helper-text">Shortcuts: 1 / Left chooses the first game; 2 / Right chooses the second. U undoes your last vote; S skips. Skip leaves the matchup pending.</p>
                 }
-            </div>
-            <progress class="progress-bar" value="@_completedCount" max="@Math.Max(1, _totalCount)" aria-label="Completed tournament matchups">@_completedCount of @_totalCount</progress>
-        </div>
+                else
+                {
+                    <p class="helper-text">Votes save immediately. Turn off Adaptive groups for rapid 1v1. Shortcuts: 1 / Left chooses your entry; 2 / Right chooses all current opponents. M splits without saving; U undoes the last vote or queue change; S skips.</p>
+                }
+                </div>
+            </details>
+        }
+
     </section>
 
-<section class="standings stack" aria-labelledby="standings-heading">
-    <div class="cluster">
-        <h2 id="standings-heading" @ref="_standingsHeading" tabindex="-1">Standings</h2>
-        <a href="@(LeaderboardYear is { } year ? $"/goty?year={year}" : "/goty")" class="tactile tactile--compact tactile--secondary"><span class="tactile__face">Game of the year</span></a>
-    </div>
-    @if (_games.Count > 0)
-    {
-        <div class="standings-filter cluster">
-            <div class="field">
-                <label for="leaderboardYear" class="field-label">Release year</label>
-                <select id="leaderboardYear" @bind="LeaderboardYear" @bind:after="UpdateLeaderboardYearUrl" class="form-control">
-                    <option value="">All years</option>
-                    @foreach (var releaseYear in _leaderboardYears)
-                    {
-                        <option value="@releaseYear">@releaseYear</option>
-                    }
-                </select>
-            </div>
-            @if (LeaderboardYear is not null)
-            {
-                <p class="helper-text">Groups appear when an included title matches. Points remain from the full tournament.</p>
-            }
-        </div>
-    }
-    @if (_games.Count == 0)
-    {
-        <div class="surface empty-state stack"><h3>No games imported yet</h3><p><a href="/import" class="text-link">Import games</a> to start this tournament.</p></div>
-    }
-    else if (_leaderboardGames.Count == 0)
-    {
-        <p class="surface empty-state">No entries for this release year. Select another year or All years.</p>
-    }
-    else
-    {
-        <div class="table-scroll standings-scroll" tabindex="0" role="region" aria-label="Tournament standings; scroll horizontally for more columns">
-            <table class="data-table standings-table">
-                <caption>Full tournament scores. Open Points to view wins, Losses to correct results, or Pending to finish matchups.</caption>
-                <thead><tr><th scope="col">Rank</th><th scope="col">Title</th><th scope="col">Points</th><th scope="col">Losses</th><th scope="col">Completed</th><th scope="col">Pending</th><th scope="col">Arena ban</th></tr></thead>
-                <tbody>
-                    @{ int rank = 1; }
-                    @foreach (var game in _leaderboardGames)
-                    {
-                        var titleDisplay = GetLeaderboardTitleDisplay(game);
-                        <tr @key="game.Id" class="@(FocusEntry == game.Id ? "is-selected" : "")" data-game-id="@game.Id">
-                            <td>@rank</td>
-                            <th scope="row" class="standings-title">
-                                <div class="stack">
-                                    <span>@titleDisplay.Title</span>
-                                    @if (!string.IsNullOrWhiteSpace(titleDisplay.Subtitle))
-                                    {
-                                        <span class="helper-text">@titleDisplay.Subtitle</span>
-                                    }
-                                    @if (_pendingPerGame.GetValueOrDefault(game.Id) > 0)
-                                    {
-                                        <a href="@FocusUrl(game.Id)" class="text-link helper-text">Finish matchups (@_pendingPerGame.GetValueOrDefault(game.Id))</a>
-                                    }
-                                </div>
-                            </th>
-                            <td><button type="button" class="tactile tactile--compact tactile--secondary" data-details="wins" aria-haspopup="dialog" aria-label="@($"View wins for {game.Title}: {game.Points} points")" @onclick="() => ShowWinsOver(game.Id, game.Title, _winsOver.GetValueOrDefault(game.Id, []))"><span class="tactile__face">@game.Points</span></button></td>
-                            <td>
-                                @if (_gamesPickedOver.TryGetValue(game.Id, out var beaten) && beaten.Count > 0)
-                                {
-                                    <button type="button" class="tactile tactile--compact tactile--secondary" data-details="losses" aria-haspopup="dialog" aria-label="@($"View losses for {game.Title}: {beaten.Count} losses")" @onclick="() => ShowBeatenBy(game.Id, game.Title, beaten)"><span class="tactile__face">@beaten.Count</span></button>
-                                }
-                                else
-                                {
-                                    <span class="text-secondary">0</span>
-                                }
-                            </td>
-                            <td>@_matchesPlayed.GetValueOrDefault(game.Id)</td>
-                            <td><button type="button" class="tactile tactile--compact tactile--secondary" data-details="pending" aria-haspopup="dialog" aria-label="@($"View pending matchups for {game.Title}: {_pendingPerGame.GetValueOrDefault(game.Id)} remaining")" @onclick="() => ShowPendingMatches(game.Id, game.Title)"><span class="tactile__face">@_pendingPerGame.GetValueOrDefault(game.Id)</span></button></td>
-                            <td><label class="checkbox-field"><input type="checkbox" aria-label="@($"Arena ban for {game.Title}")" checked="@_arenaBannedGameIds.Contains(game.Id)" @onchange="(args) => ToggleArenaBan(game.Id, args.Value is bool isChecked && isChecked)" /><span class="helper-text">Exclude</span></label></td>
-                        </tr>
-                        rank++;
-                    }
-                </tbody>
-            </table>
-        </div>
-    }
-</section>
-
-<dialog @ref="_detailsDialog" class="dialog voting-dialog" aria-labelledby="details-heading" aria-describedby="details-description" aria-modal="true">
-    @if (_showBeatenByDialog || _showWinsOverDialog || _showPendingMatchesDialog)
-    {
-        <div class="dialog__header">
-            <h2 id="details-heading">@(_showBeatenByDialog ? $"Losses for {_beatenByGameTitle}" : _showWinsOverDialog ? $"Wins for {_winsOverGameTitle}" : $"Pending matchups for {_pendingMatchesGameTitle}")</h2>
-            <button type="button" autofocus class="tactile tactile--compact tactile--secondary" aria-label="Close matchup details" @onclick="CloseVotingDialog"><span class="tactile__face">Close</span></button>
-        </div>
-        @if (_showBeatenByDialog)
-        {
-            <p id="details-description" class="helper-text">These games were chosen over this entry. Change a result below if you selected the wrong winner.</p>
-            @if (_beatenByList.Count == 0)
-            {
-                <p class="empty-state">No losses remain for this entry.</p>
-            }
-            else
-            {
-                <ul class="details-list stack">
-                    @foreach (var loss in _beatenByList)
-                    {
-                        var display = GetTitleDisplay(_games.First(g => g.Id == loss.WinnerId));
-                        <li @key="loss.DuelId" class="surface surface--well stack">
-                            <h3>@display.Title</h3>
-                            @if (!string.IsNullOrWhiteSpace(display.Subtitle)) { <p class="helper-text">@display.Subtitle</p> }
-                            <div><button type="button" class="tactile tactile--compact tactile--secondary" @onclick="() => ChangeLossToWin(loss)"><span class="tactile__face">Change to win for @_beatenByGameTitle</span></button></div>
-                        </li>
-                    }
-                </ul>
-            }
-        }
-        else if (_showWinsOverDialog)
-        {
-            <p id="details-description" class="helper-text">This entry won its matchups against the games below.</p>
-            @if (_winsOverList.Count == 0)
-            {
-                <p class="empty-state">No wins recorded for this entry yet.</p>
-            }
-            else
-            {
-                <ul class="details-list stack">
-                    @foreach (var win in _winsOverList)
-                    {
-                        var display = GetTitleDisplay(_games.First(g => g.Id == win.WinnerId));
-                        <li @key="win.DuelId" class="surface surface--well stack"><h3>@display.Title</h3>@if (!string.IsNullOrWhiteSpace(display.Subtitle)) { <p class="helper-text">@display.Subtitle</p> }</li>
-                    }
-                </ul>
-            }
-        }
-        else
-        {
-            <p id="details-description" class="helper-text">Choose a winner for each pending matchup. Results save immediately.</p>
-            @if (_pendingMatchOptions.Count == 0)
-            {
-                <p class="empty-state">No pending matchups for this entry.</p>
-            }
-            else
-            {
-                <ul class="details-list stack">
-                    @foreach (var pendingMatch in _pendingMatchOptions)
-                    {
-                        var home = GetTitleDisplay(_games.First(g => g.Id == _pendingMatchesGameId));
-                        var opponent = GetTitleDisplay(_games.First(g => g.Id == pendingMatch.OpponentId));
-                        <li @key="pendingMatch.DuelId" class="pending-match" data-duel-id="@pendingMatch.DuelId">
-                            <button type="button" class="tactile tactile--standard tactile--secondary" data-pending-choice="entry" @onclick="() => PickPendingMatchWinner(pendingMatch, true)"><span class="tactile__face"><span>@home.Title wins</span>@if (!string.IsNullOrWhiteSpace(home.Subtitle)) { <span class="helper-text">@home.Subtitle</span> }</span></button>
-                            <span class="text-secondary" aria-hidden="true">vs</span>
-                            <button type="button" class="tactile tactile--standard tactile--secondary" data-pending-choice="opponent" @onclick="() => PickPendingMatchWinner(pendingMatch, false)"><span class="tactile__face"><span>@opponent.Title wins</span>@if (!string.IsNullOrWhiteSpace(opponent.Subtitle)) { <span class="helper-text">@opponent.Subtitle</span> }</span></button>
-                        </li>
-                    }
-                </ul>
-            }
-        }
-        @if (!string.IsNullOrEmpty(_dialogNotice)) { <p class="status" role="status">@_dialogNotice</p> }
-    }
-</dialog>
 }
 
 @code {
@@ -297,66 +195,58 @@ else
     public int? LeaderboardYear { get; set; }
     [SupplyParameterFromQuery(Name = "focus")]
     public Guid? FocusEntry { get; set; }
-    private string FocusUrl(Guid? gameId) => Navigation.GetUriWithQueryParameter("focus", gameId);
+    private string FocusUrl(Guid? gameId) => VotingRoutes.Focus(gameId, LeaderboardYear);
     private void ChangeFocusedEntry(ChangeEventArgs args)
         => Navigation.NavigateTo(FocusUrl(Guid.TryParse(args.Value?.ToString(), out var gameId) ? gameId : null));
-    private void UpdateLeaderboardYearUrl()
-        => Navigation.NavigateTo(Navigation.GetUriWithQueryParameter("year", LeaderboardYear));
-    private List<int> _leaderboardYears => _games
-        .SelectMany(g => (g.IncludedTitles ?? []).Select(t => t.ReleaseYear).Append(g.ReleaseYear))
-        .Where(year => year.HasValue).Select(year => year!.Value).Distinct().OrderDescending().ToList();
-    private List<Game> _leaderboardGames => LeaderboardYear is { } year
-        ? _games.Where(game => ReleaseRankings.MatchesYear(game, year)).ToList() : _games;
-
-    private TitleDisplay GetLeaderboardTitleDisplay(Game game)
-    {
-        if (LeaderboardYear is { } year && game.IncludedTitles is { Count: > 0 })
-            return new(FormatTitleWithYear(game.Title, game.ReleaseYear), string.Join(", ", game.IncludedTitles
-                .Where(t => t.ReleaseYear == year).Select(t => FormatTitleWithYear(t.Title, t.ReleaseYear))));
-        return GetTitleDisplay(game);
-    }
-
+    private string RankingsUrl => VotingRoutes.Rankings(LeaderboardYear);
+    private string FocusedEntryTitle => _games.FirstOrDefault(game => game.Id == FocusEntry) is { } game
+        ? GetTitleDisplay(game).Title : "Unavailable entry";
     private Tournament? _currentTournament;
-    private Duel? _currentDuel;
+    private readonly OrdinaryDuelSession _ordinary = new();
+    private Duel? _currentDuel => _ordinary.Current;
+    private ElementReference _root;
+    private IJSObjectReference? _shortcutModule;
     private Game? _game1;
     private Game? _game2;
     private List<Game> _games = new();
-    private Dictionary<Guid, int> _matchesPlayed = new();
     private Dictionary<Guid, int> _pendingPerGame = new();
-    private Dictionary<Guid, List<GameService.LossDetail>> _gamesPickedOver = new();
-    private Dictionary<Guid, List<GameService.LossDetail>> _winsOver = new();
-    private bool _showBeatenByDialog;
-    private Guid? _beatenByGameId;
-    private string _beatenByGameTitle = string.Empty;
-    private List<GameService.LossDetail> _beatenByList = [];
-    private bool _showWinsOverDialog;
-    private Guid? _winsOverGameId;
-    private string _winsOverGameTitle = string.Empty;
-    private List<GameService.LossDetail> _winsOverList = [];
-    private bool _showPendingMatchesDialog;
-    private Guid? _pendingMatchesGameId;
-    private string _pendingMatchesGameTitle = string.Empty;
-    private List<PendingMatchOption> _pendingMatchOptions = [];
     private int _pendingCount;
     private int _completedCount;
     private int _totalCount;
     private int _presentablePendingCount;
     private bool _onlyArenaBanMatchesRemain;
-    private HashSet<Guid> _arenaBannedGameIds = [];
-    private Guid? _lastCompletedDuelId;
-    private bool _canUndo;
+    private readonly ArenaExclusionSession _exclusions = new();
+    private IReadOnlySet<Guid> _arenaBannedGameIds => _exclusions.GetIds(_currentTournament?.Id);
+    private bool _restoreExclusions = true;
+    private bool _restoringExclusions;
+    private bool _tournamentChanged;
+    private bool _sessionReady => !_tournamentChanged && !_restoreExclusions && _currentTournament is not null && _exclusions.IsReadyFor(_currentTournament.Id);
     private string _voteNotice = string.Empty;
-    private long _voteRevision;
-    private string _settledChoice = string.Empty;
-    private readonly Random _random = new();
     private const string InitialDuelStateKey = "Vote.InitialDuel";
     private PersistingComponentStateSubscription? _persistingSubscription;
 
     private record InitialDuelSelection(Guid TournamentId, Guid? DuelId);
 
-    private readonly record struct TitleDisplay(string Title, string? Subtitle);
-
-    private record PendingMatchOption(Guid DuelId, Guid OpponentId, string OpponentTitle);
+    protected override void OnParametersSet()
+    {
+        if (VotingRoutes.LegacyDestination(LeaderboardYear, FocusEntry,
+            Navigation.ToBaseRelativePath(Navigation.Uri)) is { } destination)
+        {
+            Navigation.NavigateTo(destination, replace: true);
+            return;
+        }
+        var tournament = GameService.GetCurrentTournament();
+        if (_currentTournament?.Id != tournament?.Id)
+        {
+            _currentTournament = tournament;
+            _ordinary.Reset();
+            _tournamentChanged = false;
+            _voteNotice = string.Empty;
+        }
+        _restoreExclusions = _restoringExclusions ||
+            (_currentTournament is not null && !_exclusions.IsReadyFor(_currentTournament.Id));
+        LoadNextDuel(_currentDuel?.Id);
+    }
 
     protected override void OnInitialized()
     {
@@ -379,9 +269,19 @@ else
         return Task.CompletedTask;
     }
 
-    private void LoadNextDuel(Guid? initialDuelId = null)
+    private void LoadNextDuel(Guid? initialDuelId = null, Guid? avoidDuelId = null)
     {
-        RefreshStandings();
+        if (GameService.GetCurrentTournament()?.Id != _currentTournament?.Id)
+        {
+            // Another tab can change the application-wide selection. Do not
+            // present its games under this visit's old tournament context.
+            _tournamentChanged = true;
+            _ordinary.Reset();
+            _game1 = _game2 = null;
+            _voteNotice = string.Empty;
+            return;
+        }
+        RefreshVoting();
 
         var pendingDuels = GameService.GetPendingDuels();
         var presentablePendingDuels = pendingDuels
@@ -391,29 +291,15 @@ else
         _presentablePendingCount = presentablePendingDuels.Count;
         _onlyArenaBanMatchesRemain = _arenaBannedGameIds.Count > 0 && pendingDuels.Count > 0 && presentablePendingDuels.Count == 0;
 
-        if (presentablePendingDuels.Count == 0)
-        {
-            _currentDuel = null;
-            _game1 = null;
-            _game2 = null;
-            return;
-        }
-
-        var duel = presentablePendingDuels.FirstOrDefault(duel => duel.Id == initialDuelId)
-            ?? presentablePendingDuels[_random.Next(presentablePendingDuels.Count)];
-        _currentDuel = duel;
-
+        _ordinary.Select(presentablePendingDuels, _arenaBannedGameIds, initialDuelId, avoidDuelId);
         var gamesById = _games.ToDictionary(g => g.Id);
-        gamesById.TryGetValue(duel.Game1Id, out _game1);
-        gamesById.TryGetValue(duel.Game2Id, out _game2);
+        _game1 = _currentDuel is { } duel1 ? gamesById.GetValueOrDefault(duel1.Game1Id) : null;
+        _game2 = _currentDuel is { } duel2 ? gamesById.GetValueOrDefault(duel2.Game2Id) : null;
     }
 
-    private void RefreshStandings()
+    private void RefreshVoting()
     {
         _games = GameService.GetGames();
-        _matchesPlayed = GameService.GetMatchesPlayedPerGame();
-        _gamesPickedOver = GameService.GetGamesPickedOverDetails();
-        _winsOver = GameService.GetWinsOverDetails();
         _totalCount = GameService.TotalDuels();
         _completedCount = GameService.CompletedDuels();
         _pendingCount = _totalCount - _completedCount;
@@ -428,291 +314,93 @@ else
         }
     }
 
-    private Task CastVote(Guid duelId, Guid winnerId)
+    private Task CastVote(Guid presentation, Guid duelId, Guid winnerId)
     {
-        // Each callback captures the displayed matchup, rather than reading a
-        // new matchup after a queued click from the previous cards arrives.
-        if (_currentDuel?.Id != duelId || FocusEntry is not null || ContainsArenaBannedTitle(_currentDuel))
+        // The callback retains both the round and participant shown to the user.
+        if (!_sessionReady || FocusEntry is not null || _currentDuel is null || ContainsArenaBannedTitle(_currentDuel))
             return Task.CompletedTask;
-
-        return RecordVote(duelId, winnerId, winnerId == _currentDuel.Game1Id ? "left" : "right");
-    }
-
-    private Task RecordVote(Guid duelId, Guid winnerId, string? settledChoice = null)
-    {
-        if (_currentTournament is null ||
-            GameService.RecordWinners(_currentTournament.Id, [new(duelId, winnerId)]).Count == 0)
-            return Task.CompletedTask;
-
-        var winner = _games.FirstOrDefault(game => game.Id == winnerId);
-        _voteNotice = winner is null ? "Vote recorded." : $"Vote recorded for {GetTitleDisplay(winner).Title}.";
-        _lastCompletedDuelId = duelId;
-        _canUndo = true;
-        if (settledChoice is not null)
+        var outcome = _ordinary.Vote(GameService, _currentTournament!.Id, presentation, duelId, winnerId);
+        if (outcome == OrdinaryDuelSession.VoteOutcome.Ignored) return Task.CompletedTask;
+        if (outcome == OrdinaryDuelSession.VoteOutcome.Saved)
         {
-            _settledChoice = settledChoice;
-            _voteRevision++;
+            var winner = _games.FirstOrDefault(game => game.Id == winnerId);
+            _voteNotice = winner is null ? "Vote saved." : $"Saved vote for {GetTitleDisplay(winner).Title}.";
+        }
+        else
+        {
+            _voteNotice = "This matchup changed. Available choices have been refreshed.";
         }
         LoadNextDuel();
         return Task.CompletedTask;
     }
 
-    private void UndoLastVote()
+    private void UndoLastVote(Guid presentation)
     {
-        if (!_canUndo || _lastCompletedDuelId is null)
-            return;
-
-        var duelId = _lastCompletedDuelId.Value;
-        _canUndo = false;
-        _lastCompletedDuelId = null;
-
-        GameService.UndoMatch(duelId);
-        _voteNotice = "Last vote undone.";
-
-        var (duel, game1, game2) = GameService.GetDuel(duelId);
-        if (duel is not null && !duel.IsCompleted && !ContainsArenaBannedTitle(duel))
-        {
-            RefreshStandings();
-            _currentDuel = duel;
-            _game1 = game1;
-            _game2 = game2;
-            _presentablePendingCount = GameService.GetPendingDuels().Count(d => !ContainsArenaBannedTitle(d));
-            _onlyArenaBanMatchesRemain = _arenaBannedGameIds.Count > 0 && _pendingCount > 0 && _presentablePendingCount == 0;
-        }
-        else
-        {
-            LoadNextDuel();
-        }
+        if (!_sessionReady || FocusEntry is not null) return;
+        var lastDuelId = _ordinary.LastVote?.DuelId;
+        var outcome = _ordinary.Undo(GameService, _currentTournament!.Id, presentation);
+        if (outcome == OrdinaryDuelSession.UndoOutcome.Ignored) return;
+        _voteNotice = outcome == OrdinaryDuelSession.UndoOutcome.Undone
+            ? "Last vote undone."
+            : "This vote has changed since you saved it and cannot be undone. The current result is preserved.";
+        LoadNextDuel(outcome == OrdinaryDuelSession.UndoOutcome.Undone ? lastDuelId : _currentDuel?.Id);
     }
 
-    private void RandomizeMatch()
+    private void SkipMatch(Guid presentation)
     {
-        LoadNextDuel();
-        _canUndo = false;
-        _voteNotice = string.Empty;
-    }
-
-    private void ToggleArenaBan(Guid gameId, bool isChecked)
-    {
-        if (isChecked)
-            _arenaBannedGameIds.Add(gameId);
-        else
-            _arenaBannedGameIds.Remove(gameId);
-
-        _canUndo = false;
-        _voteNotice = string.Empty;
-        LoadNextDuel();
+        if (!_sessionReady || FocusEntry is not null || _currentDuel is null || presentation != _ordinary.Presentation) return;
+        var skippedId = _currentDuel.Id;
+        LoadNextDuel(avoidDuelId: skippedId);
+        _voteNotice = _currentDuel?.Id == skippedId
+            ? "This is the only available matchup. It remains pending."
+            : "Skipped for now. No result saved.";
     }
 
     private bool ContainsArenaBannedTitle(Duel duel)
-    {
-        return _arenaBannedGameIds.Contains(duel.Game1Id) || _arenaBannedGameIds.Contains(duel.Game2Id);
-    }
-
-    private void ShowBeatenBy(Guid gameId, string gameTitle, List<GameService.LossDetail> beatenBy)
-    {
-        _beatenByGameId = gameId;
-        _beatenByGameTitle = FormatTitleWithYear(gameTitle, _games.FirstOrDefault(g => g.Id == gameId)?.ReleaseYear);
-        _beatenByList = beatenBy.ToList();
-        _dialogNotice = string.Empty;
-        _showBeatenByDialog = true;
-    }
-
-    private void ChangeLossToWin(GameService.LossDetail loss)
-    {
-        if (_beatenByGameId is null)
-            return;
-
-        if (!GameService.ChangeCompletedDuelWinner(loss.DuelId, _beatenByGameId.Value))
-            return;
-
-        _beatenByList.RemoveAll(x => x.DuelId == loss.DuelId);
-        _dialogNotice = "Result updated. This entry is now the winner of that matchup.";
-        RefreshStandings();
-    }
-
-    private void CloseBeatenByDialog()
-    {
-        _showBeatenByDialog = false;
-        _beatenByGameId = null;
-    }
-
-    private void ShowWinsOver(Guid gameId, string gameTitle, List<GameService.LossDetail> winsOver)
-    {
-        _winsOverGameId = gameId;
-        _winsOverGameTitle = FormatTitleWithYear(gameTitle, _games.FirstOrDefault(g => g.Id == gameId)?.ReleaseYear);
-        _winsOverList = winsOver.ToList();
-        _dialogNotice = string.Empty;
-        _showWinsOverDialog = true;
-    }
-
-    private void CloseWinsOverDialog()
-    {
-        _showWinsOverDialog = false;
-        _winsOverGameId = null;
-    }
-
-    private void ShowPendingMatches(Guid gameId, string gameTitle)
-    {
-        _pendingMatchesGameId = gameId;
-        _pendingMatchesGameTitle = FormatTitleWithYear(gameTitle, _games.FirstOrDefault(g => g.Id == gameId)?.ReleaseYear);
-        _pendingMatchOptions = GetPendingMatchOptions(gameId);
-        _dialogNotice = string.Empty;
-        _showPendingMatchesDialog = true;
-    }
-
-    private List<PendingMatchOption> GetPendingMatchOptions(Guid gameId)
-    {
-        var gameTitlesById = _games.ToDictionary(g => g.Id, g => g.Title);
-
-        return GameService.GetPendingDuels()
-            .Where(d => d.Game1Id == gameId || d.Game2Id == gameId)
-            .Select(d =>
-            {
-                var opponentId = d.Game1Id == gameId ? d.Game2Id : d.Game1Id;
-                gameTitlesById.TryGetValue(opponentId, out var opponentTitle);
-                return new PendingMatchOption(d.Id, opponentId, opponentTitle ?? "Unknown title");
-            })
-            .OrderBy(x => x.OpponentTitle)
-            .ToList();
-    }
-
-    private async Task PickPendingMatchWinner(PendingMatchOption pendingMatch, bool pickCurrentRowGame)
-    {
-        if (_pendingMatchesGameId is null)
-            return;
-
-        var winnerId = pickCurrentRowGame ? _pendingMatchesGameId.Value : pendingMatch.OpponentId;
-        await RecordVote(pendingMatch.DuelId, winnerId);
-
-        _pendingMatchOptions = GetPendingMatchOptions(_pendingMatchesGameId.Value);
-        if (_pendingMatchOptions.Count == 0)
-        {
-            ClosePendingMatchesDialog();
-        }
-    }
-
-    private void ClosePendingMatchesDialog()
-    {
-        _showPendingMatchesDialog = false;
-        _pendingMatchesGameId = null;
-        _pendingMatchesGameTitle = string.Empty;
-        _pendingMatchOptions = [];
-    }
-
-    private static TitleDisplay GetTitleDisplay(Game game)
-    {
-        if (game.IncludedTitles is { Count: > 0 })
-            return new(FormatTitleWithYear(game.Title, game.ReleaseYear),
-                string.Join(", ", game.IncludedTitles.Select(t => FormatTitleWithYear(t.Title, t.ReleaseYear))));
-
-        // A stored year distinguishes titles such as "Prey (2017)" from legacy
-        // titles whose parentheses were used to describe a group of games.
-        if (game.ReleaseYear.HasValue)
-            return new(FormatTitleWithYear(game.Title, game.ReleaseYear), null);
-
-        return GetTitleDisplay(game.Title);
-    }
-
-    private static string FormatTitleWithYear(string title, int? year)
-    {
-        if (year is null)
-            return title;
-
-        var suffix = $" ({year})";
-        return title.TrimEnd().EndsWith(suffix, StringComparison.Ordinal) ? title : title + suffix;
-    }
-
-    private static TitleDisplay GetTitleDisplay(string gameTitle)
-    {
-        if (string.IsNullOrWhiteSpace(gameTitle))
-        {
-            return new(gameTitle, null);
-        }
-
-        var trimmedTitle = gameTitle.Trim();
-        if (!trimmedTitle.EndsWith(")", StringComparison.Ordinal))
-        {
-            return new(trimmedTitle, null);
-        }
-
-        var openingParenthesisIndex = trimmedTitle.LastIndexOf('(');
-        if (openingParenthesisIndex <= 0 || openingParenthesisIndex >= trimmedTitle.Length - 1)
-        {
-            return new(trimmedTitle, null);
-        }
-
-        var title = trimmedTitle[..openingParenthesisIndex].TrimEnd();
-        if (string.IsNullOrWhiteSpace(title))
-        {
-            return new(trimmedTitle, null);
-        }
-
-        var parenthesisContent = trimmedTitle[(openingParenthesisIndex + 1)..^1];
-        if (string.IsNullOrWhiteSpace(parenthesisContent))
-        {
-            return new(title, null);
-        }
-
-        var subtitleParts = parenthesisContent
-            .Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries)
-            .Select(part => $"{title} {part}")
-            .ToList();
-
-        if (subtitleParts.Count == 0)
-        {
-            return new(title, null);
-        }
-
-        return new(title, string.Join(", ", subtitleParts));
-    }
-
-    private ElementReference _detailsDialog;
-    private ElementReference _standingsHeading;
-    private IJSObjectReference? _dialogModule;
-    private DotNetObjectReference<Vote>? _dialogReference;
-    private string _dialogNotice = string.Empty;
-
-    private void CloseVotingDialog()
-    {
-        CloseBeatenByDialog();
-        CloseWinsOverDialog();
-        ClosePendingMatchesDialog();
-        _dialogNotice = string.Empty;
-    }
-
-    [JSInvokable]
-    public void CloseVotingDialogFromKeyboard()
-    {
-        CloseVotingDialog();
-        StateHasChanged();
-    }
+        => _arenaBannedGameIds.Contains(duel.Game1Id) || _arenaBannedGameIds.Contains(duel.Game2Id);
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (_currentTournament is null) return;
-        if (firstRender)
+        if (_shortcutModule is null)
         {
-            _dialogModule = await JS.InvokeAsync<IJSObjectReference>("import", "./js/importDialog.js");
-            _dialogReference = DotNetObjectReference.Create(this);
-            await _dialogModule.InvokeVoidAsync("initialize", _detailsDialog, _dialogReference, "CloseVotingDialogFromKeyboard");
+            _shortcutModule = await JS.InvokeAsync<IJSObjectReference>("import", "./js/focusedVoting.js");
+            await _shortcutModule.InvokeVoidAsync("connect", _root, new Dictionary<string, string>
+            {
+                ["1"] = "left", ["arrowleft"] = "left", ["2"] = "right", ["arrowright"] = "right", ["u"] = "undo", ["s"] = "skip"
+            }, false);
         }
-        if (_dialogModule is not null)
-            await _dialogModule.InvokeVoidAsync("sync", _detailsDialog, _showBeatenByDialog || _showWinsOverDialog || _showPendingMatchesDialog, _standingsHeading);
+        if (!_restoreExclusions || _restoringExclusions) return;
+        var tournamentId = _currentTournament.Id;
+        _restoringExclusions = true;
+        try
+        {
+            await _exclusions.RestoreAsync(JS, tournamentId, _games.Select(game => game.Id));
+            if (_currentTournament?.Id == tournamentId)
+            {
+                _restoreExclusions = false;
+                LoadNextDuel(_currentDuel?.Id);
+            }
+        }
+        finally
+        {
+            _restoringExclusions = false;
+        }
+        StateHasChanged();
     }
 
     public async ValueTask DisposeAsync()
     {
-        _persistingSubscription?.Dispose();
-        if (_dialogModule is not null)
+        if (_shortcutModule is not null)
         {
             try
             {
-                await _dialogModule.InvokeVoidAsync("dispose", _detailsDialog);
-                await _dialogModule.DisposeAsync();
+                await _shortcutModule.InvokeVoidAsync("disconnect", _root);
+                await _shortcutModule.DisposeAsync();
             }
             catch (JSDisconnectedException) { }
         }
-        _dialogReference?.Dispose();
+        _persistingSubscription?.Dispose();
+        await _exclusions.DisposeAsync();
     }
 }

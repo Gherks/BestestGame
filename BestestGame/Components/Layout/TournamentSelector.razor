@@ -1,0 +1,67 @@
+@rendermode InteractiveServer
+@implements IDisposable
+@using BestestGame.Models
+@using BestestGame.Services
+@inject GameService GameService
+@inject NavigationManager Navigation
+@inject TournamentSelectionNotifications SelectionNotifications
+
+<div class="tournament-selector field">
+    <label class="field-label" for="active-tournament">Active tournament</label>
+    <select id="active-tournament" class="form-control" value="@(_selectedId?.ToString() ?? string.Empty)" title="@_selectedName"
+            disabled="@(!_ready || _switching || _tournaments.Count == 0)" @onchange="SwitchTournament">
+        <option value="" disabled selected="@(_selectedId is null)">@(_tournaments.Count == 0 ? "No tournaments yet" : "Choose a tournament")</option>
+        @foreach (var tournament in _tournaments)
+        {
+            <option value="@tournament.Id">@tournament.Name</option>
+        }
+    </select>
+</div>
+
+@code {
+    private List<Tournament> _tournaments = [];
+    private Guid? _selectedId;
+    private string? _selectedName;
+    private bool _ready;
+    private bool _switching;
+
+    protected override void OnInitialized()
+    {
+        LoadSelection();
+        SelectionNotifications.Changed += RefreshSelection;
+    }
+
+    private void LoadSelection()
+    {
+        _tournaments = GameService.GetTournaments();
+        var current = GameService.GetCurrentTournament();
+        _selectedId = current?.Id;
+        _selectedName = current?.Name;
+    }
+
+    private void RefreshSelection() => _ = InvokeAsync(() =>
+    {
+        LoadSelection();
+        StateHasChanged();
+    });
+
+    protected override void OnAfterRender(bool firstRender)
+    {
+        if (!firstRender) return;
+        _ready = true;
+        StateHasChanged();
+    }
+
+    private void SwitchTournament(ChangeEventArgs args)
+    {
+        if (!_ready || _switching || !Guid.TryParse(args.Value as string, out var id) ||
+            id == _selectedId || !_tournaments.Any(tournament => tournament.Id == id)) return;
+        _switching = true;
+        GameService.SelectTournament(id);
+        // Reload static and interactive page content, clearing old forms, dialogs,
+        // voting/undo state and restoring the new tournament's tab exclusions.
+        Navigation.NavigateTo(TournamentNavigation.SwitchDestination(Navigation), forceLoad: true);
+    }
+
+    public void Dispose() => SelectionNotifications.Changed -= RefreshSelection;
+}

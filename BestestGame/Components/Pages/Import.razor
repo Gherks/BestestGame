@@ -6,14 +6,14 @@
 @inject GameService GameService
 @inject IJSRuntime JS
 
-<PageTitle>Import games | BestestGame</PageTitle>
+<PageTitle>Games | BestestGame</PageTitle>
 
 <div class="import-page stack">
     <header class="page-heading">
-        <h1>Import games</h1>
+        <h1>Games</h1>
         @if (_currentTournament is not null)
         {
-            <p>Manage games in <strong>@_currentTournament.Name</strong>. New entries generate matchups with the other games in this tournament.</p>
+            <p>Your collection in <strong>@_currentTournament.Name</strong>.</p>
         }
     </header>
 
@@ -22,142 +22,202 @@
         <section class="surface empty-state stack">
             <h2>Select a tournament first</h2>
             <p>Create or select a tournament before adding games.</p>
-            <div><a href="/tournaments" class="tactile tactile--standard tactile--primary"><span class="tactile__face">Go to tournaments</span></a></div>
+            <div><a href="/tournaments" class="button button--primary"><span class="button__content">Go to tournaments</span></a></div>
         </section>
     }
     else
     {
-        @if (!string.IsNullOrEmpty(_message))
+        var visibleGames = GameLibrary.Search(_games, _searchText);
+        @if (_messageLocation == MessageLocation.Library && !string.IsNullOrEmpty(_message))
         {
             <p class="@GetAlertClasses()" role="status">@_message</p>
         }
 
-        <section class="surface stack" aria-labelledby="entry-heading">
-            <h2 id="entry-heading">@(_editingGameId is null ? "Add a game" : "Edit game details")</h2>
-            <p id="entry-help" class="helper-text">Included titles share this entry's points and matchups. Release years are optional; leave them blank when unknown.</p>
-            <EditForm Model="_entry" OnValidSubmit="SaveEntry" @key="_entry" class="stack">
-                <DataAnnotationsValidator />
-                <ValidationSummary class="validation-errors" />
-                <div class="entry-fields">
-                    <div class="field">
-                        <label for="entryTitle" class="field-label">Title</label>
-                        <InputText id="entryTitle" @bind-Value="_entry.Title" readonly="@(_editingGameId is not null)" class="form-control" aria-describedby="entry-help" />
-                        @if (_editingGameId is not null)
-                        {
-                            <p class="helper-text">The entry title cannot be changed when editing details.</p>
-                        }
-                    </div>
-                    <div class="field">
-                        <label for="entryYear" class="field-label">Release year (optional)</label>
-                        <InputNumber id="entryYear" @bind-Value="_entry.ReleaseYear" min="1" max="9999" step="1" DisplayName="Release year" class="form-control" />
-                        <ValidationMessage For="() => _entry.ReleaseYear" />
-                    </div>
-                </div>
-                <fieldset class="included-titles stack">
-                    <legend>Included titles</legend>
-                    @foreach (var included in _entry.IncludedTitles)
-                    {
-                        <div @key="included" class="included-row">
-                            <label class="field"><span class="field-label">Included title</span>
-                                <InputText @bind-Value="included.Title" class="form-control" />
-                            </label>
-                            <label class="field"><span class="field-label">Release year (optional)</span>
-                                <InputNumber @bind-Value="included.ReleaseYear" min="1" max="9999" step="1" DisplayName="Included title release year" class="form-control" />
-                            </label>
-                            <button type="button" @onclick="() => _entry.IncludedTitles.Remove(included)" class="tactile tactile--compact tactile--secondary" aria-label="@($"Remove included title: {(string.IsNullOrWhiteSpace(included.Title) ? "untitled" : included.Title)}")">
-                                <span class="tactile__face">Remove included title</span>
-                            </button>
-                        </div>
-                    }
-                    <div><button type="button" @onclick="() => _entry.IncludedTitles.Add(new IncludedTitle())" class="tactile tactile--compact tactile--secondary"><span class="tactile__face">Add included title</span></button></div>
-                </fieldset>
+        <section class="game-library stack" @ref="_libraryRoot" aria-labelledby="manage-heading">
+            <div class="library-heading cluster">
+                <h2 id="manage-heading" @ref="_manageHeading" tabindex="-1">Your games</h2>
                 <div class="cluster">
-                    <button type="submit" class="tactile tactile--standard tactile--primary"><span class="tactile__face">@(_editingGameId is null ? "Add game" : "Save details")</span></button>
-                    @if (_editingGameId is not null)
-                    {
-                        <button type="button" @onclick="ResetEntryForm" class="tactile tactile--standard tactile--secondary"><span class="tactile__face">Cancel editing</span></button>
-                    }
+                    <button type="button" class="button @(_games.Count == 0 ? "button--primary" : "")" @onclick="OpenAddForm" aria-haspopup="dialog"><span class="button__content">Add game</span></button>
+                    <button type="button" class="button" @onclick="OpenImportForm" aria-haspopup="dialog"><span class="button__content">Import list</span></button>
                 </div>
-            </EditForm>
-        </section>
-
-        <section class="surface stack" aria-labelledby="bulk-heading" aria-busy="@(_isImporting ? "true" : "false")">
-            <h2 id="bulk-heading">Bulk import</h2>
-            <p id="bulk-help" class="helper-text">Enter one title per line. Duplicate titles are skipped. Assign release years using the form above or Edit details after importing.</p>
-            <div class="field">
-                <label for="gameTitles" class="field-label">Game titles</label>
-                <textarea id="gameTitles" class="form-control" placeholder="@_placeholder" aria-describedby="bulk-help" @bind="_inputText" readonly="@_isImporting"></textarea>
             </div>
-            <div class="cluster">
-                <button type="button" class="tactile tactile--standard tactile--primary" @onclick="ImportGames" disabled="@_isImporting"><span class="tactile__face">@(_isImporting ? "Importing…" : "Import games")</span></button>
-                @if (_isImporting)
-                {
-                    <p class="loading-state" role="status"><span class="loading-indicator" aria-hidden="true"></span>Adding games and generating matchups…</p>
-                }
-            </div>
-        </section>
-
-        @if (_addedGames.Count > 0)
-        {
-            <section class="surface stack" aria-labelledby="new-entries-heading">
-                <h2 id="new-entries-heading">New entries ready for voting</h2>
-                <p class="helper-text">Finish the new matchups to give these entries a place in the rankings.</p>
-                <div class="cluster">
-                    @foreach (var added in _addedGames)
-                    {
-                        <a href="@($"/vote?focus={added.Id}")" class="tactile tactile--compact tactile--secondary"><span class="tactile__face">Finish matchups for @added.Title</span></a>
-                    }
+            <div class="library-search">
+                <div class="field">
+                    <label class="field-label" for="library-search">Search games</label>
+                    <input @ref="_searchInput" id="library-search" type="search" class="form-control" placeholder="Game or included title"
+                           aria-describedby="library-search-help library-count" @bind="_searchText" @bind:event="oninput" />
+                    <p id="library-search-help" class="helper-text">Search game names and included titles.</p>
                 </div>
-            </section>
-        }
-
-        <section class="stack" aria-labelledby="manage-heading">
-            <h2 id="manage-heading" @ref="_manageHeading" tabindex="-1">Manage games</h2>
-            <p class="helper-text">Removing a game deletes the entry, its included titles, and every matchup involving it.</p>
+            </div>
+            <div class="library-results cluster">
+                <p id="library-count" class="helper-text" role="status">@(string.IsNullOrWhiteSpace(_searchText) ? $"{_games.Count} {(_games.Count == 1 ? "entry" : "entries")}" : $"Showing {visibleGames.Count} of {_games.Count} entries")</p>
+                <button type="button" class="button" @onclick="ClearSearch" disabled="@string.IsNullOrEmpty(_searchText)"><span class="button__content">Clear search</span></button>
+            </div>
             @if (_games.Count == 0)
             {
-                <div class="surface empty-state"><p>No games in this tournament yet. Add a game or import a list above.</p></div>
+                <div class="surface empty-state"><p>No games in this tournament yet. Add a game or import a list to begin.</p></div>
+            }
+            else if (visibleGames.Count == 0)
+            {
+                <div class="surface empty-state" data-library-empty><p>No games match “@_searchText.Trim()”. Try another title or clear the search.</p></div>
             }
             else
             {
-                <ul class="game-list stack">
-                    @foreach (var game in _games)
+                <ul class="game-list">
+                    @foreach (var game in visibleGames)
                     {
-                        <li @key="game.Id" class="surface game-row">
-                            <div class="game-details">
-                                <h3>@game.Title@(game.ReleaseYear is { } year ? $" ({year})" : "")</h3>
+                        var pending = _pendingMatchups.GetValueOrDefault(game.Id);
+                        var display = EntryTitles.GetTitleDisplay(game);
+                        <li @key="game.Id" class="game-row" data-game-id="@game.Id">
+                            <div class="game-details stack">
+                                <h3>@display.Title</h3>
+                                @if (pending > 0)
+                                {
+                                    <p class="helper-text">@pending @(pending == 1 ? "matchup" : "matchups") remaining</p>
+                                }
                                 @if (game.IncludedTitles is { Count: > 0 })
                                 {
-                                    <ul class="included-summary text-secondary">
-                                        @foreach (var title in game.IncludedTitles)
-                                        {
-                                            <li>@title.Title@(title.ReleaseYear is { } includedYear ? $" ({includedYear})" : "")</li>
-                                        }
-                                    </ul>
+                                    <details class="included-disclosure">
+                                        <summary>Collection · @game.IncludedTitles.Count included @(game.IncludedTitles.Count == 1 ? "title" : "titles")</summary>
+                                        <ul class="included-summary text-secondary">
+                                            @foreach (var title in game.IncludedTitles)
+                                            {
+                                                <li>@EntryTitles.FormatTitleWithYear(title.Title, title.ReleaseYear)</li>
+                                            }
+                                        </ul>
+                                    </details>
+                                }
+                                else if (display.Subtitle is not null)
+                                {
+                                    <details class="included-disclosure">
+                                        <summary>Collection details</summary>
+                                        <p class="helper-text">@display.Subtitle</p>
+                                    </details>
                                 }
                             </div>
-                            <div class="cluster">
-                                <a href="@($"/vote?focus={game.Id}")" class="tactile tactile--compact tactile--secondary"><span class="tactile__face">Finish matchups</span></a>
-                                <button type="button" class="tactile tactile--compact tactile--secondary" @onclick="() => EditGameDetails(game)" aria-label="@($"Edit details for {game.Title}")"><span class="tactile__face">Edit details</span></button>
-                                <button type="button" class="tactile tactile--compact tactile--danger" @onclick="() => PromptRemoveGame(game)" aria-label="@($"Remove {game.Title}")" aria-haspopup="dialog"><span class="tactile__face">Remove</span></button>
-                            </div>
+                            <details class="game-actions">
+                                <summary aria-label="@($"Actions for {game.Title}")">Actions</summary>
+                                <div class="game-action-list stack">
+                                    <button type="button" class="button" @onclick="() => EditGameDetails(game)" aria-haspopup="dialog" aria-label="@($"Edit details for {game.Title}")"><span class="button__content">Edit details</span></button>
+                                    @if (pending > 0)
+                                    {
+                                        <a href="@($"/vote?focus={game.Id}")" class="button" aria-label="@($"Finish matchups for {game.Title}")"><span class="button__content">Finish matchups</span></a>
+                                    }
+                                    <button type="button" class="button button--danger" @onclick="() => PromptRemoveGame(game)" aria-label="@($"Remove {game.Title}")" aria-haspopup="dialog"><span class="button__content">Remove</span></button>
+                                </div>
+                            </details>
                         </li>
                     }
                 </ul>
             }
         </section>
 
+        <dialog @ref="_entryDialog" class="dialog task-dialog" aria-labelledby="entry-heading" aria-describedby="entry-help" aria-modal="true">
+            @if (_entryOpen)
+            {
+                <div class="dialog__header"><h2 id="entry-heading">@(_entrySaved ? (_editingGameId is null ? "Game added" : "Details saved") : _editingGameId is null ? "Add a game" : "Edit game details")</h2></div>
+                <div class="stack">
+                    <p id="entry-help" class="helper-text">@(_editingGameId is null ? "New entries generate matchups with the other games in this tournament. Release years are optional." : "Change release years and included titles here. The saved entry title stays read-only.")</p>
+                    @if (_messageLocation == MessageLocation.Entry && !string.IsNullOrEmpty(_message))
+                    {
+                        <p @ref="_formFeedback" class="@GetAlertClasses()" role="status" tabindex="-1">@_message</p>
+                    }
+                    @if (_entrySaved)
+                    {
+                        @VotingActions
+                        <div class="dialog__actions"><button type="button" class="button" @onclick="CloseEntry"><span class="button__content">Done</span></button></div>
+                    }
+                    else
+                    {
+                        <EditForm Model="_entry" OnValidSubmit="SaveEntry" OnInvalidSubmit="InvalidEntry" @key="_entry" class="stack" novalidate>
+                            <DataAnnotationsValidator />
+                            <div @ref="_validationFeedback" tabindex="-1" aria-label="Please check these details"><ValidationSummary class="validation-errors" /></div>
+                            <div class="entry-fields">
+                                <div class="field">
+                                    <label for="entryTitle" class="field-label">Title</label>
+                                    <InputText id="entryTitle" @bind-Value="_entry.Title" readonly="@(_editingGameId is not null)" class="form-control" aria-describedby="entry-help" />
+                                </div>
+                                <div class="field">
+                                    <label for="entryYear" class="field-label">Release year (optional)</label>
+                                    <InputNumber id="entryYear" @bind-Value="_entry.ReleaseYear" min="1" max="9999" step="1" DisplayName="Release year" class="form-control" />
+                                    <ValidationMessage For="() => _entry.ReleaseYear" />
+                                </div>
+                            </div>
+                            <details class="optional-included" open="@_showIncludedTitles">
+                                <summary>Included titles (optional) · @_entry.IncludedTitles.Count</summary>
+                                <div class="stack included-titles">
+                                    <p class="helper-text">Included titles share this entry's points and matchups. Each can have its own optional release year.</p>
+                                    @foreach (var included in _entry.IncludedTitles)
+                                    {
+                                        <div @key="included" class="included-row">
+                                            <label class="field"><span class="field-label">Included title</span>
+                                                <InputText @bind-Value="included.Title" class="form-control" />
+                                            </label>
+                                            <label class="field"><span class="field-label">Release year (optional)</span>
+                                                <InputNumber @bind-Value="included.ReleaseYear" min="1" max="9999" step="1" DisplayName="Included title release year" class="form-control" />
+                                                <ValidationMessage For="() => included.ReleaseYear" />
+                                            </label>
+                                            <button type="button" @onclick="() => _entry.IncludedTitles.Remove(included)" class="button" aria-label="@($"Remove included title: {(string.IsNullOrWhiteSpace(included.Title) ? "untitled" : included.Title)}")"><span class="button__content">Remove included title</span></button>
+                                        </div>
+                                    }
+                                    <div><button type="button" @onclick="() => _entry.IncludedTitles.Add(new IncludedTitle())" class="button"><span class="button__content">Add included title</span></button></div>
+                                </div>
+                            </details>
+                            <div class="dialog__actions">
+                                <button type="button" @onclick="CloseEntry" class="button"><span class="button__content">Cancel</span></button>
+                                <button type="submit" class="button button--primary"><span class="button__content">@(_editingGameId is null ? "Add game" : "Save details")</span></button>
+                            </div>
+                        </EditForm>
+                    }
+                </div>
+            }
+        </dialog>
+
+        <dialog @ref="_importDialog" class="dialog task-dialog" aria-labelledby="bulk-heading" aria-describedby="bulk-help" aria-modal="true">
+            @if (_importOpen)
+            {
+                <div class="dialog__header"><h2 id="bulk-heading">@(_importCompleted ? "Import complete" : "Import a list")</h2></div>
+                <div class="stack" aria-busy="@(_isImporting ? "true" : "false")">
+                    <p id="bulk-help" class="helper-text">Enter one title per line. Duplicate titles are skipped. Assign release years using Add game or Edit details.</p>
+                    @if (_messageLocation == MessageLocation.Bulk && !string.IsNullOrEmpty(_message))
+                    {
+                        <p @ref="_formFeedback" class="@GetAlertClasses()" role="status" tabindex="-1">@_message</p>
+                    }
+                    @if (_importCompleted)
+                    {
+                        @VotingActions
+                        <div class="dialog__actions"><button type="button" class="button" @onclick="CloseImport"><span class="button__content">Done</span></button></div>
+                    }
+                    else
+                    {
+                        <div class="field">
+                            <label for="gameTitles" class="field-label">Game titles</label>
+                            <textarea id="gameTitles" class="form-control" placeholder="@_placeholder" aria-describedby="bulk-help" @bind="_inputText" readonly="@_isImporting"></textarea>
+                        </div>
+                        <div class="dialog__actions">
+                            <button type="button" class="button" @onclick="CloseImport" disabled="@_isImporting"><span class="button__content">Cancel</span></button>
+                            <button type="button" class="button button--primary" @onclick="ImportGames" disabled="@_isImporting"><span class="button__content">@(_isImporting ? "Importing…" : "Import games")</span></button>
+                        </div>
+                        @if (_isImporting)
+                        {
+                            <p class="loading-state" role="status">Adding games and generating matchups…</p>
+                        }
+                    }
+                </div>
+            }
+        </dialog>
+
         <dialog @ref="_removalDialog" class="dialog removal-dialog" aria-labelledby="removal-heading" aria-describedby="removal-description" aria-modal="true">
             @if (_gamePendingRemoval is not null)
             {
                 <div class="dialog__header"><h2 id="removal-heading">Remove game?</h2></div>
                 <div id="removal-description" class="stack">
-                    <p>Remove <strong>@_gamePendingRemoval.Title</strong> from this tournament?</p>
+                    <p>Remove <strong>@EntryTitles.FormatTitleWithYear(_gamePendingRemoval.Title, _gamePendingRemoval.ReleaseYear)</strong> from this tournament?</p>
                     <p class="text-secondary">This also deletes its included titles and every generated matchup involving this entry.</p>
                 </div>
                 <div class="dialog__actions">
-                    <button type="button" autofocus class="tactile tactile--standard tactile--secondary" @onclick="CancelRemoveGame"><span class="tactile__face">Cancel</span></button>
-                    <button type="button" class="tactile tactile--standard tactile--danger" @onclick="ConfirmRemoveGame"><span class="tactile__face">Remove game</span></button>
+                    <button type="button" autofocus class="button" @onclick="CancelRemoveGame"><span class="button__content">Cancel</span></button>
+                    <button type="button" class="button button--danger" @onclick="ConfirmRemoveGame"><span class="button__content">Remove game</span></button>
                 </div>
             }
         </dialog>
@@ -182,16 +242,35 @@
     private string _message = string.Empty;
     private string _alertClass = "alert-success";
     private bool _isImporting = false;
+    private enum MessageLocation { Library, Entry, Bulk }
+    private MessageLocation _messageLocation;
+    private string _searchText = string.Empty;
+    private Dictionary<Guid, int> _pendingMatchups = [];
+    private ElementReference _libraryRoot;
+    private ElementReference _entryDialog;
+    private ElementReference _importDialog;
+    private ElementReference _validationFeedback;
+    private bool _entryOpen;
+    private bool _entrySaved;
+    private bool _importOpen;
+    private bool _importCompleted;
+    private bool _showIncludedTitles;
+    private bool _focusValidation;
+    private ElementReference _searchInput;
+    private ElementReference _formFeedback;
+    private IJSObjectReference? _libraryModule;
+    private bool _focusSearch;
+    private bool _focusFeedback;
 
     protected override void OnInitialized()
     {
-        _currentTournament = GameService.GetCurrentTournament();
         LoadGames();
     }
 
     private async Task ImportGames()
     {
         if (_isImporting) return;
+        _messageLocation = MessageLocation.Bulk;
 
         var titles = _inputText
             .Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
@@ -200,6 +279,7 @@
 
         if (titles.Count == 0)
         {
+            _focusFeedback = true;
             _alertClass = "alert-warning";
             _message = "Enter at least one game title, with one title per line.";
             return;
@@ -216,15 +296,19 @@
             _alertClass = "alert-success";
             _message = $"Added {addedCount} game(s). Skipped {titles.Count - addedCount} duplicate title(s).";
             _inputText = string.Empty;
+            _importCompleted = true;
         }
         finally
         {
             _isImporting = false;
+            _focusFeedback = true;
         }
     }
 
     private void SaveEntry()
     {
+        _messageLocation = MessageLocation.Entry;
+        _focusFeedback = true;
         if (string.IsNullOrWhiteSpace(_entry.Title))
         {
             _alertClass = "alert-warning";
@@ -235,12 +319,14 @@
         {
             _alertClass = "alert-warning";
             _message = "Release years must be between 1 and 9999, or left blank.";
+            _showIncludedTitles = true;
             return;
         }
         if (_entry.IncludedTitles.Any(t => string.IsNullOrWhiteSpace(t.Title)))
         {
             _alertClass = "alert-warning";
             _message = "Enter a title for each included title, or remove its row.";
+            _showIncludedTitles = true;
             return;
         }
         var adding = _editingGameId is null;
@@ -252,13 +338,19 @@
         _alertClass = saved ? "alert-success" : "alert-warning";
         _message = saved
             ? (_editingGameId is null ? "Added game and its included titles." : "Updated game details.")
-            : "Could not save. If this title already exists, use its Edit details button below.";
+            : "Could not save. If this title already exists, use Edit details in its Actions.";
         if (saved)
         {
-            ResetEntryForm();
             LoadGames();
-            if (adding)
-                _addedGames = _games.Where(game => !existingIds.Contains(game.Id)).ToList();
+            _entrySaved = true;
+            _addedGames = adding
+                ? _games.Where(game => !existingIds.Contains(game.Id)).ToList()
+                : _games.Where(game => game.Id == _editingGameId).ToList();
+        }
+        else
+        {
+            // Refresh after a stale edit while retaining its draft and feedback.
+            LoadGames();
         }
     }
 
@@ -271,6 +363,77 @@
             ReleaseYear = game.ReleaseYear,
             IncludedTitles = (game.IncludedTitles ?? []).Select(t => new IncludedTitle { Title = t.Title, ReleaseYear = t.ReleaseYear }).ToList()
         };
+        OpenEntry();
+    }
+
+    private void OpenAddForm()
+    {
+        ResetEntryForm();
+        OpenEntry();
+    }
+
+    private void OpenEntry()
+    {
+        _entryOpen = true;
+        _entrySaved = false;
+        _showIncludedTitles = false;
+        _message = string.Empty;
+        _addedGames = [];
+        _messageLocation = MessageLocation.Entry;
+    }
+
+    private void OpenImportForm()
+    {
+        _importOpen = true;
+        _importCompleted = false;
+        _message = _inputText = string.Empty;
+        _addedGames = [];
+        _messageLocation = MessageLocation.Bulk;
+    }
+
+    private void CloseEntry()
+    {
+        _entryOpen = false;
+        _focusFeedback = _focusValidation = false;
+        ResetEntryForm();
+    }
+
+    private void CloseImport()
+    {
+        if (_isImporting) return;
+        _importOpen = false;
+        _inputText = string.Empty;
+        _focusFeedback = false;
+    }
+
+    private void InvalidEntry()
+    {
+        _message = string.Empty;
+        _focusValidation = true;
+        _showIncludedTitles = true;
+    }
+
+    private RenderFragment VotingActions => @<div class="stack completion-actions">
+        @if (_addedGames.Any(game => _pendingMatchups.GetValueOrDefault(game.Id) > 0))
+        {
+            <p class="helper-text">Ready to give these entries a place in the rankings?</p>
+            <div class="cluster">
+                @foreach (var added in _addedGames.Where(game => _pendingMatchups.GetValueOrDefault(game.Id) > 0))
+                {
+                    <a href="@($"/vote?focus={added.Id}")" class="button button--primary"><span class="button__content">Finish matchups for @EntryTitles.FormatTitleWithYear(added.Title, added.ReleaseYear)</span></a>
+                }
+            </div>
+        }
+        else
+        {
+            <p class="helper-text">No new matchups to finish. Add another entry to begin voting, or continue managing your collection.</p>
+        }
+    </div>;
+
+    private void ClearSearch()
+    {
+        _searchText = string.Empty;
+        _focusSearch = true;
     }
 
     private void ResetEntryForm()
@@ -297,6 +460,7 @@
 
         var game = _gamePendingRemoval;
         _gamePendingRemoval = null;
+        _messageLocation = MessageLocation.Library;
 
         if (GameService.RemoveGame(game.Id))
         {
@@ -305,7 +469,7 @@
                 ResetEntryForm();
             LoadGames();
             _alertClass = "alert-success";
-            _message = $"Removed {game.Title} and every match that included it.";
+            _message = $"Removed {EntryTitles.FormatTitleWithYear(game.Title, game.ReleaseYear)} and every match that included it.";
             return;
         }
 
@@ -315,9 +479,12 @@
 
     private void LoadGames()
     {
-        _games = GameService.GetGames()
-            .OrderBy(g => g.Title)
+        _currentTournament = GameService.GetCurrentTournament();
+        _games = (_currentTournament?.Games ?? [])
+            .OrderBy(g => g.Title, StringComparer.OrdinalIgnoreCase)
+            .ThenBy(g => g.Id)
             .ToList();
+        _pendingMatchups = _currentTournament is null ? [] : GameLibrary.PendingMatchups(_currentTournament);
     }
 
     private string GetAlertClasses() => _alertClass == "alert-warning"
@@ -337,9 +504,47 @@
             _dialogModule = await JS.InvokeAsync<IJSObjectReference>("import", "./js/importDialog.js");
             _dialogReference = DotNetObjectReference.Create(this);
             await _dialogModule.InvokeVoidAsync("initialize", _removalDialog, _dialogReference);
+            await _dialogModule.InvokeVoidAsync("initialize", _entryDialog, _dialogReference, "CancelEntryFromKeyboard");
+            await _dialogModule.InvokeVoidAsync("initialize", _importDialog, _dialogReference, "CancelImportFromKeyboard");
+            _libraryModule = await JS.InvokeAsync<IJSObjectReference>("import", "./js/gameLibrary.js");
+            await _libraryModule.InvokeVoidAsync("initialize", _libraryRoot);
         }
         if (_dialogModule is not null)
+        {
             await _dialogModule.InvokeVoidAsync("sync", _removalDialog, _gamePendingRemoval is not null, _manageHeading);
+            await _dialogModule.InvokeVoidAsync("sync", _entryDialog, _entryOpen, _manageHeading, _editingGameId is null ? "entryTitle" : "entryYear");
+            await _dialogModule.InvokeVoidAsync("sync", _importDialog, _importOpen, _manageHeading, "gameTitles");
+        }
+        if (_focusSearch)
+        {
+            _focusSearch = false;
+            await _searchInput.FocusAsync();
+        }
+        if (_focusFeedback && !string.IsNullOrEmpty(_message))
+        {
+            _focusFeedback = false;
+            if (_dialogModule is not null)
+                await _dialogModule.InvokeVoidAsync("focusFeedback", _formFeedback);
+        }
+        if (_focusValidation && _dialogModule is not null)
+        {
+            _focusValidation = false;
+            await _dialogModule.InvokeVoidAsync("focusFeedback", _validationFeedback);
+        }
+    }
+
+    [JSInvokable]
+    public void CancelEntryFromKeyboard()
+    {
+        CloseEntry();
+        StateHasChanged();
+    }
+
+    [JSInvokable]
+    public void CancelImportFromKeyboard()
+    {
+        CloseImport();
+        StateHasChanged();
     }
 
     [JSInvokable]
@@ -351,11 +556,22 @@
 
     public async ValueTask DisposeAsync()
     {
+        if (_libraryModule is not null)
+        {
+            try
+            {
+                await _libraryModule.InvokeVoidAsync("dispose", _libraryRoot);
+                await _libraryModule.DisposeAsync();
+            }
+            catch (JSDisconnectedException) { }
+        }
         if (_dialogModule is not null)
         {
             try
             {
                 await _dialogModule.InvokeVoidAsync("dispose", _removalDialog);
+                await _dialogModule.InvokeVoidAsync("dispose", _entryDialog);
+                await _dialogModule.InvokeVoidAsync("dispose", _importDialog);
                 await _dialogModule.DisposeAsync();
             }
             catch (JSDisconnectedException) { }

@@ -1,6 +1,7 @@
 @inherits LayoutComponentBase
+@inject NavigationManager Navigation
 
-<a class="skip-link" href="#main-content" data-enhance-nav="false">Skip to content</a>
+<a class="skip-link" href="@(Navigation.Uri.Split('#')[0] + "#main-content")" data-enhance-nav="false">Skip to content</a>
 
 <div class="app-shell">
     <aside class="app-sidebar">
@@ -19,11 +20,11 @@
     <div class="error-content">
         <p>An unexpected error occurred. Reload the page to continue.</p>
         <div class="error-actions">
-            <a href="" class="reload tactile tactile--compact tactile--primary">
-                <span class="tactile__face">Reload page</span>
+            <a href="" class="reload button button--primary">
+                <span class="button__content">Reload page</span>
             </a>
-            <button type="button" class="dismiss tactile tactile--compact tactile--secondary" aria-label="Dismiss error notification">
-                <span class="tactile__face">Dismiss</span>
+            <button type="button" class="dismiss button" aria-label="Dismiss error notification">
+                <span class="button__content">Dismiss</span>
             </button>
         </div>
     </div>

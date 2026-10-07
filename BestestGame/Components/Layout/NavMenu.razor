@@ -6,19 +6,41 @@
         <span>BestestGame</span>
     </a>
 
-    <nav class="navigation" aria-label="Main navigation">
-        <NavLink class="nav-link" href="" Match="NavLinkMatch.All" aria-current="@CurrentPage("")">Home</NavLink>
-        <NavLink class="nav-link" href="tournaments" aria-current="@CurrentPage("tournaments")">Tournaments</NavLink>
-        <NavLink class="nav-link" href="vote" aria-current="@CurrentPage("vote")">Voting</NavLink>
-        <NavLink class="nav-link" href="import" aria-current="@CurrentPage("import")">Import games</NavLink>
-        <NavLink class="nav-link" href="goty" aria-current="@CurrentPage("goty")">Game of the year</NavLink>
+    <TournamentSelector />
+
+    <nav class="navigation desktop-navigation" aria-label="Main navigation">
+        @MenuLinks
     </nav>
+    <details class="mobile-menu" data-mobile-menu>
+        <summary aria-label="@($"Navigation menu, current page: {CurrentPageLabel}")"><span>Menu</span> <span class="menu-current">@CurrentPageLabel</span></summary>
+        <nav class="navigation mobile-navigation" aria-label="Main navigation">
+            @MenuLinks
+        </nav>
+    </details>
 </div>
 
 @code {
-    private string? CurrentPage(string path)
+    private RenderFragment MenuLinks => @<text>
+        <NavLink class="nav-link" href="" Match="NavLinkMatch.All" aria-current="@CurrentPage("")">Home</NavLink>
+        <NavLink class="nav-link" href="vote" aria-current="@CurrentPage("vote")">Voting</NavLink>
+        <NavLink class="nav-link" href="rankings" aria-current="@CurrentPage("rankings")">Rankings</NavLink>
+        <NavLink class="nav-link" href="import" aria-current="@CurrentPage("import")">Games</NavLink>
+        <NavLink class="nav-link" href="goty" aria-current="@CurrentPage("goty")">Game of the year</NavLink>
+        <NavLink class="nav-link" href="tournaments" aria-current="@CurrentPage("tournaments")">Tournaments</NavLink>
+    </text>;
+
+    private string CurrentPath => Navigation.ToBaseRelativePath(Navigation.Uri).Split('?', '#')[0].Trim('/');
+    private string CurrentPageLabel => CurrentPath.ToLowerInvariant() switch
     {
-        var currentPath = Navigation.ToBaseRelativePath(Navigation.Uri).Split('?', '#')[0].Trim('/');
-        return string.Equals(currentPath, path, StringComparison.OrdinalIgnoreCase) ? "page" : null;
-    }
+        "" => "Home",
+        "vote" => "Voting",
+        "rankings" => "Rankings",
+        "import" => "Games",
+        "goty" => "Game of the year",
+        "tournaments" => "Tournaments",
+        _ => "Navigation"
+    };
+
+    private string? CurrentPage(string path)
+        => string.Equals(CurrentPath, path, StringComparison.OrdinalIgnoreCase) ? "page" : null;
 }

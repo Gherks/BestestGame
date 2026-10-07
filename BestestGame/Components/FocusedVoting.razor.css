@@ -1,26 +1,50 @@
-.focused-voting { margin-top: var(--space-2); gap: var(--space-4); }
+.focused-voting { margin-top: var(--space-2); gap: var(--space-3); }
 .focused-voting :is(h2, h3) { font-weight: 600; line-height: 1.3; overflow-wrap: anywhere; }
-.focused-voting h2 { font-size: 1.5rem; }
-.focused-voting h3 { font-size: 1.125rem; }
-.focused-header { display: flex; flex-wrap: wrap; align-items: start; justify-content: space-between; gap: var(--space-4); }
-.focused-header > .stack { flex: 1 1 24rem; min-width: 0; gap: var(--space-2); }
-.adaptive-toggle { flex-shrink: 0; font-size: .9375rem; }
-.focused-progress { gap: var(--space-2); font-size: .875rem; }
-.focused-panels { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 2fr); gap: var(--space-4); }
-.focused-panels--single { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-.opponent-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-2); margin: 0; padding: 0; list-style: none; }
-.opponent-list--single { grid-template-columns: minmax(0, 1fr); }
-.opponent-item { min-width: 0; gap: var(--space-1); padding: var(--space-3); border: 1px solid var(--border); border-radius: var(--radius-control); background: var(--panel); overflow-wrap: anywhere; }
-.opponent-title { font-size: .9375rem; font-weight: 600; }
-.focused-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-4); }
+.focused-voting h2 { font-size: var(--text-voting-title); font-weight: 700; }
+.focused-voting h3 { font-size: var(--text-body); }
+.focused-header { display: flex; flex-wrap: wrap; align-items: start; justify-content: space-between; gap: var(--space-3); }
+.focused-entry { flex: 1 1 24rem; min-width: 0; }
+.adaptive-toggle { flex-shrink: 0; font-size: var(--text-control); }
+.focused-progress { display: grid; gap: var(--space-2); font-size: var(--text-support); }
+.focused-opponents { min-width: 0; }
+.opponent-list { margin: var(--space-2) 0 0; padding: 0; list-style: none; }
+.opponent-item { min-width: 0; padding: var(--space-2) 0; border-bottom: 1px solid var(--border); overflow-wrap: anywhere; scroll-margin-bottom: var(--focused-controls-height, 18rem); }
+.opponent-title { font-family: var(--font-display); font-size: var(--text-body); font-weight: 600; }
+.included-context { font-size: var(--text-support); color: var(--muted); }
+.included-context summary { display: list-item; width: fit-content; max-width: 100%; min-height: 44px; padding: 10px 4px; cursor: pointer; }
+.included-context p { padding: 0 var(--space-1) var(--space-2); overflow-wrap: anywhere; }
+.focused-controls { display: grid; gap: var(--space-2); min-width: 0; }
+.action-context { display: grid; gap: var(--space-1); font-size: var(--text-support); overflow-wrap: anywhere; }
+.action-entry { font-weight: 500; }
+.focused-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-3); }
 .focused-actions > .tactile { width: 100%; }
-.choice-title { font-size: 1.125rem; font-weight: 600; line-height: 1.4; }
-.choice-help, .shortcut-label { font-size: .8125rem; font-weight: 400; line-height: 1.5; }
-.split-action { width: 100%; }
-.split-action > .tactile__face { flex-direction: column; align-items: start; text-align: left; gap: var(--space-2); }
-@media (max-width: 900px) {
-    .focused-panels, .focused-actions { grid-template-columns: minmax(0, 1fr); }
-}
+.focused-actions .tactile__face { flex-direction: column; align-items: start; text-align: left; padding: var(--space-3); gap: var(--space-1); }
+.choice-title { font-size: var(--text-control); font-weight: 500; line-height: 1.4; }
+.choice-help { font-size: var(--text-support); font-weight: 400; line-height: 1.4; }
+.queue-actions { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+.split-action > .button__content { flex-direction: column; gap: var(--space-1); }
+.focused-notice { font-size: var(--text-support); }
 @media (max-width: 640px) {
-    .opponent-list { grid-template-columns: minmax(0, 1fr); }
+    /* The measured reserve lets every row/disclosure scroll clear of the dock. */
+    .focused-opponents { padding-bottom: var(--focused-controls-height, 18rem); }
+    .focused-controls { position: sticky; bottom: 0; z-index: 2; padding: var(--space-3) 0 max(var(--space-2), env(safe-area-inset-bottom)); background: var(--panel); border-top: 1px solid var(--border); }
+    .action-entry { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }
+    .queue-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-2); }
+    .queue-actions:has(.split-action) { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .queue-actions > .button { width: 100%; padding: var(--space-2) var(--space-1); font-size: var(--text-control); }
+    .focused-actions { gap: var(--space-2); }
+}
+@media (max-width: 360px) {
+    .action-entry { -webkit-line-clamp: 1; }
+    .focused-actions { grid-template-columns: minmax(0, 1fr); }
+    .focused-actions .tactile__face { flex-direction: row; align-items: center; justify-content: space-between; padding: var(--space-2); }
+    .focused-actions .choice-help { display: none; }
+    .queue-actions:has(.split-action) { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .split-action { grid-column: 1 / -1; }
+    .split-action > .button__content { flex-direction: row; flex-wrap: wrap; justify-content: space-between; text-align: left; }
+}
+@media (max-width: 640px) and (max-height: 500px) {
+    /* Short landscape/keyboard viewports need their full height for reading. */
+    .focused-controls { position: static; }
+    .focused-opponents { padding-bottom: 0; }
 }

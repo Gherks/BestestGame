@@ -15,7 +15,7 @@
     height: 100vh;
     height: 100dvh;
     overflow-y: auto;
-    border-right: 1px solid var(--border);
+    border-right: 1px solid transparent;
     background: var(--panel);
 }
 
@@ -33,9 +33,9 @@
 
 .app-footer {
     padding: 1rem clamp(1rem, 3vw, 2.5rem);
-    border-top: 1px solid var(--border);
+    border-top: 1px solid transparent;
     color: var(--quiet);
-    font-size: .75rem;
+    font-size: var(--text-support);
 }
 
 .skip-link {
@@ -49,6 +49,7 @@
     background: var(--primary);
     color: var(--primary-text);
     font-weight: 600;
+    font-size: var(--text-control);
     transform: translateY(calc(-100% - 1rem));
 }
 
@@ -65,7 +66,7 @@
     border-top: 1px solid var(--danger);
     background: var(--danger-surface);
     color: var(--text);
-    box-shadow: 0 -4px 16px rgb(0 0 0 / .2);
+    box-shadow: var(--recovery-shadow);
 }
 
 .error-content {
@@ -87,7 +88,7 @@
         height: auto;
         overflow: visible;
         border-right: 0;
-        border-bottom: 1px solid var(--border);
+        border-bottom: 1px solid transparent;
     }
     .error-content { flex-direction: column; align-items: start; gap: .75rem; }
 }

@@ -1,43 +1,113 @@
 @page "/"
+@using BestestGame.Models
+@using BestestGame.Services
+@using static BestestGame.Components.EntryTitles
+@inject GameService GameService
 
 <PageTitle>Home | BestestGame</PageTitle>
 
 <div class="home-page stack">
-    <section class="surface home-introduction stack" aria-labelledby="home-heading">
-        <p class="eyebrow">Your game rankings</p>
-        <div class="page-heading">
-            <h1 id="home-heading">Find your favourite games.</h1>
-            <p>Build a tournament from your game list, choose a winner in each matchup, and see your rankings take shape.</p>
+    <section class="home-next-step stack" aria-labelledby="home-heading">
+        <header class="page-heading">
+            <p class="eyebrow">@(_tournament is null ? "Your game rankings" : "Active tournament")</p>
+            <h1 id="home-heading">@(_tournament?.Name ?? "Find your favourite games.")</h1>
+            <p>@NextStepDescription</p>
+        </header>
+        <div>
+            <a href="@_nextTask.Href" class="button button--primary" data-home-action><span class="button__content">@_nextTask.Label</span></a>
         </div>
-        <div class="cluster">
-            <a href="/vote" class="tactile tactile--standard tactile--primary">
-                <span class="tactile__face">Start voting</span>
-            </a>
-            <a href="/import" class="tactile tactile--standard tactile--secondary">
-                <span class="tactile__face">Import games</span>
-            </a>
-        </div>
-        <p class="text-secondary">Getting started? <a href="/tournaments" class="text-link">Create a tournament</a> before adding games.</p>
+        @if (_tournament is not null)
+        {
+            <dl class="home-statistics">
+                <div><dt>Entries</dt><dd>@_tournament.Games.Count</dd></div>
+                @if (_nextTask.Stage != TournamentOverview.Stage.Setup)
+                {
+                    <div><dt>Matchups finished</dt><dd>@CompletedMatchups <span class="helper-text">of @_tournament.Duels.Count</span></dd></div>
+                    @if (_nextTask.Stage == TournamentOverview.Stage.Voting)
+                    {
+                        <div><dt>Remaining</dt><dd>@(_tournament.Duels.Count - CompletedMatchups)</dd></div>
+                    }
+                }
+            </dl>
+            @if (_tournament.Duels.Count > 0 && _nextTask.Stage != TournamentOverview.Stage.Setup)
+            {
+                <progress class="progress-bar" value="@CompletedMatchups" max="@_tournament.Duels.Count" aria-label="Completed tournament matchups"></progress>
+            }
+        }
     </section>
 
-    <section class="stack" aria-labelledby="getting-started-heading">
-        <h2 id="getting-started-heading">How it works</h2>
+    @if (_tournament is not null && _nextTask.Stage != TournamentOverview.Stage.Setup)
+    {
+        <section class="home-leaders stack" aria-labelledby="leaders-heading">
+            <div class="cluster">
+                <h2 id="leaders-heading">@(_nextTask.Stage == TournamentOverview.Stage.Voting ? "Current leaders" : "Your leaders")</h2>
+                @if (_nextTask.Stage == TournamentOverview.Stage.Voting)
+                {
+                    <a href="/rankings" class="text-link">View rankings</a>
+                }
+            </div>
+            @if (_leaders.Games.Count == 0)
+            {
+                <p class="helper-text">No points recorded yet.</p>
+            }
+            else
+            {
+                <ul class="home-leader-list">
+                    @foreach (var game in _leaders.Games)
+                    {
+                        var display = GetTitleDisplay(game);
+                        <li @key="game.Id" data-leader-id="@game.Id">
+                            <div class="home-leader-title">
+                                <span>@display.Title</span>
+                                @if (game.IncludedTitles is { Count: > 0 } || !string.IsNullOrWhiteSpace(display.Subtitle))
+                                {
+                                    <span class="helper-text">Collection</span>
+                                }
+                            </div>
+                            <span class="home-leader-points">@game.Points <span class="helper-text">points</span></span>
+                        </li>
+                    }
+                </ul>
+                @if (_leaders.TotalTied > _leaders.Games.Count)
+                {
+                    <p class="helper-text">@(_leaders.TotalTied - _leaders.Games.Count) more entries share the lead. <a href="/rankings" class="text-link">See all leaders</a>.</p>
+                }
+                @if (_nextTask.Stage == TournamentOverview.Stage.Voting)
+                {
+                    <p class="helper-text">Based on full tournament points. Rankings are still taking shape.</p>
+                }
+            }
+        </section>
+    }
+
+    <details class="home-instructions">
+        <summary>How it works</summary>
         <ol class="getting-started">
-            <li class="surface stack">
-                <p class="eyebrow">Step 1</p>
-                <h3>Create a tournament</h3>
-                <p class="text-secondary">Give your list a name. Each tournament keeps its own games, matchups, and rankings.</p>
-            </li>
-            <li class="surface stack">
-                <p class="eyebrow">Step 2</p>
-                <h3>Add your games</h3>
-                <p class="text-secondary">Add titles individually or import a list into your selected tournament.</p>
-            </li>
-            <li class="surface stack">
-                <p class="eyebrow">Step 3</p>
-                <h3>Choose your winners</h3>
-                <p class="text-secondary">Compare two games at a time. Your choices build the tournament leaderboard.</p>
-            </li>
+            <li><strong>Create a tournament.</strong> Give your game list a name.</li>
+            <li><strong>Add your games.</strong> Add individual entries or import a list. Collections share points and matchups.</li>
+            <li><strong>Choose your winners.</strong> Compare games in Voting, then explore Rankings. Saved results stay with the tournament.</li>
         </ol>
-    </section>
+    </details>
 </div>
+
+@code {
+    private Tournament? _tournament;
+    private TournamentOverview.NextTask _nextTask = TournamentOverview.GetNextTask(null, false);
+    private TournamentOverview.LeaderSummary _leaders = new([], 0);
+    private int CompletedMatchups => _tournament?.Duels.Count(duel => duel.IsCompleted) ?? 0;
+    private string NextStepDescription => _nextTask.Stage switch
+    {
+        TournamentOverview.Stage.NoTournaments => "Start a tournament for the games you want to compare.",
+        TournamentOverview.Stage.ChooseTournament => "Choose one of your tournaments to pick up where you left off.",
+        TournamentOverview.Stage.Setup => "Add at least two entries to start comparing your games.",
+        TournamentOverview.Stage.Voting => "Pick up your next matchup and keep your rankings taking shape.",
+        _ => "All matchups are finished. Explore your results."
+    };
+
+    protected override void OnInitialized()
+    {
+        _tournament = GameService.GetCurrentTournament();
+        _nextTask = TournamentOverview.GetNextTask(_tournament, GameService.GetTournaments().Count > 0);
+        if (_tournament is not null) _leaders = TournamentOverview.GetLeaders(_tournament);
+    }
+}

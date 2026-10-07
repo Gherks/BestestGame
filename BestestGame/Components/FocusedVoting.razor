@@ -6,8 +6,7 @@
 @inject IJSRuntime JS
 
 @{ var presentation = _presentation; var current = _session.Current(_useGroups); }
-<div class="focused-voting stack" @ref="_root" data-presentation="@presentation" data-motion-arena
-     data-vote-revision="@_voteRevision" data-settled-choice="@_settledChoice"
+<div class="focused-voting stack" @ref="_root" data-presentation="@presentation"
      data-shortcuts-enabled="@(ShortcutsEnabled && _ready && !_busy ? "true" : "false")">
     @if (_game is null)
     {
@@ -15,112 +14,120 @@
     }
     else
     {
-        <div class="focused-header">
-            <div class="stack">
-                <h2>Finish matchups for @FormatTitle(_game)</h2>
-                <p class="helper-text">Your entry stays on the left. Resolve an entire group, or split a mixed group into smaller choices.</p>
+        var entryDisplay = EntryTitles.GetTitleDisplay(_game);
+        <header class="focused-header">
+            <div class="focused-entry">
+                <p class="eyebrow">Your entry</p>
+                <h2>@entryDisplay.Title</h2>
+                @if (!string.IsNullOrWhiteSpace(entryDisplay.Subtitle))
+                {
+                    <details class="included-context focused-entry-context">
+                        <summary>@(_game.IncludedTitles is { Count: > 0 } titles ? $"{titles.Count} included {(titles.Count == 1 ? "title" : "titles")}" : "Included titles")</summary>
+                        <p>@entryDisplay.Subtitle</p>
+                    </details>
+                }
             </div>
             <label class="checkbox-field adaptive-toggle">
                 <input type="checkbox" checked="@_useGroups" disabled="@(!_ready || _busy)" @onchange="ToggleGroups" />
                 Adaptive groups
             </label>
-        </div>
+        </header>
 
-        <div class="focused-progress stack" aria-live="polite" aria-atomic="true">
-            <div class="cluster text-secondary">
-                <span><strong>@_completedCount / @_totalCount</strong> matchups finished for this entry</span>
-                <span><strong>@_session.RemainingCount</strong> available to vote@(_blockedCount > 0 ? $" · {_blockedCount} arena-banned" : "")</span>
-            </div>
+        <div class="focused-progress" aria-live="polite" aria-atomic="true">
+            <p class="text-secondary">@_completedCount of @_totalCount matchups finished · @_session.RemainingCount available@(_blockedCount > 0 ? $" · {_blockedCount} arena-banned" : "")</p>
             <progress class="progress-bar" value="@_completedCount" max="@Math.Max(1, _totalCount)" aria-label="Completed matchups for this entry"></progress>
         </div>
 
+        <div class="duel-stage" data-duel-stage data-duel-key="@string.Join(",", current)">
+        <div data-duel-content>
         @if (current.Length == 0)
         {
-            <div class="status @(_blockedCount > 0 ? "status--warning" : "status--success") stack" role="status" data-motion-result>
+            <div class="status @(_blockedCount > 0 ? "status--warning" : "status--success") stack" role="status">
                 @if (_blockedCount > 0)
                 {
                     <h3>Only arena-banned matchups remain</h3>
-                    <p>Uncheck the banned titles in the standings to finish this entry.</p>
+                    <p>Uncheck the banned titles on <a href="@RankingsUrl" class="text-link">Rankings</a> to finish this entry.</p>
                 }
                 else
                 {
                     <h3>This entry is finished</h3>
-                    <p>All of its matchups are saved. Add another entry or choose a different one above.</p>
+                    <p>All of its matchups are saved. Choose another entry in Voting options or <a href="@RankingsUrl" class="text-link">view rankings</a>.</p>
                 }
             </div>
         }
         else
         {
-            <div class="stack" data-motion-round>
-                <div class="focused-panels @(current.Length == 1 ? "focused-panels--single" : "")">
-                    <section class="surface surface--well stack" aria-label="Your entry">
-                        <p class="eyebrow">Your entry</p>
-                        <h3>@FormatTitle(_game)</h3>
-                        @if (_game.IncludedTitles is { Count: > 0 })
-                        {
-                            <p class="helper-text">@IncludedTitles(_game)</p>
-                        }
-                    </section>
-                    <section class="surface surface--well stack" aria-label="Opponents">
-                        <p class="eyebrow">@(current.Length == 1 ? "Opponent" : $"All {current.Length} opponents")</p>
-                        <ul class="opponent-list @(current.Length == 1 ? "opponent-list--single" : "")">
-                            @foreach (var duelId in current)
+            <section class="focused-opponents" aria-labelledby="focused-opponents-heading">
+                <h3 id="focused-opponents-heading">@(current.Length == 1 ? "Opponent" : $"All {current.Length} opponents in this group")</h3>
+                <ol class="opponent-list">
+                    @foreach (var duelId in current)
+                    {
+                        var opponent = Opponent(_duels[duelId]);
+                        var display = EntryTitles.GetTitleDisplay(opponent);
+                        <li @key="duelId" class="opponent-item" data-duel-id="@duelId" data-opponent-id="@opponent.Id">
+                            <span class="opponent-title">@display.Title</span>
+                            @if (!string.IsNullOrWhiteSpace(display.Subtitle))
                             {
-                                var opponent = Opponent(_duels[duelId]);
-                                <li @key="duelId" class="opponent-item stack">
-                                    <span class="opponent-title">@FormatTitle(opponent)</span>
-                                    @if (opponent.IncludedTitles is { Count: > 0 })
-                                    {
-                                        <span class="helper-text">@IncludedTitles(opponent)</span>
-                                    }
-                                </li>
+                                <details class="included-context">
+                                    <summary>@(opponent.IncludedTitles is { Count: > 0 } titles ? $"{titles.Count} included {(titles.Count == 1 ? "title" : "titles")}" : "Included titles")</summary>
+                                    <p>@display.Subtitle</p>
+                                </details>
                             }
-                        </ul>
-                    </section>
+                        </li>
+                    }
+                </ol>
+            </section>
+        }
+
+        </div>
+        </div>
+        <div class="focused-controls" data-focused-controls>
+            @if (current.Length > 0)
+            {
+                <div class="action-context">
+                    <span class="action-entry" title="@entryDisplay.Title">@entryDisplay.Title</span>
+                    <span id="focused-batch-scope" class="text-secondary">@(current.Length == 1 ? "1 opponent · 1 result per vote" : $"Entire group · {current.Length} opponents · {current.Length} results per vote")</span>
                 </div>
                 <div class="focused-actions">
-                    <button type="button" class="tactile tactile--large tactile--secondary"
-                            disabled="@(!_ready || _busy)" data-motion-choice="left" data-action="win" aria-keyshortcuts="1 ArrowLeft" @onclick="() => Vote(presentation, true)">
+                    <button type="button" class="tactile tactile--standard tactile--secondary"
+                            disabled="@(!_ready || _busy)" data-action="win" aria-keyshortcuts="1 ArrowLeft"
+                            aria-label="@($"{entryDisplay.Title} wins against {(current.Length == 1 ? "the opponent" : $"all {current.Length} opponents in this group")}")"
+                            aria-describedby="focused-batch-scope" @onclick="() => Vote(presentation, true)">
                         <span @key="presentation" class="tactile__face">
-                            <span class="choice-title">@FormatTitle(_game) @(current.Length == 1 ? "wins" : $"beats all {current.Length}")</span>
-                            <span class="choice-help">1 or ← · Saves @current.Length @(current.Length == 1 ? "result" : "results")</span>
+                            <span class="choice-title">@(current.Length == 1 ? "Entry wins" : $"Entry beats all {current.Length} opponents")</span>
+                            <span class="choice-help">1 or ←</span>
                         </span>
                     </button>
-                    <button type="button" class="tactile tactile--large tactile--secondary"
-                            disabled="@(!_ready || _busy)" data-motion-choice="right" data-action="lose" aria-keyshortcuts="2 ArrowRight" @onclick="() => Vote(presentation, false)">
+                    <button type="button" class="tactile tactile--standard tactile--secondary"
+                            disabled="@(!_ready || _busy)" data-action="lose" aria-keyshortcuts="2 ArrowRight"
+                            aria-label="@($"{(current.Length == 1 ? EntryTitles.GetTitleDisplay(Opponent(_duels[current[0]])).Title : $"All {current.Length} opponents in this group")} wins against {entryDisplay.Title}")"
+                            aria-describedby="focused-batch-scope" @onclick="() => Vote(presentation, false)">
                         <span @key="presentation" class="tactile__face">
-                            <span class="choice-title">@(current.Length == 1 ? $"{FormatTitle(Opponent(_duels[current[0]]))} wins" : $"All {current.Length} opponents beat {FormatTitle(_game)}")</span>
-                            <span class="choice-help">2 or → · Saves @current.Length @(current.Length == 1 ? "result" : "results")</span>
+                            <span class="choice-title">@(current.Length == 1 ? "Opponent wins" : $"All {current.Length} opponents win")</span>
+                            <span class="choice-help">2 or →</span>
                         </span>
                     </button>
                 </div>
+            }
+            <div class="queue-actions">
                 @if (current.Length > 1)
                 {
-                    <button type="button" class="tactile tactile--standard tactile--secondary split-action"
-                            disabled="@(!_ready || _busy)" data-action="split" aria-keyshortcuts="M" @onclick="() => Split(presentation)">
-                        <span @key="presentation" class="tactile__face">
-                            <span>Mixed or unsure? Split this group</span>
-                            <span class="choice-help">M · Groups of @((current.Length + 1) / 2) and @(current.Length / 2). No results saved.</span>
-                        </span>
+                    <button type="button" class="button split-action" disabled="@(!_ready || _busy)" data-action="split" aria-keyshortcuts="M" @onclick="() => Split(presentation)">
+                        <span @key="presentation" class="button__content">Split group <span class="choice-help">@((current.Length + 1) / 2) + @(current.Length / 2) · No results saved</span></span>
                     </button>
                 }
+                <button type="button" class="button" disabled="@(!_ready || _busy || _history.Count == 0)" data-action="undo" aria-label="Undo last action" aria-keyshortcuts="U" @onclick="() => Undo(presentation)">
+                    <span @key="presentation" class="button__content">Undo</span>
+                </button>
+                <button type="button" class="button" disabled="@(!_ready || _busy || current.Length == 0)" data-action="skip" aria-keyshortcuts="S" @onclick="() => Skip(presentation)">
+                    <span @key="presentation" class="button__content">Skip for now</span>
+                </button>
             </div>
-        }
-        <div class="cluster">
-            <button type="button" class="tactile tactile--compact tactile--secondary"
-                    disabled="@(!_ready || _busy || _history.Count == 0)" data-action="undo" aria-keyshortcuts="U" @onclick="() => Undo(presentation)">
-                <span @key="presentation" class="tactile__face">Undo last action <span class="shortcut-label">(U)</span></span>
-            </button>
-            <button type="button" class="tactile tactile--compact tactile--secondary"
-                    disabled="@(!_ready || _busy || current.Length == 0)" data-action="skip" aria-keyshortcuts="S" @onclick="() => Skip(presentation)">
-                <span @key="presentation" class="tactile__face">Skip for now <span class="shortcut-label">(S)</span></span>
-            </button>
+            @if (!string.IsNullOrEmpty(_notice))
+            {
+                <p class="focused-notice text-secondary" role="status">@_notice</p>
+            }
         </div>
-        <p class="helper-text">Votes save immediately. Turn off Adaptive groups for rapid 1v1 voting.</p>
-        @if (!string.IsNullOrEmpty(_notice))
-        {
-            <p class="status" role="status">@_notice</p>
-        }
     }
 </div>
 
@@ -128,6 +135,7 @@
     [Parameter] public Guid TournamentId { get; set; }
     [Parameter] public Guid GameId { get; set; }
     [Parameter] public IReadOnlySet<Guid> BannedGameIds { get; set; } = new HashSet<Guid>();
+    [Parameter] public string RankingsUrl { get; set; } = "/rankings";
     [Parameter] public bool ShortcutsEnabled { get; set; } = true;
     [Parameter] public EventCallback OnResultsChanged { get; set; }
 
@@ -147,10 +155,9 @@
     private int _totalCount;
     private int _blockedCount;
     private string _notice = "";
-    private long _voteRevision;
-    private string _settledChoice = string.Empty;
     private ElementReference _root;
     private IJSObjectReference? _module;
+    private IJSObjectReference? _controlsModule;
     private string StorageKey => $"bestestgame:focused:{TournamentId}:{GameId}";
     private sealed record VotingAction(Guid[][] Groups, GameService.DuelResult[] Results);
     private sealed record SavedSession(Guid[][] Groups, bool UseGroups);
@@ -191,9 +198,6 @@
 
     private bool IsBanned(Duel duel) => BannedGameIds.Contains(duel.Game1Id) || BannedGameIds.Contains(duel.Game2Id);
     private Game Opponent(Duel duel) => _games[duel.Game1Id == GameId ? duel.Game2Id : duel.Game1Id];
-    private static string FormatTitle(Game game) => game.ReleaseYear is { } year ? $"{game.Title} ({year})" : game.Title;
-    private static string IncludedTitles(Game game) => string.Join(", ", (game.IncludedTitles ?? []).Select(title =>
-        title.ReleaseYear is { } year ? $"{title.Title} ({year})" : title.Title));
 
     private void AdvancePresentation()
     {
@@ -236,11 +240,6 @@
         }
         Refresh();
         await OnResultsChanged.InvokeAsync();
-        if (recorded.Length > 0)
-        {
-            _settledChoice = entryWins ? "left" : "right";
-            _voteRevision++;
-        }
     });
 
     private Task Split(Guid presentation) => Perform(presentation, () =>
@@ -314,6 +313,10 @@
                 catch (JsonException) { }
             }
             await _module.InvokeVoidAsync("connect", _root);
+            _controlsModule = await JS.InvokeAsync<IJSObjectReference>("import", "./js/focusedControls.js");
+            if (_disposed)
+                return;
+            await _controlsModule.InvokeVoidAsync("connect", _root);
             _ready = true;
             AdvancePresentation();
             StateHasChanged();
@@ -333,6 +336,11 @@
         {
             try
             {
+                if (_controlsModule is not null)
+                {
+                    await _controlsModule.InvokeVoidAsync("disconnect", _root);
+                    await _controlsModule.DisposeAsync();
+                }
                 await _module.InvokeVoidAsync("disconnect", _root);
                 await _module.DisposeAsync();
             }

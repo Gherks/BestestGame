@@ -1,3 +1,5 @@
+import { connect as connectTransitions, disconnect as disconnectTransitions } from "./duelTransitions.js";
+
 const handlers = new WeakMap();
 const shortcuts = {
     "1": "win", arrowleft: "win",
@@ -5,8 +7,10 @@ const shortcuts = {
     m: "split", u: "undo", s: "skip"
 };
 
-export function connect(root) {
+export function connect(root, actionKeys = shortcuts, scrollToArena = true) {
+    if (!(root instanceof HTMLElement) || !root.isConnected) return;
     disconnect(root);
+    connectTransitions(root);
     let lastPresentation;
     const handler = event => {
         if (!root.isConnected) {
@@ -19,7 +23,9 @@ export function connect(root) {
                 .some(dialog => dialog.getClientRects().length > 0) ||
             event.target.closest?.("input, textarea, select, [contenteditable]")) return;
 
-        const action = shortcuts[event.key.toLowerCase()];
+        const action = actionKeys[event.key.toLowerCase()];
+        if (root.dataset.duelTransitionBusy === "true" &&
+            ["left", "right", "win", "lose"].includes(action)) return;
         const button = action && root.querySelector(`[data-action="${action}"]`);
         if (!button || button.disabled) return;
 
@@ -31,10 +37,11 @@ export function connect(root) {
     };
     handlers.set(root, handler);
     document.addEventListener("keydown", handler);
-    root.scrollIntoView({ block: "start", behavior: "instant" });
+    if (scrollToArena) root.scrollIntoView({ block: "start", behavior: "instant" });
 }
 
 export function disconnect(root) {
+    disconnectTransitions(root);
     const handler = handlers.get(root);
     if (handler) document.removeEventListener("keydown", handler);
     handlers.delete(root);
