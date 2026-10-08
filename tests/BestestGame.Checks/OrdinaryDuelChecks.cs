@@ -93,7 +93,8 @@ static class OrdinaryDuelChecks
         Check(session.Current is null && !session.CanUndo && session.Presentation != token && File.ReadAllText(path) == before,
             "New visits/tournaments reset only local choices and undo state");
         ClosestFirst();
-        Console.WriteLine("29 ordinary voting checks passed.");
+        UndoHistory(directory);
+        Console.WriteLine("35 ordinary voting checks passed.");
     }
 
     // Selection order only: no service or stored data is involved.
@@ -121,6 +122,49 @@ static class OrdinaryDuelChecks
         Check(session.Current?.Id == far.Id, "A requested matchup still opens ahead of closer ones");
         Check(Picks(closest: false).SetEquals(pending.Select(duel => duel.Id)),
             "With closest first off, every available matchup can come up");
+    }
+
+    private static void UndoHistory(string directory)
+    {
+        var path = Path.Combine(directory, "ordinary-undo.json");
+        var games = Enumerable.Range(0, 4).Select(index => new Game { Title = $"Entry {index}" }).ToList();
+        var duels = (from first in Enumerable.Range(0, 4) from second in Enumerable.Range(first + 1, 3 - first)
+                     select new Duel { Game1Id = games[first].Id, Game2Id = games[second].Id }).ToList();
+        var tournament = new Tournament { Name = "Undo", Games = games, Duels = duels };
+        File.WriteAllText(path, JsonSerializer.Serialize(new GameDatabase { CurrentTournamentId = tournament.Id, Tournaments = [tournament] }));
+        var config = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?> { ["DatabasePath"] = path }).Build();
+        var service = new GameService(config, null!);
+        HashSet<Guid> excluded = [];
+        var session = new OrdinaryDuelSession();
+        void Vote(OrdinaryDuelSession voter, Duel duel)
+        {
+            voter.Select(service.GetPendingDuels(), excluded, duel.Id);
+            voter.Vote(service, tournament.Id, voter.Presentation, duel.Id, duel.Game1Id);
+        }
+        foreach (var duel in duels.Take(3)) Vote(session, duel);
+        Check(session.History.Select(result => result.DuelId).SequenceEqual(duels.Take(3).Select(duel => duel.Id)) &&
+            session.LastVote?.DuelId == duels[2].Id, "Each saved vote joins the undo history, newest last");
+        // A reload starts a new session that takes over the history the tab kept.
+        var reloaded = new OrdinaryDuelSession();
+        reloaded.RestoreHistory(session.History, service.GetCurrentTournament()!.Duels);
+        Check(reloaded.CanUndo && reloaded.History.SequenceEqual(session.History), "A new session takes over the saved history unchanged");
+        var undone = Enumerable.Range(0, 3).Select(_ => reloaded.Undo(service, tournament.Id, reloaded.Presentation)).ToArray();
+        Check(undone.All(outcome => outcome == OrdinaryDuelSession.UndoOutcome.Undone) && !reloaded.CanUndo &&
+            service.CompletedDuels() == 0 && service.GetGames().All(game => game.Points == 0),
+            "Every restored vote can be undone in turn, leaving no results or points behind");
+        foreach (var duel in duels.Take(3)) Vote(session = new OrdinaryDuelSession(), duel);
+        GameService.DuelResult[] kept = [new(duels[0].Id, duels[0].Game1Id), new(duels[1].Id, duels[1].Game1Id), new(duels[2].Id, duels[2].Game1Id)];
+        service.ChangeCompletedDuelWinner(duels[0].Id, duels[0].Game2Id);
+        service.UndoMatch(duels[1].Id);
+        var stored = service.GetCurrentTournament()!.Duels;
+        Check(OrdinaryDuelSession.StillSaved([.. kept, null, new(Guid.NewGuid(), games[0].Id)], stored).SequenceEqual([kept[2]]),
+            "Corrected, removed, unknown and empty entries are dropped when a history is restored");
+        Check(OrdinaryDuelSession.StillSaved([kept[2], kept[2]], stored).Count == 1, "A repeated entry is restored once");
+        var many = Enumerable.Range(0, OrdinaryDuelSession.UndoCapacity + 5)
+            .Select(_ => new Duel { IsCompleted = true, WinnerId = games[0].Id }).ToList();
+        var capped = OrdinaryDuelSession.StillSaved(many.Select(duel => new GameService.DuelResult(duel.Id, games[0].Id)), many);
+        Check(capped.Count == OrdinaryDuelSession.UndoCapacity && capped[^1].DuelId == many[^1].Id && capped[0].DuelId == many[5].Id,
+            "A long history keeps only its newest votes");
     }
 
     private static void Check(bool condition, string description)

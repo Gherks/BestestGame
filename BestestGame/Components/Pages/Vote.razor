@@ -332,13 +332,13 @@ else
         }
     }
 
-    private Task CastVote(Guid presentation, Guid duelId, Guid winnerId)
+    private async Task CastVote(Guid presentation, Guid duelId, Guid winnerId)
     {
         // The callback retains both the round and participant shown to the user.
         if (!_sessionReady || FocusEntry is not null || _currentDuel is null || ContainsArenaBannedTitle(_currentDuel))
-            return Task.CompletedTask;
+            return;
         var outcome = _ordinary.Vote(GameService, _currentTournament!.Id, presentation, duelId, winnerId);
-        if (outcome == OrdinaryDuelSession.VoteOutcome.Ignored) return Task.CompletedTask;
+        if (outcome == OrdinaryDuelSession.VoteOutcome.Ignored) return;
         if (outcome == OrdinaryDuelSession.VoteOutcome.Saved)
         {
             var winner = _games.FirstOrDefault(game => game.Id == winnerId);
@@ -349,10 +349,10 @@ else
             _voteNotice = "This matchup changed. Available choices have been refreshed.";
         }
         LoadNextDuel();
-        return Task.CompletedTask;
+        await SaveUndoHistoryAsync();
     }
 
-    private void UndoLastVote(Guid presentation)
+    private async Task UndoLastVote(Guid presentation)
     {
         if (!_sessionReady || FocusEntry is not null) return;
         var lastDuelId = _ordinary.LastVote?.DuelId;
@@ -362,7 +362,12 @@ else
             ? "Last vote undone."
             : "This vote has changed since you saved it and cannot be undone. The current result is preserved.";
         LoadNextDuel(outcome == OrdinaryDuelSession.UndoOutcome.Undone ? lastDuelId : _currentDuel?.Id);
+        await SaveUndoHistoryAsync();
     }
+
+    // Undo history is kept for the browser tab, so it survives a reload and is shared with Rankings.
+    private ValueTask SaveUndoHistoryAsync() => _shortcutModule is null || _currentTournament is null
+        ? ValueTask.CompletedTask : VoteHistoryStore.WriteAsync(_shortcutModule, _currentTournament.Id, _ordinary.History);
 
     private void SkipMatch(Guid presentation)
     {
@@ -395,11 +400,10 @@ else
             {
                 ["1"] = "left", ["arrowleft"] = "left", ["2"] = "right", ["arrowright"] = "right", ["u"] = "undo", ["s"] = "skip"
             }, false);
-            if (await _shortcutModule.InvokeAsync<string?>("readSession", ClosestFirstKey) == "0")
-            {
-                _closestFirst = false;
-                StateHasChanged();
-            }
+            _closestFirst = await _shortcutModule.InvokeAsync<string?>("readSession", ClosestFirstKey) != "0";
+            var duels = GameService.GetCurrentTournament()?.Duels ?? [];
+            _ordinary.RestoreHistory(await VoteHistoryStore.ReadAsync(_shortcutModule, _currentTournament.Id, duels), duels);
+            StateHasChanged();
         }
         if (!_restoreExclusions || _restoringExclusions) return;
         var tournamentId = _currentTournament.Id;

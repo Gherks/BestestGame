@@ -43,7 +43,8 @@ Shortcuts are **1 / Left arrow** for the focused entry, **2 / Right arrow** for 
 opponents, **M** to split, **U** to undo, and **S** to skip. Skipped matches remain
 pending, arena bans are respected, and undo reverses the entire last batch.
 Votes persist in the database; the current split queue and mode also survive a
-reload in the same browser tab. Undo history lasts for the current visit.
+reload in the same browser tab. So does Undo for the last 20 vote batches; undoing a
+split, skip or jump is only possible until the page is reloaded.
 
 Run the Linux startup and deployment transaction checks with:
 
@@ -164,14 +165,16 @@ and removal/Rankings dialog regressions with the shared helper. Responsive, text
 zoom, reduced-motion and isolated-data checks are recorded in
 [the Step 9 report](../docs/ux-step9.md) and its evidence manifest.
 
-`OrdinaryDuelChecks` adds 29 isolated assertions for preferred/empty/excluded
+`OrdinaryDuelChecks` adds 35 isolated assertions for preferred/empty/excluded
 queues, choosing a different pending duel on Skip, safe single-matchup Skip,
 stale/wrong/non-participant input, one parent point per vote, retained saved winner,
 Vote → Skip → Undo, repeated input/Undo, later corrections, externally removed
 results, another session's vote, tournament isolation and visit-only reset, and for
 closest-first order: level matchups first, the next closest on Skip, exclusions,
-requested matchups and the random order when it is off. These run with the same
-.NET check command.
+requested matchups and the random order when it is off. Six more cover the undo
+history: several votes undone in turn, a new session taking over a saved history,
+and dropping corrected, removed, unknown and surplus entries on restore. These run
+with the same .NET check command.
 
 **Closest matchups first** under Voting options (on by default, kept for the browser
 tab) asks about entries that are level on points before lopsided pairs; turned off,

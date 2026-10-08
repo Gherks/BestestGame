@@ -149,7 +149,8 @@ Undo for the last saved vote; a sole available matchup stays pending. Undo only
 reverses the exact saved winner, preserving a later correction. Shortcuts are
 **1 / Left** for the first choice, **2 / Right** for the second, **U** for Undo and
 **S** for Skip. Repeats, stale presentations, typing and open dialogs are ignored.
-Completion links to Rankings. Undo is local to the visit; saved results persist.
+Completion links to Rankings. Undo reaches back up to 50 votes and survives a reload in the
+same browser tab, shared with votes cast from Rankings; saved results persist.
 If another tab changes the application-wide tournament, stale ordinary choices
 are cleared and **Reload Voting** restores the current context.
 
@@ -195,7 +196,8 @@ A mobile action bar keeps group context, **Split group**,
 very short viewports use normal flow. Splitting saves no results, and Undo reverses
 the whole last vote or queue change. **Adaptive groups** can switch to rapid 1v1;
 **Voting options** contains all shortcut guidance. The split queue and mode survive
-a reload in the same tab; Undo history remains local to the visit. See
+a reload in the same tab, as does Undo for the last 20 vote batches; undoing a split, skip
+or jump is only possible until the page is reloaded. See
 [the focused-voting validation report](docs/ux-step11.md).
 
 Arena exclusions are temporary settings in each browser tab's session storage,

@@ -346,8 +346,11 @@ else
     private IReadOnlySet<Guid> _arenaBannedGameIds => _exclusions.GetIds(_currentTournament?.Id);
     private bool _restoreExclusions = true;
     private bool _sessionReady => !_restoreExclusions && _currentTournament is not null && _exclusions.IsReadyFor(_currentTournament.Id);
-    private Guid? _lastCompletedDuelId;
-    private bool _canUndo;
+    // Shared with ordinary Voting through the browser tab; see VoteHistoryStore.
+    private List<GameService.DuelResult> _undoHistory = [];
+    private bool _canUndo => _undoHistory.Count > 0;
+    private bool _restoreUndo = true;
+    private IJSObjectReference? _sessionModule;
     private string _voteNotice = string.Empty;
     private record PendingMatchOption(Guid DuelId, Guid OpponentId, string OpponentTitle);
 
@@ -357,8 +360,8 @@ else
         if (_currentTournament?.Id != tournament?.Id)
         {
             _search = string.Empty;
-            _lastCompletedDuelId = null;
-            _canUndo = false;
+            _undoHistory = [];
+            _restoreUndo = true;
             _voteNotice = string.Empty;
         }
         _currentTournament = tournament;
@@ -398,31 +401,45 @@ else
     {
         if (!_sessionReady) return;
         await _exclusions.SetAsync(gameId, isChecked);
-        _canUndo = false;
         _voteNotice = string.Empty;
     }
 
-    private Task RecordVote(Guid duelId, Guid winnerId)
+    private async Task RecordVote(Guid duelId, Guid winnerId)
     {
         if (!_sessionReady || _currentTournament is null ||
             GameService.RecordWinners(_currentTournament.Id, [new(duelId, winnerId)]).Count == 0)
-            return Task.CompletedTask;
+            return;
         var winner = _games.FirstOrDefault(game => game.Id == winnerId);
         _voteNotice = winner is null ? "Vote recorded." : $"Vote recorded for {GetTitleDisplay(winner).Title}.";
-        _lastCompletedDuelId = duelId;
-        _canUndo = true;
+        _undoHistory.Add(new(duelId, winnerId));
+        if (_undoHistory.Count > OrdinaryDuelSession.UndoCapacity) _undoHistory.RemoveAt(0);
         RefreshStandings();
-        return Task.CompletedTask;
+        await SaveUndoHistoryAsync();
     }
 
-    private void UndoLastVote()
+    private async Task UndoLastVote()
     {
-        if (!_sessionReady || !_canUndo || _lastCompletedDuelId is null) return;
-        GameService.UndoMatch(_lastCompletedDuelId.Value);
-        _canUndo = false;
-        _lastCompletedDuelId = null;
-        _voteNotice = "Last vote undone.";
+        if (!_sessionReady || _currentTournament is null || !_canUndo) return;
+        var result = _undoHistory[^1];
+        _undoHistory.RemoveAt(_undoHistory.Count - 1);
+        _voteNotice = GameService.UndoWinners(_currentTournament.Id, [result]) ? "Last vote undone."
+            : "This vote has changed since you saved it and cannot be undone. The current result is preserved.";
         RefreshStandings();
+        await SaveUndoHistoryAsync();
+    }
+
+    private ValueTask SaveUndoHistoryAsync() => _sessionModule is null || _currentTournament is null
+        ? ValueTask.CompletedTask : VoteHistoryStore.WriteAsync(_sessionModule, _currentTournament.Id, _undoHistory);
+
+    // After a reload the page has no notice of its own, so it names the vote Undo would reverse.
+    private string LastVoteNotice()
+    {
+        var result = _undoHistory[^1];
+        var duel = _duels.FirstOrDefault(duel => duel.Id == result.DuelId);
+        var winner = _games.FirstOrDefault(game => game.Id == result.WinnerId);
+        var loser = _games.FirstOrDefault(game => duel is not null && game.Id == (duel.Game1Id == result.WinnerId ? duel.Game2Id : duel.Game1Id));
+        return winner is null || loser is null ? "Your last vote in this tab can be undone."
+            : $"Last vote in this tab: {GetTitleDisplay(winner).Title} over {GetTitleDisplay(loser).Title}.";
     }
 
     private void ShowBeatenBy(Guid gameId, string gameTitle, List<GameService.LossDetail> beatenBy)
@@ -552,12 +569,28 @@ else
         }
         if (_dialogModule is not null)
             await _dialogModule.InvokeVoidAsync("sync", _detailsDialog, _detailsGame is not null, _standingsHeading);
+        if (_restoreUndo)
+        {
+            _restoreUndo = false;
+            _sessionModule ??= await JS.InvokeAsync<IJSObjectReference>("import", "./js/focusedVoting.js");
+            _undoHistory = await VoteHistoryStore.ReadAsync(_sessionModule, _currentTournament.Id, _duels);
+            if (_canUndo && string.IsNullOrEmpty(_voteNotice))
+            {
+                _voteNotice = LastVoteNotice();
+                restored = true;
+            }
+        }
         if (restored) StateHasChanged();
     }
 
     public async ValueTask DisposeAsync()
     {
         await _exclusions.DisposeAsync();
+        if (_sessionModule is not null)
+        {
+            try { await _sessionModule.DisposeAsync(); }
+            catch (JSDisconnectedException) { }
+        }
         if (_dialogModule is not null)
         {
             try

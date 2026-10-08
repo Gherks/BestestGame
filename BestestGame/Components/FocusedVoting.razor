@@ -179,8 +179,12 @@
     private string StorageKey => $"bestestgame:focused:{TournamentId}:{GameId}";
     // A viewing preference, so it is shared by every entry in this tab.
     private const string ShowFinishedKey = "bestestgame:focused:show-finished";
-    private sealed record VotingAction(Guid[][] Groups, GameService.DuelResult[] Results);
-    private sealed record SavedSession(Guid[][] Groups, bool UseGroups);
+    // Groups is the queue to return to. It is null for a vote restored after a reload: the tab keeps
+    // only results, because a queue snapshot per action would outgrow what one browser message may carry.
+    private sealed record VotingAction(Guid[][]? Groups, GameService.DuelResult[] Results);
+    private sealed record SavedSession(Guid[][] Groups, bool UseGroups, GameService.DuelResult[][]? Votes = null);
+    private const int SavedVoteBatches = 20;
+    private const int SavedVoteResults = 150;
 
     protected override void OnParametersSet()
     {
@@ -309,7 +313,7 @@
             return;
         }
         _history.Pop();
-        _session.Restore(action.Groups);
+        if (action.Groups is not null) _session.Restore(action.Groups);
         Refresh();
         _notice = action.Results.Length > 0 ? $"Undid {action.Results.Length} {(action.Results.Length == 1 ? "result" : "results")} from that vote." : "Undid the last queue change.";
         await OnResultsChanged.InvokeAsync();
@@ -355,6 +359,11 @@
                         _session.Restore(state.Groups.SelectMany(group => group.Chunk(AdaptiveDuelSession.InitialGroupSize)));
                         _useGroups = state.UseGroups;
                         Refresh();
+                        // Only votes still stored exactly as cast can be undone.
+                        foreach (var batch in state.Votes ?? [])
+                            if (batch is { Length: > 0 } && batch.All(vote => vote is not null && _duels.TryGetValue(vote.DuelId, out var duel) &&
+                                    duel.IsCompleted && duel.WinnerId == vote.WinnerId))
+                                _history.Push(new(null, batch));
                     }
                 }
                 catch (JsonException) { }
@@ -372,8 +381,17 @@
         {
             _saveSession = false;
             await _module.InvokeVoidAsync("saveSession", StorageKey,
-                JsonSerializer.Serialize(new SavedSession(_session.Snapshot(), _useGroups)));
+                JsonSerializer.Serialize(new SavedSession(_session.Snapshot(), _useGroups, SavedVotes())));
         }
+    }
+
+    // The newest vote batches, oldest first, kept small enough to read back in one message.
+    private GameService.DuelResult[][] SavedVotes()
+    {
+        var results = 0;
+        return _history.Where(action => action.Results.Length > 0).Take(SavedVoteBatches)
+            .TakeWhile(action => (results += action.Results.Length) <= SavedVoteResults)
+            .Select(action => action.Results).Reverse().ToArray();
     }
 
     public async ValueTask DisposeAsync()
