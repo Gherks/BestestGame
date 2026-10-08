@@ -122,11 +122,12 @@ try
     FocusedVotingChecks.Run(directory);
     await RankingsNavigationChecks.RunAsync();
     TournamentStandingsChecks.Run();
+    TournamentInsightsChecks.Run();
     TournamentNavigationChecks.Run();
     TournamentOverviewChecks.Run();
     GameLibraryChecks.Run();
     OrdinaryDuelChecks.Run(directory);
-    Console.WriteLine("All persistence, release-year, GOTY ranking, focused voting, database isolation, Rankings navigation/display/session, tournament rank/search, switching, Home overview, Games library, and ordinary voting checks passed.");
+    Console.WriteLine("All persistence, release-year, GOTY ranking, focused voting, database isolation, Rankings navigation/display/session, tournament rank/search, insights, switching, Home overview, Games library, and ordinary voting checks passed.");
 }
 finally
 {

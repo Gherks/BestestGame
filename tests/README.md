@@ -127,6 +127,12 @@ Browser validation covers the interactive shell in the static layout, full page
 refresh, Tournaments creation/selection notifications, menu/active-page/focus,
 retained-year empty states and exclusions after switching/reloading.
 
+`TournamentInsightsChecks` adds 10 assertions for the Insights section on Rankings: upsets
+(a win by the entry with fewer points) ordered by gap, each loop of three found once from
+its highest entry, neighbouring rivalries with pending ones first among equals, ignored
+stray results, list limits beside full counts, empty tournaments and read-only data.
+Entry names in the section open the existing Details dialog; that needs a browser.
+
 `TournamentOverviewChecks` adds 17 assertions for Home's five-state action
 policy, setup precedence for zero/single-parent collections, pending/completed
 stored duels, and no automatic matchup generation. It checks bounded tied-leader

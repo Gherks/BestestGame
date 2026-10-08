@@ -39,6 +39,75 @@ else
             <button type="button" class="button" disabled="@(!_canUndo || !_sessionReady)" @onclick="UndoLastVote"><span class="button__content">Undo last vote</span></button>
         </div>
     }
+    @if (_games.Count > 1)
+    {
+        @* Always the full tournament: the year filter and search below only narrow the table. *@
+        <details class="standings-insights">
+            <summary>Insights · @Counted(_insights.UpsetCount, "upset") · @Counted(_insights.LoopCount, "loop")</summary>
+            <div class="insight-groups">
+                <section class="insight-group" aria-labelledby="insight-upsets">
+                    <h3 id="insight-upsets">Biggest upsets</h3>
+                    @if (_insights.UpsetCount == 0)
+                    {
+                        <p class="helper-text">No result has gone against the standings.</p>
+                    }
+                    else
+                    {
+                        <p class="helper-text">@Counted(_insights.UpsetCount, "result") went against the current standings.</p>
+                        <ul class="insight-list">
+                            @foreach (var upset in _insights.Upsets)
+                            {
+                                <li @key="(upset.Winner.Id, upset.Loser.Id)">
+                                    <span>@EntryLink(upset.Winner) beat @EntryLink(upset.Loser)</span>
+                                    <span class="helper-text">@Counted(upset.Gap, "point") behind in the standings</span>
+                                </li>
+                            }
+                        </ul>
+                    }
+                </section>
+                <section class="insight-group" aria-labelledby="insight-loops">
+                    <h3 id="insight-loops">Widest loops</h3>
+                    @if (_insights.LoopCount == 0)
+                    {
+                        <p class="helper-text">No three entries have beaten each other in a circle.</p>
+                    }
+                    else
+                    {
+                        <p class="helper-text">@Counted(_insights.LoopCount, "set") of three entries beat each other in a circle.</p>
+                        <ul class="insight-list">
+                            @foreach (var loop in _insights.Loops)
+                            {
+                                <li @key="(loop.First.Id, loop.Second.Id, loop.Third.Id)">
+                                    <span>@EntryLink(loop.First) beat @EntryLink(loop.Second), who beat @EntryLink(loop.Third), who beat @GetTitleDisplay(loop.First).Title</span>
+                                    <span class="helper-text">@(loop.Spread == 0 ? "All level on points" : $"{Counted(loop.Spread, "point")} from highest to lowest")</span>
+                                </li>
+                            }
+                        </ul>
+                    }
+                </section>
+                <section class="insight-group" aria-labelledby="insight-rivalries">
+                    <h3 id="insight-rivalries">Closest rivalries</h3>
+                    @if (_insights.Rivalries.Count == 0)
+                    {
+                        <p class="helper-text">No neighbours in the standings have a matchup yet.</p>
+                    }
+                    else
+                    {
+                        <p class="helper-text">Neighbours in the standings, tightest first.</p>
+                        <ul class="insight-list">
+                            @foreach (var rivalry in _insights.Rivalries)
+                            {
+                                <li @key="(rivalry.Higher.Id, rivalry.Lower.Id)">
+                                    <span>@EntryLink(rivalry.Higher) and @EntryLink(rivalry.Lower)</span>
+                                    <span class="helper-text">@(rivalry.Gap == 0 ? "Level on points" : $"{Counted(rivalry.Gap, "point")} apart") · @RivalryResult(rivalry)</span>
+                                </li>
+                            }
+                        </ul>
+                    }
+                </section>
+            </div>
+        </details>
+    }
     @if (_games.Count > 0)
     {
         <div class="standings-filter">
@@ -281,6 +350,13 @@ else
     private List<TournamentStandings.Entry> _rankedStandings = [];
     private List<TournamentStandings.Entry> _visibleStandings => TournamentStandings.Search(_rankedStandings, _search);
     private int _pendingMatchupCount;
+    private TournamentInsights.Summary _insights = TournamentInsights.Build([], []);
+    private static string Counted(int count, string noun) => $"{count} {noun}{(count == 1 ? "" : "s")}";
+    private static string RivalryResult(TournamentInsights.Rivalry rivalry) => rivalry.Winner is not { } winner ? "not yet played"
+        : $"{GetTitleDisplay(winner).Title} won their matchup{(winner == rivalry.Lower && rivalry.Gap > 0 ? ", against the standings" : "")}";
+    // Every entry named in an insight opens that entry's details, where results can be inspected and changed.
+    private RenderFragment<Game> EntryLink => game => @<button type="button" class="insight-entry" disabled="@(!_sessionReady)" aria-haspopup="dialog"
+        aria-label="@($"Details for {GetTitleDisplay(game).Title}")" @onclick="() => ShowEntryDetails(game.Id)">@GetTitleDisplay(game).Title</button>;
     // Ranks and points a vote just changed settle into place. A new year or tournament changes
     // every row at once, so that is shown without the effect.
     private readonly Dictionary<Guid, (int Rank, int Points)> _shownStandings = [];
@@ -375,6 +451,7 @@ else
         _games = GameService.GetGames();
         _duels = GameService.GetCurrentTournament()?.Duels ?? [];
         _rankedStandings = TournamentStandings.Rank(_games, LeaderboardYear);
+        _insights = TournamentInsights.Build(_games, _duels);
         var scope = (_currentTournament?.Id, LeaderboardYear);
         var compare = scope == _shownScope;
         _rankChanged = _rankedStandings.Where(entry => compare && _shownStandings.TryGetValue(entry.Game.Id, out var shown) && shown.Rank != entry.Rank)
