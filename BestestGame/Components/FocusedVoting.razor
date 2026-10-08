@@ -87,6 +87,7 @@
                         <span class="choice-help">1 or ←</span>
                     </span>
                 </button>
+                <span class="matchup-versus" aria-hidden="true">vs</span>
                 <button type="button" class="tactile tactile--large tactile--secondary focused-choice"
                         disabled="@(!_ready || _busy)" data-action="lose" aria-keyshortcuts="2 ArrowRight"
                         aria-label="@(current.Length == 1 ? $"{opponentTitles[0]} wins against {entryDisplay.Title}" : $"All {current.Length} opponents in this group win against {entryDisplay.Title}: {string.Join(", ", opponentTitles)}")"
@@ -127,7 +128,7 @@
                 @if (current.Length > 1)
                 {
                     <button type="button" class="button split-action" disabled="@(!_ready || _busy)" data-action="split" aria-keyshortcuts="M" @onclick="() => Split(presentation)">
-                        <span @key="presentation" class="button__content">Split group <span class="choice-help">@((current.Length + 1) / 2) + @(current.Length / 2) · No results saved</span></span>
+                        <span @key="presentation" class="button__content">Split group</span>
                     </button>
                 }
                 <button type="button" class="button" disabled="@(!_ready || _busy || _history.Count == 0)" data-action="undo" aria-label="Undo last action" aria-keyshortcuts="U" @onclick="() => Undo(presentation)">

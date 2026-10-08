@@ -134,11 +134,6 @@
             <p class="helper-text goty-unassigned">@_unassigned @(_unassigned == 1 ? "title has" : "titles have") no year and @(_unassigned == 1 ? "is" : "are") outside the archive. <a href="/import" class="text-link">Assign years</a></p>
         }
 
-        <details class="goty-scoring">
-            <summary>How yearly rankings work</summary>
-            <p class="helper-text">Releases use points from the full tournament, then completed head-to-head wins among entries tied on points in the selected year. Unresolved ties share a rank. Included titles inherit their collection's score and matchup results; each collection counts once in head-to-head comparisons. Titles without a release year stay outside the archive.</p>
-        </details>
-
         <details class="goty-archive">
             <summary>Release-year archive · @_years.Count @(_years.Count == 1 ? "year" : "years")</summary>
             @* One wrapper: the disclosure animation unfolds a single child. *@

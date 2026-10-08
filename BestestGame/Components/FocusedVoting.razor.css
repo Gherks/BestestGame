@@ -6,7 +6,8 @@
 .focused-entry { flex: 1 1 24rem; min-width: 0; }
 .focused-toggles { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: var(--space-1) var(--space-4); margin-left: auto; font-size: var(--text-control); }
 .focused-progress { display: grid; gap: var(--space-2); font-size: var(--text-support); }
-.focused-matchup { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-4); align-items: stretch; }
+.focused-matchup { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); gap: var(--space-4); align-items: stretch; }
+.matchup-versus { align-self: center; color: var(--muted); font-size: var(--text-support); }
 /* The measured reserve lets a focused choice scroll clear of the mobile dock. */
 .focused-choice { width: 100%; scroll-margin-bottom: var(--focused-controls-height, 8rem); }
 .focused-choice > .tactile__face { justify-content: flex-start; gap: var(--space-2); }
@@ -44,6 +45,7 @@
 }
 @media (max-width: 360px) {
     .focused-matchup { grid-template-columns: minmax(0, 1fr); }
+    .matchup-versus { justify-self: center; }
     .queue-actions:has(.split-action) { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     .split-action { grid-column: 1 / -1; }
     .split-action > .button__content { flex-direction: row; flex-wrap: wrap; justify-content: space-between; text-align: left; }
