@@ -1,6 +1,8 @@
 // A vote saves normally. An inert copy leaves while Blazor renders the next duel.
 const transitions = new WeakMap();
 const voteActions = new Set(["left", "right", "win", "lose"]);
+// The outgoing copy holds still this long, so the glow on the chosen side sets in before it leaves.
+const hold = 220;
 
 function clear(state) {
     const pending = state.pending;
@@ -42,10 +44,14 @@ function enter(state) {
     }).catch(() => { /* Cancellation restores the static presentation. */ });
 }
 
-function leave(state) {
+function leave(state, button) {
     const content = state.stage.querySelector(":scope > [data-duel-content]");
     if (!content || typeof content.animate !== "function") return;
     const copy = content.cloneNode(true);
+    // The copy shows which side won as it leaves. Matched by position, before its attributes go.
+    const choices = [...content.querySelectorAll("button[data-action]")];
+    copy.querySelectorAll("button[data-action]").forEach((choice, index) =>
+        choice.classList.add(choices[index] === button ? "duel-chosen" : "duel-passed"));
     // The copy must never expose a second actionable or accessible duel.
     for (const element of [copy, ...copy.querySelectorAll("*")]) {
         element.removeAttribute("id");
@@ -68,7 +74,7 @@ function leave(state) {
     pending.outgoingAnimation = copy.animate([
         { opacity: 1, transform: "translateX(0)" },
         { opacity: 0, transform: `translateX(-${pending.distance}px)` }
-    ], { duration: 180, easing: "cubic-bezier(.4, 0, 1, 1)", fill: "both" });
+    ], { delay: hold, duration: 180, easing: "cubic-bezier(.4, 0, 1, 1)", fill: "both" });
     pending.outgoingAnimation.finished.then(() => {
         if (state.pending !== pending) return;
         pending.left = true;
@@ -95,7 +101,7 @@ export function connect(root) {
             return;
         }
         if (reducedMotion.matches) return;
-        try { leave(state); }
+        try { leave(state, button); }
         catch { clear(state); /* Native voting remains available without effects. */ }
     };
     const observer = new MutationObserver(() => {

@@ -105,7 +105,7 @@ else
                     var game = entry.Game;
                     var display = GetTitleDisplay(game);
                     <tr @key="game.Id" data-game-id="@game.Id" class="@(entry.Rank == 1 ? "standings-leader" : "")">
-                        <td class="standings-rank @(entry.Rank <= 3 ? "standings-rank--podium" : "")">@entry.Rank</td>
+                        <td class="standings-rank @(entry.Rank <= 3 ? "standings-rank--podium" : "")"><span @key="entry.Rank" class="@(_rankChanged.Contains(game.Id) ? "value-settle" : null)">@entry.Rank</span></td>
                         <th scope="row" class="standings-title">
                             <div class="standings-entry">
                                 <div class="standings-entry-title">
@@ -129,7 +129,7 @@ else
                                         aria-label="@($"Details for {display.Title}")" @onclick="() => ShowEntryDetails(game.Id)"><span class="button__content">Details</span></button>
                             </div>
                         </th>
-                        <td class="standings-points">@game.Points</td>
+                        <td class="standings-points"><span @key="game.Points" class="@(_pointsChanged.Contains(game.Id) ? "value-settle" : null)">@game.Points</span></td>
                     </tr>
                 }
             </tbody>
@@ -281,6 +281,12 @@ else
     private List<TournamentStandings.Entry> _rankedStandings = [];
     private List<TournamentStandings.Entry> _visibleStandings => TournamentStandings.Search(_rankedStandings, _search);
     private int _pendingMatchupCount;
+    // Ranks and points a vote just changed settle into place. A new year or tournament changes
+    // every row at once, so that is shown without the effect.
+    private readonly Dictionary<Guid, (int Rank, int Points)> _shownStandings = [];
+    private (Guid? Tournament, int? Year) _shownScope;
+    private HashSet<Guid> _rankChanged = [];
+    private HashSet<Guid> _pointsChanged = [];
     private Guid? _detailsGameId;
     private Game? _detailsGame => _games.FirstOrDefault(game => game.Id == _detailsGameId);
 
@@ -366,6 +372,15 @@ else
         _games = GameService.GetGames();
         _duels = GameService.GetCurrentTournament()?.Duels ?? [];
         _rankedStandings = TournamentStandings.Rank(_games, LeaderboardYear);
+        var scope = (_currentTournament?.Id, LeaderboardYear);
+        var compare = scope == _shownScope;
+        _rankChanged = _rankedStandings.Where(entry => compare && _shownStandings.TryGetValue(entry.Game.Id, out var shown) && shown.Rank != entry.Rank)
+            .Select(entry => entry.Game.Id).ToHashSet();
+        _pointsChanged = _rankedStandings.Where(entry => compare && _shownStandings.TryGetValue(entry.Game.Id, out var shown) && shown.Points != entry.Game.Points)
+            .Select(entry => entry.Game.Id).ToHashSet();
+        _shownScope = scope;
+        _shownStandings.Clear();
+        foreach (var entry in _rankedStandings) _shownStandings[entry.Game.Id] = (entry.Rank, entry.Game.Points);
         _matchesPlayed = GameService.GetMatchesPlayedPerGame();
         _gamesPickedOver = GameService.GetGamesPickedOverDetails();
         _winsOver = GameService.GetWinsOverDetails();
