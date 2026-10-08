@@ -51,7 +51,7 @@ else
             {
             <div class="voting-progress compact-progress">
                 <div class="cluster text-secondary">
-                    <span><strong>@_completedCount</strong> of @_totalCount matchups complete</span>
+                    <span><strong class="count-settle" @key="_completedCount">@_completedCount</strong> of @_totalCount matchups complete</span>
                     <span>@_pendingCount remaining</span>
                 </div>
                 <progress class="progress-bar" value="@_completedCount" max="@Math.Max(1, _totalCount)" aria-label="Completed tournament matchups">@_completedCount of @_totalCount</progress>
@@ -165,10 +165,10 @@ else
                     <label for="focusEntry" class="field-label">Focus on entry</label>
                     <select id="focusEntry" value="@FocusEntry" @onchange="ChangeFocusedEntry" class="form-control" disabled="@(!_sessionReady)">
                         <option value="">All matchups</option>
-                        @* Finished entries are hidden, except the focused one so the selector matches the page.
+                        @* Entries with at most one matchup left are hidden, except the focused one so the selector matches the page.
                            The stable sort keeps tournament placement among equal remaining counts. *@
                         @foreach (var entry in TournamentStandings.Rank(_games).Select(standing => standing.Game)
-                            .Where(game => _pendingPerGame.GetValueOrDefault(game.Id) > 0 || game.Id == FocusEntry)
+                            .Where(game => _pendingPerGame.GetValueOrDefault(game.Id) > 1 || game.Id == FocusEntry)
                             .OrderByDescending(game => _pendingPerGame.GetValueOrDefault(game.Id)))
                         {
                             <option value="@entry.Id">@GetTitleDisplay(entry).Title · @_pendingPerGame.GetValueOrDefault(entry.Id) remaining</option>

@@ -45,7 +45,7 @@
         </header>
 
         <div class="focused-progress" aria-live="polite" aria-atomic="true">
-            <p class="text-secondary">@_completedCount of @_totalCount matchups finished · @_session.RemainingCount available@(_blockedCount > 0 ? $" · {_blockedCount} arena-banned" : "")</p>
+            <p class="text-secondary"><span class="count-settle" @key="_completedCount">@_completedCount</span> of @_totalCount matchups finished · @_session.RemainingCount available@(_blockedCount > 0 ? $" · {_blockedCount} arena-banned" : "")</p>
             <progress class="progress-bar" value="@_completedCount" max="@Math.Max(1, _totalCount)" aria-label="Completed matchups for this entry"></progress>
         </div>
 

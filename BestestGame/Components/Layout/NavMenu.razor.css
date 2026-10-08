@@ -1,18 +1,26 @@
 .nav-menu { position: relative; container-type: inline-size; padding: 1.25rem .75rem; }
-.brand { display: flex; align-items: center; gap: .625rem; min-height: 44px; margin: 0 .25rem 1rem; color: var(--text); font-family: var(--font-display); font-size: var(--text-body); font-weight: 700; text-decoration: none; }
+.brand { display: flex; align-items: center; gap: .75rem; min-height: 44px; margin: 0 .25rem 1rem; color: var(--heading); font-family: var(--font-label); font-size: 1.375rem; font-weight: 700; letter-spacing: 0.08em; line-height: 1.2; text-decoration: none; text-transform: uppercase; }
 .brand > span:last-child { min-width: 0; overflow-wrap: anywhere; }
-.brand-mark { display: grid; place-items: center; flex-shrink: 0; width: 32px; height: 32px; border: 1px solid transparent; border-radius: var(--radius-control); background: var(--panel-raised); color: var(--accent); font-weight: 700; }
-.navigation { display: flex; flex-direction: column; gap: .375rem; }
-.navigation ::deep .nav-link { display: flex; align-items: center; min-height: 44px; min-width: 0; padding: .625rem .875rem; border: 1px solid transparent; border-radius: var(--radius-control); color: var(--muted); font-size: var(--text-control); font-weight: 500; line-height: 1.4; text-decoration: none; overflow-wrap: anywhere; }
-.navigation ::deep .nav-link:hover { background: var(--panel-raised); color: var(--text); }
-.navigation ::deep .nav-link.active { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
+.brand-mark { display: grid; place-items: center; flex-shrink: 0; width: 32px; height: 34px; border-radius: 3px 10px 4px 12px / 12px 4px 10px 3px; background: var(--primary); color: var(--primary-text); font-weight: 700; transform: rotate(-4deg); }
+.navigation { display: flex; flex-direction: column; gap: .125rem; }
+.navigation ::deep .nav-link { position: relative; isolation: isolate; display: flex; align-items: center; min-height: 44px; min-width: 0; padding: .5rem .875rem; border-radius: var(--shape-mark); color: var(--muted); font-family: var(--font-label); font-size: var(--text-button); font-weight: 600; letter-spacing: 0.1em; line-height: 1.3; text-decoration: none; text-transform: uppercase; overflow-wrap: anywhere; }
+/* Pointing at a page brushes a pale wash behind its name; the current page is painted in. */
+.navigation ::deep .nav-link::before { content: ""; position: absolute; inset: 5px -2px; z-index: -1; border-radius: inherit; background: rgb(243 236 217 / 14%); transform: scaleX(0); transform-origin: left center; }
+.navigation ::deep .nav-link:hover { color: var(--heading); }
+.navigation ::deep .nav-link:hover::before { transform: scaleX(1); }
+.navigation ::deep .nav-link.active { background: var(--primary); color: var(--primary-text); font-weight: 700; transform: rotate(-1deg); }
+.navigation ::deep .nav-link.active::before { content: none; }
+@media (prefers-reduced-motion: no-preference) {
+    .navigation ::deep .nav-link { transition: color 0.25s ease; }
+    .navigation ::deep .nav-link::before { transition: transform 0.45s var(--ease-paint); }
+}
 .mobile-menu { display: none; }
 @media (max-width: 767px) {
     .nav-menu { padding: .75rem; }
     .brand { margin: 0 8.5rem .5rem 0; }
     .desktop-navigation { display: none; }
     .mobile-menu { display: block; }
-    .mobile-menu > summary { position: absolute; top: .75rem; right: .75rem; display: flex; flex-direction: column; justify-content: center; width: 8rem; min-height: 44px; padding: .25rem .75rem; border: 1px solid var(--border); border-radius: var(--radius-control); color: var(--text); background: var(--well); font-size: var(--text-control); line-height: 1.4; list-style: none; }
+    .mobile-menu > summary { position: absolute; top: .75rem; right: .75rem; display: flex; flex-direction: column; justify-content: center; width: 8rem; min-height: 44px; padding: .25rem .75rem; border: 1px solid var(--border); border-radius: var(--shape-mark-alt); color: var(--text); background: var(--block); font-family: var(--font-label); font-size: var(--text-label); font-weight: 600; letter-spacing: 0.1em; line-height: 1.4; text-transform: uppercase; list-style: none; }
     .mobile-menu > summary::-webkit-details-marker { display: none; }
     .mobile-menu > summary > span:first-child::after { content: ' ▾'; }
     .mobile-menu[open] > summary > span:first-child::after { content: ' ▴'; }

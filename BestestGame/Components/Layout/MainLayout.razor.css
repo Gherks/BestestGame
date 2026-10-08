@@ -5,7 +5,6 @@
     min-height: 100dvh;
     max-width: 1600px;
     margin-inline: auto;
-    background: var(--board);
 }
 
 .app-sidebar {
@@ -15,8 +14,8 @@
     height: 100vh;
     height: 100dvh;
     overflow-y: auto;
-    border-right: 1px solid transparent;
-    background: var(--panel);
+    border-right: 1px solid var(--border);
+    background: var(--sidebar);
 }
 
 .app-main {
@@ -33,8 +32,8 @@
 
 .app-footer {
     padding: 1rem clamp(1rem, 3vw, 2.5rem);
-    border-top: 1px solid transparent;
     color: var(--quiet);
+    font-style: italic;
     font-size: var(--text-support);
 }
 
@@ -48,7 +47,7 @@
     border-radius: var(--radius-control);
     background: var(--primary);
     color: var(--primary-text);
-    font-weight: 600;
+    font-weight: 700;
     font-size: var(--text-control);
     transform: translateY(calc(-100% - 1rem));
 }
@@ -88,7 +87,7 @@
         height: auto;
         overflow: visible;
         border-right: 0;
-        border-bottom: 1px solid transparent;
+        border-bottom: 1px solid var(--border);
     }
     .error-content { flex-direction: column; align-items: start; gap: .75rem; }
 }

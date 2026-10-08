@@ -6,11 +6,14 @@ The application serves these files locally; it makes no external font requests.
 Source: https://github.com/google/fonts
 Pinned source commit: `5e8a3ba899557829a76cfdac30fa512bda91d7ca`
 
-The upstream variable TrueType files were losslessly packaged as WOFF2 using
-the locally available FontTools encoder. No glyphs or variation axes were
-subsetted; system fallbacks cover characters outside each family's glyph set.
+The upstream TrueType files were losslessly packaged as WOFF2 using the locally
+available FontTools encoder. No glyphs or variation axes were subsetted; system
+fallbacks cover characters outside each family's glyph set. Libre Baskerville is
+variable from regular to bold; Barlow Condensed is two static weights.
 
 | Asset | Upstream path | WOFF2 SHA-256 |
 | --- | --- | --- |
-| `bricolage-grotesque-variable.woff2` | `ofl/bricolagegrotesque/BricolageGrotesque[opsz,wdth,wght].ttf` | `7e809b60a9dd58f4ae2f47e6dd35223bbf96499c3932b9c28481e3736bb4ca80` |
-| `dm-sans-variable.woff2` | `ofl/dmsans/DMSans[opsz,wght].ttf` | `7560859aba3530285d1b50d9e2afa2e82e5c3b83761a478f54e2333cddff299d` |
+| `libre-baskerville-variable.woff2` | `ofl/librebaskerville/LibreBaskerville[wght].ttf` | `1ce91cc87fd7602c7d4d1a925af15aaefbb85acd379dbee9b34a82e653669320` |
+| `libre-baskerville-italic-variable.woff2` | `ofl/librebaskerville/LibreBaskerville-Italic[wght].ttf` | `e9349fa52e63a21f705f7935a1f7c1a2a77f1e97e0546e245f221134e94f09b9` |
+| `barlow-condensed-semibold.woff2` | `ofl/barlowcondensed/BarlowCondensed-SemiBold.ttf` | `fa9dce30a032594dc73eabdee132dd851120e606fd35452e3cb870006bd54475` |
+| `barlow-condensed-bold.woff2` | `ofl/barlowcondensed/BarlowCondensed-Bold.ttf` | `2e41b146e59a32f84f32301aa7891e0e07323d08d4d6991af06b0ee347d943b0` |

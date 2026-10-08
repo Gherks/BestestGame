@@ -105,7 +105,7 @@ else
                     var game = entry.Game;
                     var display = GetTitleDisplay(game);
                     <tr @key="game.Id" data-game-id="@game.Id" class="@(entry.Rank == 1 ? "standings-leader" : "")">
-                        <td class="standings-rank">@entry.Rank</td>
+                        <td class="standings-rank @(entry.Rank <= 3 ? "standings-rank--podium" : "")">@entry.Rank</td>
                         <th scope="row" class="standings-title">
                             <div class="standings-entry">
                                 <div class="standings-entry-title">

@@ -1,153 +1,219 @@
-/* Warm charcoal theme and shared interaction styles. */
+/* Painted detective theme and shared interaction styles. */
 @font-face {
-    font-family: "DM Sans";
-    src: url("fonts/dm-sans-variable.woff2") format("woff2");
+    font-family: "Libre Baskerville";
+    src: url("fonts/libre-baskerville-variable.woff2") format("woff2");
     font-style: normal;
-    font-weight: 100 1000;
+    font-weight: 400 700;
     font-display: swap;
 }
 @font-face {
-    font-family: "Bricolage Grotesque";
-    src: url("fonts/bricolage-grotesque-variable.woff2") format("woff2");
+    font-family: "Libre Baskerville";
+    src: url("fonts/libre-baskerville-italic-variable.woff2") format("woff2");
+    font-style: italic;
+    font-weight: 400 700;
+    font-display: swap;
+}
+@font-face {
+    font-family: "Barlow Condensed";
+    src: url("fonts/barlow-condensed-semibold.woff2") format("woff2");
     font-style: normal;
-    font-weight: 200 800;
+    font-weight: 600;
+    font-display: swap;
+}
+@font-face {
+    font-family: "Barlow Condensed";
+    src: url("fonts/barlow-condensed-bold.woff2") format("woff2");
+    font-style: normal;
+    font-weight: 700;
     font-display: swap;
 }
 
 :root {
     color-scheme: dark;
-    --board: #262421;
-    --panel: #302d29;
-    --panel-raised: #39342f;
-    --well: #23211e;
-    --face: #494139;
-    --face-top: #50483f;
-    --edge: #2d2822;
-    --border: #4b433a;
-    --face-border: #a69883;
-    --text: #eeeae2;
-    --muted: #c5bcae;
-    --quiet: #ab9f8e;
-    --accent: #b9c6a3;
-    --accent-soft: #384035;
-    --winner: #d4b98f;
-    --winner-soft: #443a2b;
-    --primary: #d2dcbc;
-    --primary-top: #dde5ce;
-    --primary-text: #293023;
-    --primary-edge: #69745b;
-    --shadow: rgb(12 10 8 / 24%);
-    --dialog-shadow: 0 16px 40px rgb(12 10 8 / 28%);
-    --recovery-shadow: 0 -4px 12px rgb(12 10 8 / 16%);
-    --backdrop: rgb(20 17 14 / 68%);
+    --board: #171b1c;
+    --sidebar: #101314;
+    --panel: #1d2324;
+    --panel-raised: #262e2f;
+    --well: #121617;
+    --glaze: rgb(12 15 16 / 42%);
+    --block: #2a3233;
+    --border: #3a4344;
+    --rule: #2f3839;
     /* Editable control boundaries need more contrast than decorative borders. */
-    --input-border: #9e9485;
-    --warning: #e5c08a;
-    --warning-surface: #413527;
-    --danger: #f0b2aa;
-    --danger-surface: #452f2b;
-    --font-sans: "DM Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue", Arial, sans-serif;
-    --font-display: "Bricolage Grotesque", var(--font-sans);
+    --input-border: #7b8788;
+    --text: #e9e2cf;
+    --heading: #f3ecd9;
+    --muted: #a9a593;
+    --quiet: #9a9685;
+    --accent: #f08a4b;
+    --accent-soft: #3a2418;
+    --winner: #f0b35a;
+    --winner-soft: #3a2f1a;
+    --ochre: #c9a24a;
+    --primary: #b5532d;
+    --primary-bright: #bd5830;
+    --primary-text: #fff3e3;
+    /* The two sides of a matchup, and the results they leave behind. */
+    --entry: #e0703a;
+    --entry-label: #f6c57a;
+    --opponent: #4fa3a8;
+    --opponent-label: #8fd6da;
+    --current: #f3ecd9;
+    --wash: rgb(243 236 217 / 9%);
+    --shadow: rgb(0 0 0 / 55%);
+    --dialog-shadow: 0 18px 40px rgb(0 0 0 / 50%);
+    --recovery-shadow: 0 -4px 12px rgb(0 0 0 / 30%);
+    --backdrop: rgb(8 10 11 / 72%);
+    --success: #8fd6da;
+    --success-surface: #173133;
+    --warning: #f0b35a;
+    --warning-surface: #3a2f1a;
+    --danger: #f3a79d;
+    --danger-surface: #40231f;
+    /* Hand-cut corners: small marks, and the two canvases of a matchup. */
+    --shape-mark: 2px 12px 4px 10px / 10px 3px 12px 4px;
+    --shape-mark-alt: 8px 2px 9px 3px / 2px 8px 3px 9px;
+    --shape-canvas: 3px 16px 5px 20px / 18px 4px 14px 6px;
+    --shape-canvas-alt: 18px 4px 20px 5px / 5px 16px 6px 14px;
+    /* Paint is dimmed under a dark glaze so cream text stays readable on it. */
+    --paint-warm: linear-gradient(rgb(20 16 14 / 52%), rgb(20 16 14 / 72%)), radial-gradient(90% 80% at 12% 8%, #c9a24a 0, transparent 55%), radial-gradient(80% 90% at 95% 100%, #7a2f1c 0, transparent 60%), radial-gradient(60% 60% at 60% 40%, #b5532d 0, transparent 70%), #3a2a22;
+    --paint-cool: linear-gradient(rgb(12 18 20 / 52%), rgb(12 18 20 / 72%)), radial-gradient(90% 80% at 88% 10%, #3f8f8c 0, transparent 55%), radial-gradient(80% 90% at 5% 100%, #5b4a80 0, transparent 60%), radial-gradient(60% 60% at 40% 45%, #2b4f6e 0, transparent 70%), #1c2a30;
+    /* Voting canvases split the same paint into a ground and two oversized sheets that drift over it.
+       The glaze rides on the nearer sheet; its stops keep the visible part at the strengths above. */
+    --paint-warm-ground: #3a2a22;
+    --paint-warm-far: radial-gradient(60% 53% at 25% 22%, #c9a24a 0, transparent 55%), radial-gradient(53% 60% at 80% 83%, #7a2f1c 0, transparent 60%);
+    --paint-warm-near: linear-gradient(rgb(20 16 14 / 52%) 17%, rgb(20 16 14 / 72%) 83%), radial-gradient(40% 40% at 57% 43%, #b5532d 0, transparent 70%);
+    --paint-cool-ground: #1c2a30;
+    --paint-cool-far: radial-gradient(60% 53% at 75% 23%, #3f8f8c 0, transparent 55%), radial-gradient(53% 60% at 20% 83%, #5b4a80 0, transparent 60%);
+    --paint-cool-near: linear-gradient(rgb(12 18 20 / 52%) 17%, rgb(12 18 20 / 72%) 83%), radial-gradient(40% 40% at 43% 47%, #2b4f6e 0, transparent 70%);
+    /* Wide canvases keep their light on the right, away from left-aligned text. */
+    --paint-warm-wide: linear-gradient(100deg, rgb(20 16 14 / 82%) 0, rgb(20 16 14 / 60%) 55%, rgb(20 16 14 / 46%) 100%), radial-gradient(60% 100% at 96% 10%, #d9b055 0, transparent 60%), radial-gradient(50% 90% at 68% 65%, #b5532d 0, transparent 70%), radial-gradient(60% 90% at 0% 100%, #6e2a1a 0, transparent 65%), #3a2a22;
+    --paint-cool-wide: linear-gradient(100deg, rgb(12 18 20 / 82%) 0, rgb(12 18 20 / 58%) 55%, rgb(12 18 20 / 22%) 100%), radial-gradient(60% 100% at 96% 10%, #58b3ad 0, transparent 60%), radial-gradient(50% 90% at 70% 70%, #2b4f6e 0, transparent 70%), radial-gradient(60% 90% at 0% 100%, #5b4a80 0, transparent 65%), #1c2a30;
+    --font-body: "Libre Baskerville", Georgia, "Times New Roman", serif;
+    --font-display: var(--font-body);
+    --font-label: "Barlow Condensed", "Arial Narrow", "Liberation Sans Narrow", sans-serif;
     --font-mono: ui-monospace, "Liberation Mono", monospace;
-    --text-body: 1.125rem;
+    --text-body: 1.0625rem;
     --text-control: 1rem;
     --text-support: .9375rem;
-    --text-voting-title: clamp(1.5rem, 2vw, 1.875rem);
+    --text-label: 1rem;
+    --text-button: 1.1875rem;
+    --text-h1: clamp(2.25rem, 3.6vw, 3rem);
+    --text-voting-title: clamp(1.625rem, 2.3vw, 2rem);
     --space-1: 0.25rem;
     --space-2: 0.5rem;
     --space-3: 0.75rem;
     --space-4: 1rem;
     --space-6: 1.5rem;
     --space-8: 2rem;
-    --radius-control: 8px;
+    --radius-control: 2px;
     --radius-panel: 12px;
+    --ease-paint: cubic-bezier(.2, .7, .2, 1);
 }
 
 *, *::before, *::after { box-sizing: border-box; }
 html, body { margin: 0; min-height: 100%; }
-html { font-family: var(--font-sans); font-optical-sizing: auto; }
-body { background: var(--board); color: var(--text); font-family: var(--font-sans); font-size: var(--text-body); line-height: 1.6; }
+html { font-family: var(--font-body); background: var(--board); }
+/* The washes stay with the viewport, so long pages do not stretch them. */
+body { background: radial-gradient(70% 60% at 88% 0%, rgb(47 93 98 / 50%) 0, transparent 70%) fixed, radial-gradient(60% 55% at 30% 105%, rgb(181 83 45 / 26%) 0, transparent 70%) fixed, var(--board); color: var(--text); font-family: var(--font-body); font-size: var(--text-body); line-height: 1.65; }
 button, input, select, textarea { font: inherit; }
 input, select, textarea { font-size: var(--text-control); }
 button, select, summary { cursor: pointer; }
 button:disabled, select:disabled { cursor: default; }
 a { color: inherit; cursor: pointer; }
-::selection { background: var(--accent); color: var(--primary-text); }
+::selection { background: var(--primary); color: var(--primary-text); }
 [hidden] { display: none !important; }
-:where(h1, h2, h3, h4) { margin: 0; font-family: var(--font-display); font-weight: 600; line-height: 1.25; letter-spacing: -0.02em; overflow-wrap: anywhere; }
-:where(h1) { font-size: clamp(1.75rem, 3vw, 2.5rem); }
-:where(h2) { font-size: 1.5rem; }
-:where(h3) { font-size: 1.125rem; }
+:where(h1, h2, h3, h4) { margin: 0; color: var(--heading); font-family: var(--font-display); font-style: italic; font-weight: 400; line-height: 1.2; letter-spacing: -0.01em; overflow-wrap: anywhere; }
+:where(h1) { font-size: var(--text-h1); }
+:where(h2) { font-size: 1.75rem; }
+:where(h3) { font-size: 1.25rem; }
 :where(p, ul, ol) { margin: 0; }
 :where(legend) { padding: 0; }
+:where(strong) { color: var(--heading); }
 :where(code, pre, kbd) { font-family: var(--font-mono); }
 :where(a, button, input, select, textarea, summary, [tabindex]):focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
 
-/* Familiar scrollbars, with quiet warm neutrals. */
-* { scrollbar-color: var(--input-border) var(--well); }
+/* Familiar scrollbars, with quiet cool neutrals. */
+* { scrollbar-color: #5b6667 var(--sidebar); }
 ::-webkit-scrollbar { width: 12px; height: 12px; }
-::-webkit-scrollbar-track, ::-webkit-scrollbar-corner { background: var(--well); }
-::-webkit-scrollbar-thumb { background: var(--input-border); border: 3px solid var(--well); border-radius: 6px; }
-::-webkit-scrollbar-thumb:hover { background: var(--muted); }
+::-webkit-scrollbar-track, ::-webkit-scrollbar-corner { background: var(--sidebar); }
+::-webkit-scrollbar-thumb { background: #5b6667; border: 3px solid var(--sidebar); border-radius: 6px; }
+::-webkit-scrollbar-thumb:hover { background: var(--input-border); }
 
 /* Shared surfaces and layout spacing. */
-/* Transparent borders retain existing dimensions without outlining every panel. */
-.surface { min-width: 0; padding: var(--space-6); border: 1px solid transparent; border-radius: var(--radius-panel); background: var(--panel); color: var(--text); }
+.surface { min-width: 0; padding: var(--space-6); border: 1px solid var(--rule); border-radius: var(--shape-canvas); background: var(--glaze); color: var(--text); }
 .surface--raised { background: var(--panel-raised); }
 .surface--well { background: var(--well); }
 .stack { display: flex; flex-direction: column; gap: var(--space-4); }
 .cluster { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-3); }
 .page-heading { margin-bottom: var(--space-6); }
-.page-heading p { max-width: 65ch; margin-top: var(--space-2); color: var(--muted); }
-.eyebrow { color: var(--accent); font-size: var(--text-support); font-weight: 500; letter-spacing: 0.08em; }
+/* Every page title is underlined with the same short ochre mark. */
+.page-heading h1::after { content: ""; display: block; width: min(9.5rem, 60%); height: .75rem; margin-top: var(--space-1); border-radius: var(--shape-mark); background: var(--ochre); }
+.page-heading p { max-width: 65ch; margin-top: var(--space-3); color: var(--muted); }
+.eyebrow { color: var(--accent); font-family: var(--font-label); font-size: var(--text-label); font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; }
 .text-secondary { color: var(--muted); }
-/* Quiet copy belongs on board/panel/well surfaces, not lighter button faces. */
+/* Quiet copy belongs on board/panel/well surfaces, not on painted canvases. */
 .text-muted { color: var(--quiet); }
-.text-link { color: var(--accent); text-decoration: underline; text-underline-offset: 0.2em; }
-.text-link:hover { color: var(--text); }
+.text-link { color: var(--accent); text-decoration: underline; text-underline-offset: 0.25em; }
+.text-link:hover { color: var(--heading); }
+/* A finished count settles into place like ink. */
+.count-settle { display: inline-block; color: var(--accent); font-size: 1.375em; font-style: italic; font-weight: 400; line-height: 1; }
+@keyframes count-settle { from { opacity: 0; filter: blur(6px); letter-spacing: 0.3em; } }
 
-/* Flat routine actions retain comfortable native targets and visible focus. */
+/* Routine actions are dark marks; pointing at one spreads rust across it from the left. */
 .button {
+    position: relative;
+    isolation: isolate;
     display: inline-flex;
     align-items: center;
     justify-content: center;
     min-width: 44px;
     min-height: 44px;
     max-width: 100%;
-    padding: var(--space-2) var(--space-3);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-control);
-    background: var(--well);
-    color: var(--text);
-    font-size: var(--text-control);
-    font-weight: 500;
-    line-height: 1.5;
+    padding: var(--space-1) 1.375rem;
+    border: 1px solid transparent;
+    border-radius: var(--shape-mark);
+    background: var(--block);
+    color: var(--accent);
+    font-family: var(--font-label);
+    font-size: var(--text-button);
+    font-style: normal;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    line-height: 1.3;
     text-align: center;
     text-decoration: none;
+    text-transform: uppercase;
     vertical-align: top;
     overflow-wrap: anywhere;
     touch-action: manipulation;
 }
+.button::before { content: ""; position: absolute; inset: -1px; z-index: -1; border-radius: inherit; background: var(--primary); transform: scaleX(0); transform-origin: left center; }
 .button > .button__content { display: flex; align-items: center; justify-content: center; gap: var(--space-2); width: 100%; min-width: 0; }
-.button--primary, .button[aria-pressed="true"] { background: var(--accent-soft); border-color: transparent; color: var(--accent); }
-.button--danger { background: var(--danger-surface); border-color: transparent; color: var(--danger); }
+.button--primary { background: var(--primary); color: var(--primary-text); font-weight: 700; }
+.button--primary::before { background: var(--primary-bright); }
+.button[aria-pressed="true"] { background: var(--accent-soft); color: var(--winner); }
+.button--danger { background: var(--danger-surface); color: var(--danger); }
+.button--danger::before { background: #5c2d27; }
 .button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
 @media (hover: hover) {
-    .button:not(:disabled):not([aria-disabled="true"]):hover { background: var(--panel-raised); border-color: var(--input-border); }
-    .button--primary:not(:disabled):not([aria-disabled="true"]):hover,
-    .button[aria-pressed="true"]:not(:disabled):hover { background: var(--accent-soft); border-color: var(--accent); color: var(--text); }
-    .button--danger:not(:disabled):not([aria-disabled="true"]):hover { background: var(--danger-surface); border-color: var(--danger); }
+    .button:not(:disabled):not([aria-disabled="true"]):hover { color: var(--primary-text); }
+    .button:not(:disabled):not([aria-disabled="true"]):hover::before { transform: scaleX(1); }
+    .button--danger:not(:disabled):not([aria-disabled="true"]):hover { color: #ffe1dc; }
 }
-.button:not(:disabled):not([aria-disabled="true"]):active { filter: brightness(1.1); }
-.button:disabled, .button[aria-disabled="true"] { background: var(--well); border-color: transparent; color: var(--quiet); cursor: default; }
+.button:not(:disabled):not([aria-disabled="true"]):active { transform: translateY(2px); }
+.button:disabled, .button[aria-disabled="true"] { background: transparent; border-color: var(--rule); color: var(--quiet); cursor: default; }
+.button:disabled::before, .button[aria-disabled="true"]::before { content: none; }
 
-/* Static raised voting choices; native buttons own activation. */
+/* Voting choices are two small painted canvases; native buttons own activation. */
 .tactile {
-    --tactile-face: var(--face);
-    --tactile-top: var(--face-top);
-    --tactile-chassis: var(--edge);
-    --tactile-border: var(--face-border);
-    --tactile-text: var(--text);
+    --tactile-ground: var(--paint-warm-ground);
+    --tactile-far: var(--paint-warm-far);
+    --tactile-near: var(--paint-warm-near);
+    --tactile-sway: 1;
+    --tactile-shape: var(--shape-canvas);
+    --tactile-label: var(--entry-label);
+    --tactile-tilt: -0.6deg;
     position: relative;
     isolation: isolate;
     display: inline-flex;
@@ -157,9 +223,9 @@ a { color: inherit; cursor: pointer; }
     max-width: 100%;
     padding: 0;
     border: 0;
-    border-radius: var(--radius-control);
+    border-radius: var(--tactile-shape);
     background: transparent;
-    color: var(--tactile-text);
+    color: var(--heading);
     font: inherit;
     text-align: center;
     text-decoration: none;
@@ -168,7 +234,10 @@ a { color: inherit; cursor: pointer; }
     user-select: none;
     -webkit-tap-highlight-color: transparent;
     touch-action: manipulation;
+    transform: rotate(var(--tactile-tilt));
 }
+/* The second choice of a matchup is the cool canvas, leaning the other way. */
+.tactile:is([data-action="lose"], [data-action="right"]) { --tactile-ground: var(--paint-cool-ground); --tactile-far: var(--paint-cool-far); --tactile-near: var(--paint-cool-near); --tactile-sway: -1; --tactile-shape: var(--shape-canvas-alt); --tactile-label: var(--opponent-label); --tactile-tilt: 0.5deg; }
 .tactile > .tactile__face {
     position: relative;
     display: flex;
@@ -179,35 +248,35 @@ a { color: inherit; cursor: pointer; }
     min-height: 44px;
     width: 100%;
     padding: var(--space-3) var(--space-4);
-    border: 1px solid var(--tactile-border);
+    border: 1px solid rgb(243 236 217 / 28%);
     border-radius: inherit;
-    background: linear-gradient(180deg, var(--tactile-top), var(--tactile-face));
-    color: var(--tactile-text);
+    isolation: isolate;
+    overflow: hidden;
+    background: var(--tactile-ground);
+    color: inherit;
     font-size: var(--text-control);
-    font-weight: 500;
     line-height: 1.5;
     overflow-wrap: anywhere;
-    box-shadow: 0 3px 0 var(--tactile-chassis), 0 4px 7px -3px var(--shadow), inset 0 1px 0 rgb(255 244 225 / 3%);
+    /* Kept tight: the duel stage clips a few pixels beyond the choices. */
+    box-shadow: 0 4px 8px -2px var(--shadow);
 }
-.tactile--large > .tactile__face { min-height: 8rem; padding: var(--space-6); flex-direction: column; align-items: stretch; text-align: left; }
+/* The paint drifts under the text. Each sheet overhangs the canvas, so its edge never shows. */
+.tactile > .tactile__face::before, .tactile > .tactile__face::after { content: ""; position: absolute; inset: -25%; pointer-events: none; will-change: transform; }
+.tactile > .tactile__face::before { z-index: -2; background: var(--tactile-far); transform: translate(calc(var(--paint-drift-x) * var(--tactile-sway) * 8%), calc(var(--paint-drift-y) * 8%)) rotate(calc(var(--paint-drift-y) * var(--tactile-sway) * 4deg)); }
+.tactile > .tactile__face::after { z-index: -1; background: var(--tactile-near); transform: translate(calc(var(--paint-drift-y) * var(--tactile-sway) * -7%), calc(var(--paint-drift-x) * 6%)); }
+.tactile--large > .tactile__face { min-height: 8rem; padding: 1.625rem; flex-direction: column; align-items: stretch; text-align: left; }
 .tactile--icon > .tactile__face { padding: var(--space-3); }
-.tactile--primary { --tactile-face: var(--primary); --tactile-top: var(--primary-top); --tactile-chassis: var(--primary-edge); --tactile-border: var(--primary); --tactile-text: var(--primary-text); }
-.tactile--secondary { --tactile-face: var(--face); --tactile-top: var(--face-top); }
-.tactile--danger { --tactile-face: var(--danger-surface); --tactile-top: var(--danger-surface); --tactile-border: var(--danger); --tactile-text: var(--danger); }
-.tactile:focus-visible { outline: 2px solid var(--accent); outline-offset: 4px; }
+.tactile--danger { --tactile-ground: var(--danger-surface); --tactile-far: none; --tactile-near: none; --tactile-label: var(--danger); }
+.tactile:focus-visible { outline: 2px solid var(--accent); outline-offset: 5px; }
 @media (hover: hover) {
-    .tactile:not(:disabled):not([aria-disabled="true"]):hover > .tactile__face {
-        filter: brightness(1.04);
-    }
+    /* The canvas straightens, lifts and its paint comes forward. */
+    .tactile:not(:disabled):not([aria-disabled="true"]):hover { transform: rotate(0deg) translateY(-4px); }
+    .tactile:not(:disabled):not([aria-disabled="true"]):hover > .tactile__face { border-color: rgb(243 236 217 / 80%); filter: saturate(1.5) brightness(1.2); }
 }
+.tactile:not(:disabled):not([aria-disabled="true"]):active { transform: scale(.985); }
+.tactile:not(:disabled):not([aria-disabled="true"]):active > .tactile__face { filter: saturate(.7) brightness(.8); }
 .tactile:disabled, .tactile[aria-disabled="true"] { cursor: default; }
-.tactile:disabled > .tactile__face, .tactile[aria-disabled="true"] > .tactile__face {
-    background: var(--well);
-    border-color: var(--border);
-    color: var(--quiet);
-    box-shadow: none;
-    filter: none;
-}
+.tactile:disabled > .tactile__face, .tactile[aria-disabled="true"] > .tactile__face { filter: saturate(.55) brightness(.85); }
 
 /* Native form controls and shared field styles. */
 :where(input:not([type]), input[type="text"], input[type="number"],
@@ -216,31 +285,43 @@ a { color: inherit; cursor: pointer; }
 .form-control {
     min-height: 44px;
     max-width: 100%;
-    padding: var(--space-3) var(--space-4);
+    padding: var(--space-2) var(--space-3);
     border: 1px solid var(--input-border);
     border-radius: var(--radius-control);
-    background: var(--well);
-    color: var(--text);
+    background: var(--board);
+    color: var(--heading);
     line-height: 1.5;
-    accent-color: var(--accent);
+    accent-color: var(--entry);
+}
+/* Single-line fields are a ruled line to write on. */
+:where(input:not([type]), input[type="text"], input[type="number"],
+       input[type="email"], input[type="password"], input[type="search"],
+       input[type="url"], input[type="tel"], input[type="date"]),
+input.form-control:not([type="checkbox"]):not([type="radio"]) {
+    padding-inline: var(--space-1);
+    border-width: 0 0 1px;
+    border-radius: 0;
+    background: transparent;
+    font-size: var(--text-body);
+    font-style: italic;
 }
 .form-control { width: 100%; }
 textarea { min-height: 8rem; resize: vertical; }
-input::placeholder, textarea::placeholder { color: var(--quiet); opacity: 1; }
-select option { background: var(--well); color: var(--text); }
+input::placeholder, textarea::placeholder { color: var(--muted); opacity: 1; }
+select option { background: var(--board); color: var(--text); }
 :where(input, select, textarea):focus-visible, .form-control:focus-visible { border-color: var(--accent); outline: 2px solid var(--accent); outline-offset: 3px; }
 :where(input, textarea)[readonly] { color: var(--muted); }
-:where(input, select, textarea):disabled { background: var(--panel); border-color: var(--border); color: var(--quiet); cursor: default; }
+:where(input, select, textarea):disabled { border-color: var(--border); color: var(--quiet); cursor: default; }
 .field { display: flex; flex-direction: column; gap: var(--space-2); min-width: 0; }
-.field-label { color: var(--text); font-size: var(--text-control); font-weight: 500; }
+.field-label { color: var(--muted); font-family: var(--font-label); font-size: var(--text-label); font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; }
 .helper-text { color: var(--muted); font-size: var(--text-support); line-height: 1.6; }
-:where(input[type="checkbox"], input[type="radio"]) { width: 1.125rem; height: 1.125rem; accent-color: var(--accent); vertical-align: middle; cursor: pointer; }
+:where(input[type="checkbox"], input[type="radio"]) { width: 1.125rem; height: 1.125rem; accent-color: var(--entry); vertical-align: middle; cursor: pointer; }
 .checkbox-field { display: flex; align-items: center; gap: var(--space-3); min-height: 44px; }
 
 /* Blazor validation and explicit accessible invalid states. */
-.valid.modified:not([type="checkbox"]):not([type="radio"]) { border-color: var(--accent); box-shadow: none; }
+.valid.modified:not([type="checkbox"]):not([type="radio"]) { border-color: var(--success); box-shadow: none; }
 .invalid, [aria-invalid="true"] { border-color: var(--danger); outline: 2px solid var(--danger); outline-offset: 2px; box-shadow: none; }
-/* Keep the error boundary visible alongside a focused field's sage focus ring. */
+/* Keep the error boundary visible alongside a focused field's focus ring. */
 .form-control.invalid, .form-control[aria-invalid="true"] { border-color: var(--danger); }
 .validation-message, .validation-errors { color: var(--danger); font-size: var(--text-support); line-height: 1.6; }
 .validation-errors { margin: var(--space-2) 0; padding-left: var(--space-6); }
@@ -248,38 +329,46 @@ select option { background: var(--well); color: var(--text); }
 /* Pair visual states with visible labels and appropriate live-region markup. */
 .status {
     --status-text: var(--text);
-    --status-border: var(--input-border);
-    --status-surface: var(--well);
+    --status-surface: var(--block);
     padding: var(--space-4);
     border: 1px solid transparent;
-    border-left-color: var(--status-border);
-    border-left-width: 3px;
-    border-radius: var(--radius-control);
+    border-radius: var(--shape-mark-alt);
     background: var(--status-surface);
     color: var(--status-text);
     font-size: var(--text-support);
     overflow-wrap: anywhere;
 }
-.status--success { --status-text: var(--accent); --status-border: var(--accent); --status-surface: var(--accent-soft); }
-.status--warning { --status-text: var(--warning); --status-border: var(--warning); --status-surface: var(--warning-surface); }
-.status--error { --status-text: var(--danger); --status-border: var(--danger); --status-surface: var(--danger-surface); }
+.status :where(h2, h3) { color: inherit; }
+.status--success { --status-text: var(--success); --status-surface: var(--success-surface); }
+.status--warning { --status-text: var(--warning); --status-surface: var(--warning-surface); }
+.status--error { --status-text: var(--danger); --status-surface: var(--danger-surface); }
 .status--loading { --status-text: var(--muted); }
-.status__title { display: block; margin-bottom: var(--space-1); font-weight: 600; }
-.empty-state { padding: var(--space-8) var(--space-6); border: 1px solid transparent; border-radius: var(--radius-panel); background: var(--well); color: var(--text); text-align: center; }
+.status__title { display: block; margin-bottom: var(--space-1); font-weight: 700; }
+.empty-state { padding: var(--space-8) var(--space-6); border: 1px solid var(--rule); border-radius: var(--shape-canvas-alt); background: var(--glaze); color: var(--text); text-align: center; }
 .empty-state p { max-width: 55ch; margin: var(--space-2) auto 0; color: var(--muted); }
-.loading-state { display: flex; align-items: center; gap: var(--space-3); color: var(--muted); }
-.progress-bar { appearance: none; width: 100%; height: 0.5rem; border: 1px solid var(--border); border-radius: var(--radius-control); background: var(--well); accent-color: var(--accent); overflow: hidden; }
-.progress-bar::-webkit-progress-bar { background: var(--well); border-radius: var(--radius-control); }
-.progress-bar::-webkit-progress-value { background: var(--accent); border-radius: var(--radius-control); }
-.progress-bar::-moz-progress-bar { background: var(--accent); border-radius: var(--radius-control); }
+.loading-state { display: flex; align-items: center; gap: var(--space-3); color: var(--muted); font-style: italic; }
+.progress-bar { appearance: none; width: 100%; height: 0.5rem; border: 0; border-radius: var(--shape-mark); background: var(--block); accent-color: var(--ochre); overflow: hidden; }
+.progress-bar::-webkit-progress-bar { background: var(--block); }
+.progress-bar::-webkit-progress-value { background: var(--ochre); border-radius: 0 4px 3px 0; }
+.progress-bar::-moz-progress-bar { background: var(--ochre); border-radius: 0 4px 3px 0; }
 
 /* Compact Rankings and GOTY tables share native row styling. */
-.data-table { width: 100%; border-collapse: collapse; background: var(--panel); color: var(--text); text-align: left; }
+.data-table { width: 100%; border-collapse: collapse; color: var(--text); text-align: left; }
 .data-table th, .data-table td { padding: var(--space-3) var(--space-4); vertical-align: top; }
-.data-table th { background: var(--well); color: var(--muted); font-size: var(--text-control); font-weight: 500; }
-.data-table tr + tr, .data-table tbody { border-top: 1px solid var(--border); }
-.data-table tbody tr:hover { background: var(--panel-raised); }
+.data-table th { font-weight: 400; }
+.data-table thead th { border-bottom: 1px solid #5b6667; color: var(--muted); font-family: var(--font-label); font-size: var(--text-label); font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; }
+.data-table tbody tr + tr { border-top: 1px solid var(--rule); }
+/* Pointing at a row brushes a pale wash across it from the left. */
+.data-table tbody tr { background-image: linear-gradient(var(--wash), var(--wash)); background-repeat: no-repeat; background-size: 0% 100%; }
+.data-table tbody tr:hover { background-size: 100% 100%; }
 .data-table caption { padding: var(--space-3) var(--space-4); color: var(--muted); text-align: left; }
+
+/* The paint drift is two numbers swinging at different paces on the duel stage. The stage outlives
+   every duel, so a new canvas picks the drift up where the last one left it instead of restarting. */
+@property --paint-drift-x { syntax: "<number>"; inherits: true; initial-value: 0; }
+@property --paint-drift-y { syntax: "<number>"; inherits: true; initial-value: 0; }
+@keyframes paint-drift-x { from { --paint-drift-x: -1; } to { --paint-drift-x: 1; } }
+@keyframes paint-drift-y { from { --paint-drift-y: -1; } to { --paint-drift-y: 1; } }
 
 /* Only the changing duel moves; progress, notices and queue controls stay put. */
 .duel-stage { position: relative; isolation: isolate; min-width: 0; overflow: clip; margin: -8px; padding: 8px; }
@@ -299,16 +388,31 @@ select option { background: var(--well); color: var(--text); }
     }
 }
 
+/* New motion is all additive, and all of it rests when reduced motion is requested. */
+@media (prefers-reduced-motion: no-preference) {
+    .button { transition: color 0.25s ease, transform 0.1s ease; }
+    .button::before { transition: transform 0.45s var(--ease-paint); }
+    .tactile { transition: transform 0.35s ease; }
+    .duel-stage { animation: paint-drift-x 17s ease-in-out infinite alternate, paint-drift-y 23s ease-in-out infinite alternate; }
+    .tactile > .tactile__face { transition: filter 0.35s ease, border-color 0.35s ease; }
+    .data-table tbody tr { transition: background-size 0.45s var(--ease-paint); }
+    .progress-bar::-webkit-progress-value { transition: inline-size 0.9s ease-out; }
+    .count-settle { animation: count-settle 0.7s ease-out; }
+}
+
 /* Native modal dialogs. */
-.dialog { width: 100%; max-width: 36rem; max-height: calc(100dvh - 2rem); min-width: 0; overflow-y: auto; padding: var(--space-6); border: 1px solid var(--border); border-radius: var(--radius-panel); background: var(--panel); color: var(--text); box-shadow: var(--dialog-shadow); }
+.dialog { width: 100%; max-width: 36rem; max-height: calc(100dvh - 2rem); min-width: 0; overflow-y: auto; padding: var(--space-6); border: 1px solid var(--border); border-radius: var(--shape-canvas); background: var(--panel); color: var(--text); box-shadow: var(--dialog-shadow); }
 dialog.dialog::backdrop { background: var(--backdrop); }
 .dialog__header { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--space-4); margin-bottom: var(--space-4); }
 .dialog__actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: var(--space-3); margin-top: var(--space-6); }
 
-.blazor-error-boundary { padding: var(--space-4); border: 1px solid transparent; border-left: 3px solid var(--danger); border-radius: var(--radius-control); background: var(--danger-surface); color: var(--danger); font: inherit; }
+.blazor-error-boundary { padding: var(--space-4); border: 1px solid transparent; border-radius: var(--shape-mark-alt); background: var(--danger-surface); color: var(--danger); font: inherit; }
 .blazor-error-boundary::after { content: "An error occurred. Please reload the page."; }
 
 @media (max-width: 640px) {
+    /* Narrow, tall canvases lean less so their edges stay apart. */
+    .tactile { --tactile-tilt: -0.3deg; }
+    .tactile:is([data-action="lose"], [data-action="right"]) { --tactile-tilt: 0.3deg; }
     .surface, .dialog { padding: var(--space-4); }
     .empty-state { padding: var(--space-6) var(--space-4); }
 }

@@ -1,23 +1,23 @@
 .import-page :is(h1, #manage-heading, [tabindex="-1"]):focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
 .import-page { gap: var(--space-6); }
 .import-page .page-heading { margin-bottom: 0; }
-.import-page h2 { font-size: 1.5rem; font-weight: 600; }
+.import-page h2 { font-size: 1.75rem; }
 .library-heading { justify-content: space-between; }
 .library-results { justify-content: space-between; }
 .game-list { margin: 0; padding: 0; list-style: none; }
-.game-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: start; gap: var(--space-3); padding-block: var(--space-3); border-top: 1px solid var(--border); }
+.game-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: start; gap: var(--space-3); padding-block: var(--space-3); border-top: 1px solid var(--rule); }
 .game-details { min-width: 0; gap: var(--space-1); overflow-wrap: anywhere; }
-.game-details h3 { font-size: var(--text-body); font-weight: 600; line-height: 1.5; }
+.game-details h3 { font-size: 1.1875rem; font-style: normal; line-height: 1.4; }
 .included-disclosure summary { min-height: 44px; padding-block: var(--space-2); color: var(--muted); font-size: var(--text-control); }
 .included-summary { margin: var(--space-2) 0 0; padding-left: var(--space-6); font-size: var(--text-support); list-style: disc; }
 .game-actions { min-width: 0; }
 .game-actions summary, .game-action-list { scroll-margin-block: var(--space-3); }
-.game-actions summary { min-width: 44px; min-height: 44px; width: max-content; max-width: 100%; padding: var(--space-2) var(--space-3); border: 1px solid var(--border); border-radius: var(--radius-control); background: var(--well); font-size: var(--text-control); }
+.game-actions summary { min-width: 44px; min-height: 44px; width: max-content; max-width: 100%; padding: var(--space-2) var(--space-4); border: 1px solid transparent; border-radius: var(--shape-mark-alt); background: var(--block); color: var(--accent); font-family: var(--font-label); font-size: var(--text-button); font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; }
 .game-actions[open] { grid-column: 1 / -1; }
 .game-actions[open] summary { margin-left: auto; }
 .game-action-list { flex-direction: row; flex-wrap: wrap; justify-content: end; gap: var(--space-2); margin-top: var(--space-3); }
 .task-dialog { width: calc(100% - 2rem); max-width: 54rem; margin: auto; overflow-wrap: anywhere; }
-.optional-included > summary { min-height: 44px; padding-block: var(--space-2); font-size: var(--text-control); font-weight: 500; }
+.optional-included > summary { min-height: 44px; padding-block: var(--space-2); font-size: var(--text-control); }
 .included-titles { padding-top: var(--space-3); }
 .completion-actions .button { max-width: 100%; }
 #gameTitles { min-height: 12rem; }

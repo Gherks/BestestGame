@@ -1,28 +1,31 @@
 .goty-page { overflow-wrap: anywhere; }
-.goty-page :is(h1, h2, h3) { font-weight: 600; line-height: 1.3; }
-.goty-page h1 { font-size: clamp(1.75rem, 3vw, 2.5rem); }
+.goty-page :is(h2, h3) { line-height: 1.3; }
 .goty-page h2 { font-size: 1.5rem; }
 .goty-page .page-heading { margin-bottom: 0; }
 .goty-year-select { width: 100%; max-width: 18rem; }
-.goty-leaders { padding: var(--space-4); gap: var(--space-3); background: var(--winner-soft); border-left: 3px solid var(--winner); border-radius: var(--radius-control); }
-.goty-leaders h2 { color: var(--winner); font-size: var(--text-control); letter-spacing: 0; }
-.goty-leader h3 { font-size: var(--text-voting-title); font-weight: 700; }
-.goty-leader-score { color: var(--winner); font-size: 1.5rem; font-weight: 600; line-height: 1.3; }
-.goty-leader-score span { font-size: var(--text-support); color: var(--muted); font-weight: 400; }
+/* The year's leaders hang on a warm canvas. */
+.goty-leaders { padding: var(--space-6) clamp(1.25rem, 4vw, 2.5rem); gap: var(--space-3); border: 1px solid rgb(243 236 217 / 28%); border-radius: var(--shape-canvas-alt); background: var(--paint-warm-wide); }
+.goty-leaders h2 { color: var(--entry-label); font-family: var(--font-label); font-size: 1.0625rem; font-style: normal; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; }
+.goty-leaders .helper-text, .goty-leaders .text-secondary { color: var(--text); }
+.goty-leader h3 { font-size: var(--text-voting-title); }
+.goty-leader-score { color: #ffd58a; font-size: 1.875rem; font-style: italic; line-height: 1.3; }
+.goty-leader-score span { font-size: var(--text-support); color: var(--text); font-style: normal; }
 .goty-voting-context { gap: var(--space-2) var(--space-3); }
 .goty-list { table-layout: fixed; }
-.goty-list caption { padding: var(--space-2) 0; color: var(--text); font-family: var(--font-display); font-size: var(--text-body); font-weight: 600; }
+.goty-list caption { padding: var(--space-2) 0; color: var(--heading); font-family: var(--font-display); font-size: 1.25rem; font-style: italic; }
 .goty-list :is(th, td) { padding: var(--space-2) var(--space-1); }
 .goty-rank-column { width: 3.25rem; }
 .goty-points-column { width: 4.5rem; }
-.goty-list thead th { background: transparent; font-weight: 400; white-space: nowrap; }
+.goty-list thead th { white-space: nowrap; }
 .goty-list th:last-child, .goty-points { text-align: right; font-variant-numeric: tabular-nums; }
 .goty-rank { font-variant-numeric: tabular-nums; }
-.goty-list .goty-nominee-title { min-width: 0; background: transparent; color: var(--text); font-size: var(--text-body); font-weight: 400; }
-.goty-nominee-title > span { font-family: var(--font-display); font-weight: 600; }
+.goty-list .goty-nominee-title { min-width: 0; color: var(--text); font-size: var(--text-body); }
+.goty-nominee-title > span { color: var(--heading); font-family: var(--font-display); font-size: 1.1875rem; }
 .goty-nominee-title .helper-text { margin-top: var(--space-1); font-size: var(--text-support); font-weight: 400; }
-.goty-points { font-weight: 600; }
-.goty-nominee--leader { background: var(--winner-soft); }
+.goty-points { font-size: 1.1875rem; }
+.goty-rank { color: var(--muted); font-size: 1.1875rem; font-style: italic; }
+.goty-nominee--leader { background-color: rgb(201 162 74 / 7%); }
+.goty-nominee--leader :is(.goty-rank, .goty-points) { color: var(--winner); }
 .goty-scoring, .goty-archive { border-top: 1px solid var(--border); }
 .goty-page summary { min-height: 44px; padding-block: var(--space-3); cursor: pointer; font-size: var(--text-control); }
 .goty-scoring p { padding-bottom: var(--space-3); max-width: 75ch; }
@@ -32,7 +35,7 @@
 .goty-portal > .button__content { flex-direction: column; align-items: start; justify-content: start; gap: var(--space-1); }
 .goty-portal > .button__content > * { min-width: 0; max-width: 100%; }
 .goty-portal[aria-current="page"] { background: var(--accent-soft); border-color: var(--accent); }
-.goty-portal-year { font-size: 1.125rem; font-weight: 600; }
+.goty-portal-year { font-size: 1.375rem; font-weight: 700; }
 @media (max-width: 480px) {
     .goty-rank-column { width: 3rem; }
     .goty-points-column { width: 3.5rem; }

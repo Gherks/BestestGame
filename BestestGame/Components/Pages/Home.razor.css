@@ -1,17 +1,34 @@
 .home-page h1:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
 .home-page { gap: var(--space-6); max-width: 58rem; }
-.home-page h1 { font-size: clamp(1.75rem, 3vw, 2.5rem); overflow-wrap: anywhere; }
-.home-page h2 { font-size: 1.5rem; font-weight: 600; }
+.home-page h1 { font-size: clamp(2.25rem, 4vw, 3.25rem); line-height: 1.1; overflow-wrap: anywhere; }
+.home-page h1::after { content: none; }
+.home-page h2 { font-size: 1.75rem; }
+/* The next step sits on its own cool canvas. */
+.home-next-step { align-items: flex-start; gap: var(--space-4); padding: clamp(1.5rem, 4vw, 2.75rem) clamp(1.25rem, 4vw, 3rem); border: 1px solid rgb(243 236 217 / 28%); border-radius: var(--shape-canvas); background: var(--paint-cool-wide); box-shadow: var(--dialog-shadow); }
 .home-next-step .page-heading { margin-bottom: 0; }
-.home-statistics { display: flex; flex-wrap: wrap; gap: var(--space-4) var(--space-6); margin: 0; }
-.home-statistics dt { color: var(--muted); font-size: var(--text-support); }
-.home-statistics dd { margin: var(--space-1) 0 0; font-size: 1.5rem; font-weight: 600; font-variant-numeric: tabular-nums; }
+.home-next-step .page-heading p { color: var(--text); }
+.home-next-step .eyebrow { color: var(--opponent-label); }
+.home-next-step .button { min-height: 52px; padding-inline: 2.125rem; font-size: 1.375rem; letter-spacing: 0.12em; }
+.home-statistics { display: flex; flex-wrap: wrap; gap: var(--space-4) var(--space-8); margin: 0; }
+.home-statistics dt { color: var(--muted); font-family: var(--font-label); font-size: var(--text-label); font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; }
+.home-statistics dd { margin: 2px 0 0; color: var(--heading); font-size: 2.5rem; font-style: italic; line-height: 1.1; font-variant-numeric: tabular-nums; }
+.home-statistics dd .helper-text { font-style: normal; }
+.home-statistics div:nth-child(2) dd { color: var(--winner); }
 .home-leaders { padding-block: var(--space-4); border-top: 1px solid var(--border); }
-.home-leader-list { list-style: none; padding: 0; margin: 0; }
-.home-leader-list li { display: flex; align-items: baseline; justify-content: space-between; gap: var(--space-4); padding-block: var(--space-3); }
+.home-leader-list { display: grid; gap: var(--space-2); list-style: none; padding: 0; margin: 0; }
+/* Each leader is a small warm canvas. */
+.home-leader-list li { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: var(--space-2) var(--space-6); padding: 1.5rem clamp(1.25rem, 4vw, 2.5rem); border: 1px solid rgb(243 236 217 / 28%); border-radius: var(--shape-canvas-alt); background: var(--paint-warm-wide); }
 .home-leader-title { display: flex; flex-direction: column; min-width: 0; overflow-wrap: anywhere; }
-.home-leader-title > span:first-child { font-family: var(--font-display); font-weight: 600; }
-.home-leader-points { flex-shrink: 0; color: var(--winner); font-weight: 600; font-variant-numeric: tabular-nums; }
+.home-leader-title > span:first-child { color: var(--heading); font-family: var(--font-display); font-size: 1.625rem; font-style: italic; line-height: 1.25; }
+.home-leader-title .helper-text { color: var(--text); }
+.home-leader-points { flex-shrink: 0; color: #ffd58a; font-size: 1.875rem; font-style: italic; line-height: 1; font-variant-numeric: tabular-nums; }
+.home-leader-points .helper-text { color: var(--heading); font-family: var(--font-label); font-size: var(--text-label); font-style: normal; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; }
+@media (hover: hover) {
+    .home-leader-list li:hover { filter: saturate(1.5) brightness(1.2); }
+}
+@media (prefers-reduced-motion: no-preference) {
+    .home-leader-list li { transition: filter 0.4s ease; }
+}
 .home-instructions summary { min-height: 44px; padding-block: var(--space-3); color: var(--muted); }
 .getting-started { display: grid; gap: var(--space-3); margin: var(--space-3) 0 0; padding-left: 1.5rem; color: var(--muted); }
-.getting-started strong { color: var(--text); font-weight: 500; }
+.getting-started strong { color: var(--heading); font-weight: 700; }

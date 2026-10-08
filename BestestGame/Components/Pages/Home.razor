@@ -16,25 +16,26 @@
         <div>
             <a href="@_nextTask.Href" class="button button--primary" data-home-action><span class="button__content">@_nextTask.Label</span></a>
         </div>
-        @if (_tournament is not null)
-        {
-            <dl class="home-statistics">
-                <div><dt>Entries</dt><dd>@_tournament.Games.Count</dd></div>
-                @if (_nextTask.Stage != TournamentOverview.Stage.Setup)
-                {
-                    <div><dt>Matchups finished</dt><dd>@CompletedMatchups <span class="helper-text">of @_tournament.Duels.Count</span></dd></div>
-                    @if (_nextTask.Stage == TournamentOverview.Stage.Voting)
-                    {
-                        <div><dt>Remaining</dt><dd>@(_tournament.Duels.Count - CompletedMatchups)</dd></div>
-                    }
-                }
-            </dl>
-            @if (_tournament.Duels.Count > 0 && _nextTask.Stage != TournamentOverview.Stage.Setup)
-            {
-                <progress class="progress-bar" value="@CompletedMatchups" max="@_tournament.Duels.Count" aria-label="Completed tournament matchups"></progress>
-            }
-        }
     </section>
+    @* Statistics follow the painted next step instead of sitting on it. *@
+    @if (_tournament is not null)
+    {
+        <dl class="home-statistics">
+            <div><dt>Entries</dt><dd>@_tournament.Games.Count</dd></div>
+            @if (_nextTask.Stage != TournamentOverview.Stage.Setup)
+            {
+                <div><dt>Matchups finished</dt><dd>@CompletedMatchups <span class="helper-text">of @_tournament.Duels.Count</span></dd></div>
+                @if (_nextTask.Stage == TournamentOverview.Stage.Voting)
+                {
+                    <div><dt>Remaining</dt><dd>@(_tournament.Duels.Count - CompletedMatchups)</dd></div>
+                }
+            }
+        </dl>
+        @if (_tournament.Duels.Count > 0 && _nextTask.Stage != TournamentOverview.Stage.Setup)
+        {
+            <progress class="progress-bar" value="@CompletedMatchups" max="@_tournament.Duels.Count" aria-label="Completed tournament matchups"></progress>
+        }
+    }
 
     @if (_tournament is not null && _nextTask.Stage != TournamentOverview.Stage.Setup)
     {

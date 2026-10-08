@@ -33,8 +33,8 @@ The bar's hover/focus popovers, split preview and animation, and rapid 1v1 marke
 need a browser.
 
 After adding an entry, use **Finish matchups** to open `/vote?focus=<entry-id>`.
-**Voting options** contains the **Focus on entry** selector, listing only entries with remaining
-duels, ordered from most to fewest and by tournament placement when counts are tied. Adaptive voting starts with
+**Voting options** contains the **Focus on entry** selector, listing only entries with more than one remaining
+duel, ordered from most to fewest and by tournament placement when counts are tied. Adaptive voting starts with
 groups of up to ten opponents in standing order; **Split group** halves the
 current group without recording results. Either winning button records all of
 that group's individual duels. Select a segment of the bar under the choices to
