@@ -108,6 +108,10 @@ else
                     <button type="button" class="tactile tactile--large tactile--secondary voting-choice" disabled="@(!_sessionReady)" data-choice="left" data-action="left" data-duel-id="@duelId" data-winner-id="@leftId"
                             aria-label="@($"Vote for {leftDisplay.Title}")" @onclick="() => CastVote(presentation, duelId, leftId)">
                         <span @key="(duelId, leftId)" class="tactile__face">
+                            @if (CoverArt.Url(_game1) is { } cover1)
+                            {
+                                <img class="tactile__cover" src="@cover1" alt="" draggable="false" onerror="this.hidden = true" />
+                            }
                             <span class="choice-title">@leftDisplay.Title</span>
                             @if (_game1.IncludedTitles is { Count: > 0 } included1)
                             {
@@ -127,6 +131,10 @@ else
                     <button type="button" class="tactile tactile--large tactile--secondary voting-choice" disabled="@(!_sessionReady)" data-choice="right" data-action="right" data-duel-id="@duelId" data-winner-id="@rightId"
                             aria-label="@($"Vote for {rightDisplay.Title}")" @onclick="() => CastVote(presentation, duelId, rightId)">
                         <span @key="(duelId, rightId)" class="tactile__face">
+                            @if (CoverArt.Url(_game2) is { } cover2)
+                            {
+                                <img class="tactile__cover" src="@cover2" alt="" draggable="false" onerror="this.hidden = true" />
+                            }
                             <span class="choice-title">@rightDisplay.Title</span>
                             @if (_game2.IncludedTitles is { Count: > 0 } included2)
                             {

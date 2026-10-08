@@ -15,6 +15,17 @@
 .game-actions summary { min-width: 44px; min-height: 44px; width: max-content; max-width: 100%; padding: var(--space-2) var(--space-4); border: 1px solid transparent; border-radius: var(--shape-mark-alt); background: var(--block); color: var(--accent); font-family: var(--font-label); font-size: var(--text-button); font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; }
 .game-actions[open] { grid-column: 1 / -1; }
 .game-actions[open] summary { margin-left: auto; }
+/* Open actions take the full row. While they fold away they are still visible, so the row keeps that
+   layout until the fold is over. These values cannot blend, so they switch halfway through their
+   transition: at an even pace and a little over twice the fold's 0.24s, that is just after it ends.
+   Opening is immediate, because a transition follows the rule of the state being entered. */
+@supports selector(::details-content) {
+    @media (prefers-reduced-motion: no-preference) {
+        .game-actions { transition: grid-column 0.5s linear allow-discrete; }
+        .game-actions summary { transition: margin-left 0.5s linear allow-discrete; }
+        .game-actions[open], .game-actions[open] summary { transition: none; }
+    }
+}
 .game-action-list { flex-direction: row; flex-wrap: wrap; justify-content: end; gap: var(--space-2); margin-top: var(--space-3); }
 .task-dialog { width: calc(100% - 2rem); max-width: 54rem; margin: auto; overflow-wrap: anywhere; }
 .optional-included > summary { min-height: 44px; padding-block: var(--space-2); font-size: var(--text-control); }
@@ -31,4 +42,30 @@
 }
 @media (max-width: 640px) {
     .entry-fields { grid-template-columns: minmax(0, 1fr); }
+}
+/* A small picture beside the title shows which entries have cover art. */
+.game-main { display: flex; align-items: flex-start; gap: var(--space-3); min-width: 0; }
+.game-cover { flex: none; width: 3rem; aspect-ratio: 3 / 4; border: 1px solid var(--border); border-radius: var(--shape-mark); background: var(--block) center / cover no-repeat; }
+/* The bar takes the room left over; the count and the button keep their own width. */
+.cover-progress { flex-wrap: nowrap; }
+.cover-progress .loading-state, .cover-progress .button { flex: none; }
+.cover-progress .progress-bar { flex: 1 1 6rem; width: auto; min-width: 0; }
+.cover-dialog { max-width: 46rem; }
+.cover-search { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: end; gap: var(--space-3); }
+.cover-results { margin-top: var(--space-4); }
+.cover-results:not(:empty) { margin-bottom: var(--space-4); }
+.cover-upload { padding-top: var(--space-4); border-top: 1px solid var(--rule); }
+/* The file control is a deep child of the page, so it is reached through the dialog. */
+.cover-upload ::deep input[type="file"] { max-width: 100%; color: var(--muted); font-size: var(--text-support); }
+.cover-upload ::deep input[type="file"]::file-selector-button { min-height: 44px; margin-right: var(--space-3); padding: var(--space-1) 1.375rem; border: 0; border-radius: var(--shape-mark); background: var(--block); color: var(--accent); font-family: var(--font-label); font-size: var(--text-button); font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; cursor: pointer; }
+.cover-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(8.25rem, 1fr)); gap: var(--space-3); margin: 0; padding: 0; list-style: none; }
+.cover-option { display: flex; flex-direction: column; gap: var(--space-1); width: 100%; height: 100%; padding: var(--space-2); border: 1px solid var(--rule); border-radius: var(--shape-mark-alt); background: var(--glaze); color: var(--text); font: inherit; font-size: var(--text-support); line-height: 1.4; text-align: left; overflow-wrap: anywhere; cursor: pointer; }
+.cover-option img { width: 100%; height: auto; aspect-ratio: 3 / 4; border-radius: 2px; background: var(--block); object-fit: cover; }
+@media (hover: hover) {
+    .cover-option:hover { border-color: var(--heading); }
+}
+@media (max-width: 640px) {
+    .cover-search { grid-template-columns: minmax(0, 1fr); justify-items: start; }
+    .cover-search .field { width: 100%; }
+    .cover-progress { flex-wrap: wrap; }
 }

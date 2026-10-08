@@ -86,6 +86,9 @@
     --paint-cool-ground: #1c2a30;
     --paint-cool-far: radial-gradient(60% 53% at 75% 23%, #3f8f8c 0, transparent 55%), radial-gradient(53% 60% at 20% 83%, #5b4a80 0, transparent 60%);
     --paint-cool-near: linear-gradient(rgb(12 18 20 / 52%) 17%, rgb(12 18 20 / 72%) 83%), radial-gradient(40% 40% at 43% 47%, #2b4f6e 0, transparent 70%);
+    /* Over cover art the glaze is deeper, since box art can be far brighter than paint, and the middle colour thinner. */
+    --paint-warm-near-art: linear-gradient(rgb(20 16 14 / 66%) 17%, rgb(20 16 14 / 84%) 83%), radial-gradient(40% 40% at 57% 43%, rgb(181 83 45 / 50%) 0, transparent 70%);
+    --paint-cool-near-art: linear-gradient(rgb(12 18 20 / 66%) 17%, rgb(12 18 20 / 84%) 83%), radial-gradient(40% 40% at 43% 47%, rgb(43 79 110 / 50%) 0, transparent 70%);
     /* Wide canvases keep their light on the right, away from left-aligned text. */
     --paint-warm-wide: linear-gradient(100deg, rgb(20 16 14 / 82%) 0, rgb(20 16 14 / 60%) 55%, rgb(20 16 14 / 46%) 100%), radial-gradient(60% 100% at 96% 10%, #d9b055 0, transparent 60%), radial-gradient(50% 90% at 68% 65%, #b5532d 0, transparent 70%), radial-gradient(60% 90% at 0% 100%, #6e2a1a 0, transparent 65%), #3a2a22;
     --paint-cool-wide: linear-gradient(100deg, rgb(12 18 20 / 82%) 0, rgb(12 18 20 / 58%) 55%, rgb(12 18 20 / 22%) 100%), radial-gradient(60% 100% at 96% 10%, #58b3ad 0, transparent 60%), radial-gradient(50% 90% at 70% 70%, #2b4f6e 0, transparent 70%), radial-gradient(60% 90% at 0% 100%, #5b4a80 0, transparent 65%), #1c2a30;
@@ -263,11 +266,26 @@ a { color: inherit; cursor: pointer; }
     /* Kept tight: the duel stage clips a few pixels beyond the choices. */
     box-shadow: 0 4px 8px -2px var(--shadow);
 }
-/* The paint drifts under the text. Each sheet overhangs the canvas, so its edge never shows. */
+/* The paint drifts under the text on two sheets. Each overhangs the canvas, so its edge never shows.
+   Cover art sits in the same stack: a tiled ground lies under both sheets, a single cover stands above them. */
 .tactile > .tactile__face::before, .tactile > .tactile__face::after { content: ""; position: absolute; inset: -25%; pointer-events: none; will-change: transform; }
-.tactile > .tactile__face::before { z-index: -2; background: var(--tactile-far); transform: translate(calc(var(--paint-drift-x) * var(--tactile-sway) * 8%), calc(var(--paint-drift-y) * 8%)) rotate(calc(var(--paint-drift-y) * var(--tactile-sway) * 4deg)); }
-.tactile > .tactile__face::after { z-index: -1; background: var(--tactile-near); transform: translate(calc(var(--paint-drift-y) * var(--tactile-sway) * -7%), calc(var(--paint-drift-x) * 6%)); }
+.tactile > .tactile__face::before { z-index: -3; background: var(--tactile-far); transform: translate(calc(var(--paint-drift-x) * var(--tactile-sway) * 8%), calc(var(--paint-drift-y) * 8%)) rotate(calc(var(--paint-drift-y) * var(--tactile-sway) * 4deg)); }
+.tactile > .tactile__face::after { z-index: -2; background: var(--tactile-near); transform: translate(calc(var(--paint-drift-y) * var(--tactile-sway) * -7%), calc(var(--paint-drift-x) * 6%)); }
 .tactile--large > .tactile__face { min-height: 8rem; padding: 1.625rem; flex-direction: column; align-items: stretch; text-align: left; }
+/* One game: its whole cover stands in the bottom right corner, as tall as the canvas where that fits and never
+   wider than three fifths of it, fading into the paint on its left. The text keeps clear of it; where a long
+   title still reaches it, it meets the faded part. */
+.tactile__cover { position: absolute; z-index: -1; right: 0; bottom: 0; width: auto; height: auto; max-width: 60%; max-height: 100%; -webkit-mask-image: linear-gradient(to right, transparent, #000 45%); mask-image: linear-gradient(to right, transparent, #000 45%); pointer-events: none; user-select: none; }
+.tactile > .tactile__face:has(> .tactile__cover) { padding-right: var(--tactile-cover-reserve, 7.5rem); }
+/* Under the paint: one cover fills the canvas, or the covers of several games tile it, repeating until it is
+   full. Text runs over all of it, so the far sheet thins to let the pictures show and the glaze deepens to
+   keep the text readable on bright box art. */
+.tactile__ground { position: absolute; z-index: -4; inset: 0; background: center 30% / cover no-repeat; pointer-events: none; }
+.tactile__mosaic { position: absolute; z-index: -4; inset: 0; display: grid; grid-template-columns: repeat(var(--mosaic-columns, 4), minmax(0, 1fr)); align-content: start; overflow: hidden; pointer-events: none; }
+.tactile__mosaic > span { aspect-ratio: 3 / 4; background: center / cover no-repeat; }
+.tactile--art { --tactile-near: var(--paint-warm-near-art); }
+.tactile--art:nth-of-type(2) { --tactile-near: var(--paint-cool-near-art); }
+.tactile--art > .tactile__face::before { opacity: .5; }
 .tactile--icon > .tactile__face { padding: var(--space-3); }
 .tactile--danger { --tactile-ground: var(--danger-surface); --tactile-far: none; --tactile-near: none; --tactile-label: var(--danger); }
 .tactile:focus-visible { outline: 2px solid var(--accent); outline-offset: 5px; }
@@ -426,6 +444,8 @@ dialog.dialog::backdrop { background: var(--backdrop); }
     /* Narrow, tall canvases lean less so their edges stay apart. */
     .tactile { --tactile-tilt: -0.3deg; }
     .tactile:nth-of-type(2) { --tactile-tilt: 0.3deg; }
+    /* A narrow canvas shows two covers across, so they stay large enough to read. */
+    .tactile__mosaic { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     .surface, .dialog { padding: var(--space-4); }
     .empty-state { padding: var(--space-6) var(--space-4); }
 }

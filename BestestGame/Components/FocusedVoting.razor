@@ -71,12 +71,19 @@
             // Buttons cannot contain disclosures, so included titles are shown as text.
             var opponents = current.Select(duelId => (DuelId: duelId, Game: Opponent(_duels[duelId]))).ToArray();
             var opponentTitles = opponents.Select(opponent => EntryTitles.GetTitleDisplay(opponent.Game).Title).ToArray();
+            // Against one opponent each canvas shows its whole cover at its edge, as in ordinary voting.
+            // Against a group the pictures lie under the paint: the entry's cover fills its canvas, and the
+            // group's canvas is tiled with the covers of all its games.
+            var group = current.Length > 1;
+            string[] entryCovers = CoverArt.Url(_game) is { } own ? [own] : [];
+            var opponentCovers = opponents.Select(opponent => CoverArt.Url(opponent.Game)).OfType<string>().ToArray();
             <div class="focused-matchup">
-                <button type="button" class="tactile tactile--large tactile--secondary focused-choice"
+                <button type="button" class="tactile tactile--large tactile--secondary focused-choice @(group && entryCovers.Length > 0 ? "tactile--art" : null)"
                         disabled="@(!_ready || _busy)" data-action="win" aria-keyshortcuts="1 ArrowLeft"
                         aria-label="@($"{entryDisplay.Title} wins against {(current.Length == 1 ? opponentTitles[0] : $"all {current.Length} opponents in this group")}")"
                         aria-describedby="focused-batch-scope" @onclick="() => Vote(presentation, true)">
                     <span @key="presentation" class="tactile__face">
+                        @Pictures(entryCovers, group)
                         <span class="choice-label">Your entry</span>
                         <span class="choice-title">@entryDisplay.Title</span>
                         @if (!string.IsNullOrWhiteSpace(entryDisplay.Subtitle))
@@ -88,11 +95,12 @@
                     </span>
                 </button>
                 <span class="matchup-versus" aria-hidden="true">vs</span>
-                <button type="button" class="tactile tactile--large tactile--secondary focused-choice"
+                <button type="button" class="tactile tactile--large tactile--secondary focused-choice @(group && opponentCovers.Length > 0 ? "tactile--art" : null)"
                         disabled="@(!_ready || _busy)" data-action="lose" aria-keyshortcuts="2 ArrowRight"
                         aria-label="@(current.Length == 1 ? $"{opponentTitles[0]} wins against {entryDisplay.Title}" : $"All {current.Length} opponents in this group win against {entryDisplay.Title}: {string.Join(", ", opponentTitles)}")"
                         aria-describedby="focused-batch-scope" @onclick="() => Vote(presentation, false)">
                     <span @key="presentation" class="tactile__face">
+                        @Pictures(opponentCovers, group)
                         <span class="choice-label">@(current.Length == 1 ? "Opponent" : $"All {current.Length} opponents in this group")</span>
                         <span class="opponent-list">
                             @foreach (var opponent in opponents)
@@ -184,6 +192,30 @@
     private sealed record VotingAction(Guid[][]? Groups, GameService.DuelResult[] Results);
     private sealed record SavedSession(Guid[][] Groups, bool UseGroups, GameService.DuelResult[][]? Votes = null);
     private const int SavedVoteBatches = 20;
+    // More tiles than the largest canvas can show; the canvas clips the rest.
+    private const int MosaicTiles = 48;
+
+    // Against a group, one cover fills the canvas and several are tiled, up to four across. Each pass through
+    // the covers starts three further on, so equal covers do not stack into columns.
+    private static RenderFragment Pictures(string[] covers, bool group) => @<text>
+        @if (covers.Length > 1 && group)
+        {
+            <span class="tactile__mosaic" style="--mosaic-columns: @Math.Min(covers.Length, 4)" aria-hidden="true">
+                @for (var tile = 0; tile < MosaicTiles; tile++)
+                {
+                    <span style="background-image: url('@covers[(tile + tile / covers.Length * 3) % covers.Length]')"></span>
+                }
+            </span>
+        }
+        else if (covers.Length > 0 && group)
+        {
+            <span class="tactile__ground" style="background-image: url('@covers[0]')" aria-hidden="true"></span>
+        }
+        else if (covers.Length > 0)
+        {
+            <img class="tactile__cover" src="@covers[0]" alt="" draggable="false" onerror="this.hidden = true" />
+        }
+    </text>;
     private const int SavedVoteResults = 150;
 
     protected override void OnParametersSet()

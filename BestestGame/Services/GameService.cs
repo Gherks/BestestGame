@@ -12,14 +12,20 @@ public class GameService
     private readonly object _databaseLock = new();
 
     public GameService(IConfiguration configuration, IWebHostEnvironment env)
+        => _dbPath = DatabasePath(configuration, env);
+
+    public static string DatabasePath(IConfiguration configuration, IWebHostEnvironment env)
     {
         var configuredPath = configuration["DatabasePath"];
-        _dbPath = string.IsNullOrWhiteSpace(configuredPath)
+        return string.IsNullOrWhiteSpace(configuredPath)
             ? Path.Combine(env.ContentRootPath, "data.json")
             : Path.IsPathRooted(configuredPath)
                 ? Path.GetFullPath(configuredPath)
                 : Path.GetFullPath(configuredPath, env.ContentRootPath);
     }
+
+    /// <summary>Cover pictures live beside the database, so they share its lifetime and survive deployments.</summary>
+    public string CoversDirectory => Path.Combine(Path.GetDirectoryName(_dbPath)!, "covers");
 
     private GameDatabase Load()
     {
@@ -323,8 +329,39 @@ public class GameService
             RecalculatePoints(tournament);
 
             Save(db);
+            DeleteCoverFile(game.CoverImage);
             return true;
         }
+    }
+
+    /// <summary>
+    /// Records which stored picture belongs to an entry of the selected tournament, or none.
+    /// The picture it replaces is deleted.
+    /// </summary>
+    public bool SetCover(Guid gameId, string? fileName)
+    {
+        if (fileName is not null && (fileName.Length == 0 || Path.GetFileName(fileName) != fileName))
+            throw new ArgumentException("A cover is a file name inside the covers folder.", nameof(fileName));
+        lock (_databaseLock)
+        {
+            var db = Load();
+            var game = GetCurrentTournament(db)?.Games.FirstOrDefault(g => g.Id == gameId);
+            if (game is null)
+                return false;
+
+            var replaced = game.CoverImage;
+            game.CoverImage = fileName;
+            Save(db);
+            if (replaced != fileName) DeleteCoverFile(replaced);
+            return true;
+        }
+    }
+
+    private void DeleteCoverFile(string? fileName)
+    {
+        if (string.IsNullOrEmpty(fileName) || Path.GetFileName(fileName) != fileName) return;
+        try { File.Delete(Path.Combine(CoversDirectory, fileName)); }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException) { /* A leftover picture is harmless. */ }
     }
 
     public bool HasPendingDuels() => GetPendingDuels().Count > 0;

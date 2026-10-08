@@ -75,6 +75,16 @@ Unknown years are `null`; assigned years must be integers from 1 to 9999.
 Older databases with string-based included titles or missing years still load.
 Saving writes included titles as objects with optional years.
 
+`CoverArtChecks` adds 20 assertions against a stand-in for Twitch and IGDB: nothing requested
+without credentials, rejected credentials, token reuse and renewal, safe quoting of titles,
+which candidates are certain (name, year within one, accents and punctuation set aside),
+collections and legacy titles, downloading beside the database, uncertain and unknown
+titles, replacing, restoring, clearing and removing pictures, uploaded pictures (stored by
+their real kind, replaced, refused when not a picture or too large, and left alone by a
+fetch), and unchanged storage for entries without a cover. The Games page controls, the candidate chooser and the painted
+canvases need a browser; the real IGDB service needs credentials. See the Cover art section
+of [the main README](../README.md).
+
 On Games (`/import`), search the library by parent or included title. **Add game**
 and **Actions → Edit details** open a shared native editor; **Import list** opens a
 separate native dialog. Title/year appear before the optional included-title

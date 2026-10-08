@@ -1,5 +1,6 @@
 using BestestGame.Components;
 using BestestGame.Services;
+using Microsoft.Extensions.FileProviders;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -7,7 +8,16 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
 
+// Cover pictures and the IGDB credentials that fetch them sit beside the database: outside the
+// repository and the release folders, and kept across deployments.
+var dataDirectory = Path.GetDirectoryName(GameService.DatabasePath(builder.Configuration, builder.Environment))!;
+var coversDirectory = Path.Combine(dataDirectory, "covers");
+Directory.CreateDirectory(coversDirectory);
+builder.Configuration.AddJsonFile(new PhysicalFileProvider(dataDirectory), "igdb.json", optional: true, reloadOnChange: true);
+
 builder.Services.AddSingleton<GameService>();
+builder.Services.AddSingleton(services => new CoverArtService(
+    services.GetRequiredService<IConfiguration>(), services.GetRequiredService<GameService>()));
 builder.Services.AddScoped<TournamentSelectionNotifications>();
 
 var app = builder.Build();
@@ -27,9 +37,17 @@ else if (!OperatingSystem.IsWindows())
 app.UseHttpsRedirection();
 
 app.UseStaticFiles();
+app.UseStaticFiles(new StaticFileOptions { FileProvider = new PhysicalFileProvider(coversDirectory), RequestPath = "/covers" });
 app.UseAntiforgery();
 
 app.MapGet("/healthz", () => Results.Text(builder.Configuration["DeploymentId"] ?? "development"));
+
+// Candidate pictures shown while choosing a cover are relayed, so the browser never contacts IGDB.
+app.MapGet("/covers/preview/{imageId}", async (string imageId, CoverArtService covers, CancellationToken cancellation) =>
+{
+    try { return Results.File(await covers.PreviewAsync(imageId, cancellation), "image/jpeg"); }
+    catch (CoverArtService.CoverArtException) { return Results.NotFound(); }
+});
 
 app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();

@@ -167,13 +167,49 @@ and the Home/GOTY explanations) unfold from their summary and fold back over
 single child element. Reduced motion and browsers without `::details-content`
 toggle instantly.
 
-Headings and game titles use **Bricolage Grotesque**; controls and supporting
-copy use **DM Sans**. Both variable fonts are bundled locally with their licenses,
-preloaded and served by the application, with automatic optical sizing and system
-fallbacks. Body text is 18px, controls are at least 16px, supporting text is 15px
-and voting titles scale from 24px to 30px. Sizes use `rem` so browser text settings
+Headings, game titles and body copy use **Libre Baskerville**, with headings in italic;
+buttons, navigation and labels use **Barlow Condensed** in capitals. Both are bundled
+locally with their licenses, preloaded and served by the application, with system
+fallbacks. Body text is 17px, controls are at least 16px, supporting text is 15px
+and voting titles scale from 26px to 32px. Sizes use `rem` so browser text settings
 still apply. See [font asset provenance](BestestGame/wwwroot/fonts/README.md) and
 [the typography validation report](docs/ux-typography.md).
+
+## Cover art
+
+Voting canvases can show an entry's cover under the paint. Covers come from
+[IGDB](https://www.igdb.com/), are downloaded once by the server and kept in a `covers`
+folder beside the database; pages only ever load them from this application. On Games,
+**Fetch covers** looks up every entry without a picture and adds the ones with a certain
+match: the same name, and the same release year to within one when the entry has a year.
+The rest are marked, and **Actions → Choose cover** lists IGDB's candidates for that entry,
+with a search field for titles IGDB spells differently, and removes a cover again. The same
+dialog uploads a picture of your own (JPEG, PNG or WebP, up to 10 MB) for games IGDB does not
+have; that works without credentials too. A collection is looked up by its first included
+title.
+
+In a matchup of two games each canvas shows its whole cover at the right edge, as tall as the
+canvas and fading into the paint. When an entry meets a group in focused voting, the pictures
+lie under the paint instead: the entry's cover fills its canvas, and the group's canvas is
+tiled with the covers of all its games, up to four across. On a phone, where focused canvases
+stand side by side, a single cover lies across the foot of its canvas under the paint.
+
+Cover art is off until IGDB credentials exist. IGDB is reached through a Twitch developer
+application: register one at `dev.twitch.tv/console` (any HTTPS redirect URL, client type
+Confidential), then put its client ID and a generated secret in `igdb.json` beside the
+database file, which is `.dev-data/igdb.json` in development and
+`../BestestGameLive/data/igdb.json` for the live service:
+
+```json
+{ "Igdb": { "ClientId": "…", "ClientSecret": "…" } }
+```
+
+The file is read when it changes, so no restart is needed, and both locations are outside
+version control. Covers are not part of the database backups: each recorded cover names its
+IGDB image, so **Fetch covers** downloads any missing picture again without a new lookup.
+That also fills the development copy, whose database is refreshed from the live one. An
+uploaded picture exists only in its own covers folder and cannot be fetched again, so keep
+the original if it matters.
 
 Focused Voting (`/vote?focus=<entry-id>`) shows a progress summary above two
 equal-width tactile choices: the entry on the left and its compact opponent rows

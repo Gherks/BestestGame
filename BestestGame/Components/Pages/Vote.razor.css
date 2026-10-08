@@ -21,6 +21,8 @@
 .compact-progress { gap: var(--space-1); border: 0; padding: 0; }
 .compact-progress .cluster { justify-content: space-between; gap: var(--space-1) var(--space-3); }
 @media (max-width: 900px) {
+    /* Shorter canvases have narrower covers to keep clear of. */
+    .voting-choice { --tactile-cover-reserve: 5rem; }
     .matchup-grid { grid-template-columns: minmax(0, 1fr); gap: var(--space-1); }
     .matchup-versus { justify-self: center; }
     .voting-choice > .tactile__face { min-height: 6rem; }

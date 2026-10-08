@@ -4,6 +4,7 @@
 @using BestestGame.Models
 @using BestestGame.Services
 @inject GameService GameService
+@inject CoverArtService Covers
 @inject IJSRuntime JS
 
 <PageTitle>Games | BestestGame</PageTitle>
@@ -39,6 +40,10 @@
                 <div class="cluster">
                     <button type="button" class="button @(_games.Count == 0 ? "button--primary" : "")" @onclick="OpenAddForm" aria-haspopup="dialog"><span class="button__content">Add game</span></button>
                     <button type="button" class="button" @onclick="OpenImportForm" aria-haspopup="dialog"><span class="button__content">Import list</span></button>
+                    @if (Covers.IsConfigured)
+                    {
+                        <button type="button" class="button" @onclick="FetchMissingCovers" disabled="@(_coverRun is not null || _games.Count == 0)"><span class="button__content">Fetch covers</span></button>
+                    }
                 </div>
             </div>
             <div class="library-search">
@@ -53,6 +58,18 @@
                 <p id="library-count" class="helper-text" role="status">@(string.IsNullOrWhiteSpace(_searchText) ? $"{_games.Count} {(_games.Count == 1 ? "entry" : "entries")}" : $"Showing {visibleGames.Count} of {_games.Count} entries")</p>
                 <button type="button" class="button" @onclick="ClearSearch" disabled="@string.IsNullOrEmpty(_searchText)"><span class="button__content">Clear search</span></button>
             </div>
+            @if (_coverRun is not null)
+            {
+                <div class="cover-progress cluster">
+                    <p class="loading-state" role="status">Fetching covers: @_coverDone of @_coverTotal</p>
+                    <progress class="progress-bar" value="@_coverDone" max="@_coverTotal" aria-label="Covers fetched"></progress>
+                    <button type="button" class="button" @onclick="() => _coverRun?.Cancel()"><span class="button__content">Stop</span></button>
+                </div>
+            }
+            else if (!Covers.IsConfigured && _games.Count > 0)
+            {
+                <p class="helper-text">Covers are not looked up, because IGDB credentials are missing from <code>igdb.json</code> beside the database. You can still upload a picture from each entry's Actions.</p>
+            }
             @if (_games.Count == 0)
             {
                 <div class="surface empty-state"><p>No games in this tournament yet. Add a game or import a list to begin.</p></div>
@@ -69,8 +86,17 @@
                         var pending = _pendingMatchups.GetValueOrDefault(game.Id);
                         var display = EntryTitles.GetTitleDisplay(game);
                         <li @key="game.Id" class="game-row" data-game-id="@game.Id">
+                            <div class="game-main">
+                            @if (CoverArt.Url(game) is { } cover)
+                            {
+                                <span class="game-cover" style="background-image: url('@cover')" role="img" aria-label="Cover picture"></span>
+                            }
                             <div class="game-details stack">
                                 <h3>@display.Title</h3>
+                                @if (game.CoverImage is null && _coverCandidates.ContainsKey(game.Id))
+                                {
+                                    <p class="helper-text">No certain cover match. Choose one from Actions.</p>
+                                }
                                 @if (pending > 0)
                                 {
                                     <p class="helper-text">@pending @(pending == 1 ? "matchup" : "matchups") remaining</p>
@@ -95,6 +121,7 @@
                                     </details>
                                 }
                             </div>
+                            </div>
                             <details class="game-actions">
                                 <summary aria-label="@($"Actions for {game.Title}")">Actions</summary>
                                 <div class="game-action-list stack">
@@ -103,6 +130,7 @@
                                     {
                                         <a href="@($"/vote?focus={game.Id}")" class="button" aria-label="@($"Finish matchups for {game.Title}")"><span class="button__content">Finish matchups</span></a>
                                     }
+                                    <button type="button" class="button" @onclick="() => OpenCoverChooser(game)" aria-haspopup="dialog" aria-label="@($"Choose cover for {game.Title}")"><span class="button__content">Choose cover</span></button>
                                     <button type="button" class="button button--danger" @onclick="() => PromptRemoveGame(game)" aria-label="@($"Remove {game.Title}")" aria-haspopup="dialog"><span class="button__content">Remove</span></button>
                                 </div>
                             </details>
@@ -204,6 +232,62 @@
                         }
                     }
                 </div>
+            }
+        </dialog>
+
+        <dialog @ref="_coverDialog" class="dialog task-dialog cover-dialog" aria-labelledby="cover-heading" aria-modal="true">
+            @if (_coverGame is { } coverGame)
+            {
+                <div class="dialog__header">
+                    <h2 id="cover-heading">Cover for @EntryTitles.GetTitleDisplay(coverGame).Title</h2>
+                    <button type="button" class="button" @onclick="CloseCoverChooser"><span class="button__content">Close</span></button>
+                </div>
+                @if (Covers.IsConfigured)
+                {
+                    <form class="cover-search" @onsubmit="SearchCovers" @onsubmit:preventDefault="true">
+                        <div class="field">
+                            <label class="field-label" for="coverQuery">Search IGDB for</label>
+                            <input id="coverQuery" type="search" class="form-control" @bind="_coverQuery" @bind:event="oninput" />
+                        </div>
+                        <button type="submit" class="button" disabled="@(_coverBusy is not null || string.IsNullOrWhiteSpace(_coverQuery))"><span class="button__content">Search</span></button>
+                    </form>
+                }
+                <div class="cover-results" aria-busy="@(_coverBusy is not null ? "true" : "false")" aria-live="polite">
+                    @if (_coverBusy is not null)
+                    {
+                        <p class="loading-state">@_coverBusy</p>
+                    }
+                    else if (!string.IsNullOrEmpty(_coverNotice))
+                    {
+                        <p class="status status--warning">@_coverNotice</p>
+                    }
+                    @if (_coverBusy is null && _coverResults is { Count: > 0 } results)
+                    {
+                        <ul class="cover-grid">
+                            @foreach (var candidate in results)
+                            {
+                                <li @key="candidate.ImageId">
+                                    <button type="button" class="cover-option" @onclick="() => ChooseCover(candidate)">
+                                        <img src="@($"/covers/preview/{candidate.ImageId}")" alt="" loading="lazy" width="132" height="176" />
+                                        <span>@candidate.Name</span>
+                                        <span class="helper-text">@(candidate.Year?.ToString() ?? "Year unknown")</span>
+                                    </button>
+                                </li>
+                            }
+                        </ul>
+                    }
+                </div>
+                <div class="cover-upload field">
+                    <label class="field-label" for="coverUpload">@(Covers.IsConfigured ? "Or upload a picture" : "Upload a picture")</label>
+                    <InputFile id="coverUpload" OnChange="UploadCover" accept="image/jpeg,image/png,image/webp" disabled="@(_coverBusy is not null)" aria-describedby="cover-upload-help" />
+                    <p id="cover-upload-help" class="helper-text">JPEG, PNG or WebP, up to 10 MB. Upright box art fits best.</p>
+                </div>
+                @if (coverGame.CoverImage is not null)
+                {
+                    <div class="dialog__actions">
+                        <button type="button" class="button button--danger" disabled="@(_coverBusy is not null)" @onclick="() => RemoveCover(coverGame)"><span class="button__content">Remove cover</span></button>
+                    </div>
+                }
             }
         </dialog>
 
@@ -477,6 +561,146 @@
         _message = "Could not remove that game title. Please refresh and try again.";
     }
 
+    // Cover art: a run over every entry without a picture, and a chooser for the ones that need a person.
+    private CancellationTokenSource? _coverRun;
+    private int _coverDone;
+    private int _coverTotal;
+    private readonly Dictionary<Guid, IReadOnlyList<CoverArtService.Candidate>> _coverCandidates = [];
+    private ElementReference _coverDialog;
+    private Game? _coverGame;
+    private string _coverQuery = string.Empty;
+    private IReadOnlyList<CoverArtService.Candidate>? _coverResults;
+    private string _coverNotice = string.Empty;
+    private string? _coverBusy;
+
+    private async Task FetchMissingCovers()
+    {
+        if (_coverRun is not null) return;
+        var missing = _games.Where(game => !Covers.HasCoverFile(game)).ToList();
+        _messageLocation = MessageLocation.Library;
+        _alertClass = "alert-success";
+        if (missing.Count == 0)
+        {
+            _message = "Every entry already has a cover.";
+            return;
+        }
+        _message = string.Empty;
+        (_coverDone, _coverTotal) = (0, missing.Count);
+        int added = 0, undecided = 0, unknown = 0, absent = 0;
+        string? problem = null;
+        using var run = _coverRun = new CancellationTokenSource();
+        try
+        {
+            foreach (var game in missing)
+            {
+                var result = await Covers.FetchAsync(game, run.Token);
+                if (result.Outcome == CoverArtService.Outcome.Added) added++;
+                else if (result.Outcome == CoverArtService.Outcome.NotFound) unknown++;
+                else if (result.Outcome == CoverArtService.Outcome.UploadMissing) absent++;
+                else
+                {
+                    undecided++;
+                    _coverCandidates[game.Id] = result.Candidates;
+                }
+                _coverDone++;
+                StateHasChanged();
+            }
+        }
+        catch (CoverArtService.CoverArtException exception) { problem = exception.Message; }
+        catch (OperationCanceledException) { problem = "Stopped before every entry was looked up."; }
+        finally { _coverRun = null; }
+        LoadGames();
+        if (problem is not null) _alertClass = "alert-warning";
+        _message = string.Join(" ", new[]
+        {
+            problem,
+            $"Added {added} {(added == 1 ? "cover" : "covers")}.",
+            undecided > 0 ? $"{undecided} had no certain match: choose from each entry's Actions." : null,
+            unknown > 0 ? $"{unknown} could not be found: upload a picture from the entry's Actions." : null,
+            absent > 0 ? $"{absent} uploaded {(absent == 1 ? "picture is" : "pictures are")} not in this covers folder." : null
+        }.Where(part => part is not null));
+    }
+
+    private async Task OpenCoverChooser(Game game)
+    {
+        _coverGame = game;
+        _coverQuery = CoverArtService.Subject(game).Title;
+        _coverNotice = string.Empty;
+        _coverResults = _coverCandidates.GetValueOrDefault(game.Id);
+        if (_coverResults is null && Covers.IsConfigured) await SearchCovers();
+    }
+
+    private async Task SearchCovers()
+    {
+        if (_coverGame is null || _coverBusy is not null) return;
+        _coverBusy = "Searching…";
+        _coverNotice = string.Empty;
+        try
+        {
+            _coverResults = await Covers.SearchAsync(_coverQuery);
+            if (_coverResults.Count == 0) _coverNotice = "IGDB has no cover under that title. Try another spelling.";
+        }
+        catch (CoverArtService.CoverArtException exception) { _coverNotice = exception.Message; }
+        finally { _coverBusy = null; }
+    }
+
+    private async Task ChooseCover(CoverArtService.Candidate candidate)
+    {
+        if (_coverGame is not { } game || _coverBusy is not null) return;
+        _coverBusy = "Saving the cover…";
+        try
+        {
+            await Covers.SetCoverAsync(game.Id, candidate.ImageId);
+            _coverCandidates.Remove(game.Id);
+            LoadGames();
+            _messageLocation = MessageLocation.Library;
+            _alertClass = "alert-success";
+            _message = $"Cover saved for {EntryTitles.GetTitleDisplay(game).Title}.";
+            CloseCoverChooser();
+        }
+        catch (CoverArtService.CoverArtException exception) { _coverNotice = exception.Message; }
+        finally { _coverBusy = null; }
+    }
+
+    private async Task UploadCover(InputFileChangeEventArgs upload)
+    {
+        if (_coverGame is not { } game || _coverBusy is not null) return;
+        _coverBusy = "Saving the cover…";
+        _coverNotice = string.Empty;
+        try
+        {
+            if (upload.File.Size > CoverArtService.UploadLimit)
+                throw new CoverArtService.CoverArtException("That picture is larger than 10 MB.");
+            await using var picture = upload.File.OpenReadStream(CoverArtService.UploadLimit);
+            await Covers.SetUploadedCoverAsync(game.Id, picture);
+            _coverCandidates.Remove(game.Id);
+            LoadGames();
+            _messageLocation = MessageLocation.Library;
+            _alertClass = "alert-success";
+            _message = $"Cover saved for {EntryTitles.GetTitleDisplay(game).Title}.";
+            CloseCoverChooser();
+        }
+        catch (CoverArtService.CoverArtException exception) { _coverNotice = exception.Message; }
+        catch (IOException) { _coverNotice = "The picture could not be read. Try again."; }
+        finally { _coverBusy = null; }
+    }
+
+    private void RemoveCover(Game game)
+    {
+        Covers.ClearCover(game.Id);
+        LoadGames();
+        _messageLocation = MessageLocation.Library;
+        _alertClass = "alert-success";
+        _message = $"Cover removed from {EntryTitles.GetTitleDisplay(game).Title}.";
+        CloseCoverChooser();
+    }
+
+    private void CloseCoverChooser()
+    {
+        _coverGame = null;
+        _coverResults = null;
+    }
+
     private void LoadGames()
     {
         _currentTournament = GameService.GetCurrentTournament();
@@ -506,6 +730,7 @@
             await _dialogModule.InvokeVoidAsync("initialize", _removalDialog, _dialogReference);
             await _dialogModule.InvokeVoidAsync("initialize", _entryDialog, _dialogReference, "CancelEntryFromKeyboard");
             await _dialogModule.InvokeVoidAsync("initialize", _importDialog, _dialogReference, "CancelImportFromKeyboard");
+            await _dialogModule.InvokeVoidAsync("initialize", _coverDialog, _dialogReference, "CancelCoverFromKeyboard");
             _libraryModule = await JS.InvokeAsync<IJSObjectReference>("import", "./js/gameLibrary.js");
             await _libraryModule.InvokeVoidAsync("initialize", _libraryRoot);
         }
@@ -514,6 +739,7 @@
             await _dialogModule.InvokeVoidAsync("sync", _removalDialog, _gamePendingRemoval is not null, _manageHeading);
             await _dialogModule.InvokeVoidAsync("sync", _entryDialog, _entryOpen, _manageHeading, _editingGameId is null ? "entryTitle" : "entryYear");
             await _dialogModule.InvokeVoidAsync("sync", _importDialog, _importOpen, _manageHeading, "gameTitles");
+            await _dialogModule.InvokeVoidAsync("sync", _coverDialog, _coverGame is not null, _manageHeading, "coverQuery");
         }
         if (_focusSearch)
         {
@@ -548,6 +774,13 @@
     }
 
     [JSInvokable]
+    public void CancelCoverFromKeyboard()
+    {
+        CloseCoverChooser();
+        StateHasChanged();
+    }
+
+    [JSInvokable]
     public void CancelRemovalFromKeyboard()
     {
         CancelRemoveGame();
@@ -556,6 +789,7 @@
 
     public async ValueTask DisposeAsync()
     {
+        _coverRun?.Cancel();
         if (_libraryModule is not null)
         {
             try
@@ -572,6 +806,7 @@
                 await _dialogModule.InvokeVoidAsync("dispose", _removalDialog);
                 await _dialogModule.InvokeVoidAsync("dispose", _entryDialog);
                 await _dialogModule.InvokeVoidAsync("dispose", _importDialog);
+                await _dialogModule.InvokeVoidAsync("dispose", _coverDialog);
                 await _dialogModule.DisposeAsync();
             }
             catch (JSDisconnectedException) { }
