@@ -92,7 +92,35 @@ static class OrdinaryDuelChecks
         session.Reset();
         Check(session.Current is null && !session.CanUndo && session.Presentation != token && File.ReadAllText(path) == before,
             "New visits/tournaments reset only local choices and undo state");
-        Console.WriteLine("24 ordinary voting checks passed.");
+        ClosestFirst();
+        Console.WriteLine("29 ordinary voting checks passed.");
+    }
+
+    // Selection order only: no service or stored data is involved.
+    private static void ClosestFirst()
+    {
+        var entries = new[] { 10, 10, 7, 2 }.Select(points => new Game { Points = points }).ToArray();
+        var points = entries.ToDictionary(game => game.Id, game => game.Points);
+        Duel Pair(int first, int second) => new() { Game1Id = entries[first].Id, Game2Id = entries[second].Id };
+        Duel level = Pair(0, 1), nearA = Pair(0, 2), nearB = Pair(1, 2), far = Pair(0, 3);
+        Duel[] pending = [far, nearA, level, nearB];
+        HashSet<Guid> excluded = [];
+        var session = new OrdinaryDuelSession(new Random(1));
+        HashSet<Guid> Picks(Guid? avoid = null, IReadOnlySet<Guid>? without = null, bool closest = true)
+            => Enumerable.Range(0, 200).Select(_ =>
+            {
+                session.Select(pending, without ?? excluded, avoid: avoid, points: closest ? points : null);
+                return session.Current!.Id;
+            }).ToHashSet();
+        Check(Picks().SetEquals([level.Id]), "Closest first always opens the matchup that is level on points");
+        Check(Picks(avoid: level.Id).SetEquals([nearA.Id, nearB.Id]),
+            "Skip moves on to the next closest matchups, and equally close ones stay random");
+        Check(Picks(without: new HashSet<Guid> { entries[1].Id }).SetEquals([nearA.Id]),
+            "Closest first only considers matchups without excluded entries");
+        session.Select(pending, excluded, preferred: far.Id, points: points);
+        Check(session.Current?.Id == far.Id, "A requested matchup still opens ahead of closer ones");
+        Check(Picks(closest: false).SetEquals(pending.Select(duel => duel.Id)),
+            "With closest first off, every available matchup can come up");
     }
 
     private static void Check(bool condition, string description)

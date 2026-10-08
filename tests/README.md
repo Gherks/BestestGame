@@ -164,12 +164,18 @@ and removal/Rankings dialog regressions with the shared helper. Responsive, text
 zoom, reduced-motion and isolated-data checks are recorded in
 [the Step 9 report](../docs/ux-step9.md) and its evidence manifest.
 
-`OrdinaryDuelChecks` adds 24 isolated assertions for preferred/empty/excluded
+`OrdinaryDuelChecks` adds 29 isolated assertions for preferred/empty/excluded
 queues, choosing a different pending duel on Skip, safe single-matchup Skip,
 stale/wrong/non-participant input, one parent point per vote, retained saved winner,
 Vote → Skip → Undo, repeated input/Undo, later corrections, externally removed
-results, another session's vote, tournament isolation and visit-only reset. These
-run with the same .NET check command.
+results, another session's vote, tournament isolation and visit-only reset, and for
+closest-first order: level matchups first, the next closest on Skip, exclusions,
+requested matchups and the random order when it is off. These run with the same
+.NET check command.
+
+**Closest matchups first** under Voting options (on by default, kept for the browser
+tab) asks about entries that are level on points before lopsided pairs; turned off,
+matchups come up in random order. It applies from the next matchup.
 
 Ordinary Voting has 1/Left, 2/Right, U and S shortcuts, using the shared scoped
 keyboard helper with a separate action map. The focused defaults and session

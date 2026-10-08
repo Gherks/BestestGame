@@ -9,7 +9,6 @@ public class GameService
     public sealed record DuelResult(Guid DuelId, Guid WinnerId);
 
     private readonly string _dbPath;
-    private readonly Random _random = new();
     private readonly object _databaseLock = new();
 
     public GameService(IConfiguration configuration, IWebHostEnvironment env)
@@ -122,48 +121,6 @@ public class GameService
             return [];
 
         return tournament.Duels.Where(d => !d.IsCompleted).ToList();
-    }
-
-    public (Duel? duel, Game? game1, Game? game2) GetRandomPendingDuel()
-    {
-        var db = Load();
-        var tournament = GetCurrentTournament(db);
-        if (tournament is null)
-            return (null, null, null);
-
-        var pending = tournament.Duels.Where(d => !d.IsCompleted).ToList();
-        if (pending.Count == 0)
-            return (null, null, null);
-
-        var duel = PickDuel(tournament, pending);
-        var game1 = tournament.Games.FirstOrDefault(g => g.Id == duel.Game1Id);
-        var game2 = tournament.Games.FirstOrDefault(g => g.Id == duel.Game2Id);
-        return (duel, game1, game2);
-    }
-
-    private Duel PickDuel(Tournament tournament, List<Duel> pending)
-    {
-        int total = tournament.Duels.Count;
-        int completed = total - pending.Count;
-
-        // After 33% of matches are completed, prioritize duels involving bottom-ranked games
-        if (total > 0 && completed >= total / 3)
-        {
-            var bottomGameIds = tournament.Games
-                .OrderBy(g => g.Points)
-                .Take(Math.Max(1, tournament.Games.Count / 3))
-                .Select(g => g.Id)
-                .ToHashSet();
-
-            var bottomDuels = pending
-                .Where(d => bottomGameIds.Contains(d.Game1Id) || bottomGameIds.Contains(d.Game2Id))
-                .ToList();
-
-            if (bottomDuels.Count > 0)
-                return bottomDuels[_random.Next(bottomDuels.Count)];
-        }
-
-        return pending[_random.Next(pending.Count)];
     }
 
     /// <summary>

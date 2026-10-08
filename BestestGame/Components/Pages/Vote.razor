@@ -177,6 +177,16 @@ else
                 </div>
                 <a href="/import" class="text-link">Add another entry</a>
                 </div>
+                @if (FocusEntry is null)
+                {
+                    <div class="field">
+                        <label class="checkbox-field">
+                            <input type="checkbox" checked="@_closestFirst" disabled="@(!_sessionReady)" @onchange="ToggleClosestFirst" />
+                            Closest matchups first
+                        </label>
+                        <p class="helper-text">Asks about entries that are level on points before lopsided pairs. Applies from the next matchup.</p>
+                    </div>
+                }
                 <div><a href="@RankingsUrl" class="text-link">View rankings and voting exclusions</a></div>
                 @if (FocusEntry is null)
                 {
@@ -226,6 +236,9 @@ else
     private bool _tournamentChanged;
     private bool _sessionReady => !_tournamentChanged && !_restoreExclusions && _currentTournament is not null && _exclusions.IsReadyFor(_currentTournament.Id);
     private string _voteNotice = string.Empty;
+    // An order preference for the browser tab, like the focused voting toggles.
+    private const string ClosestFirstKey = "bestestgame:ordinary:closest-first";
+    private bool _closestFirst = true;
     private const string InitialDuelStateKey = "Vote.InitialDuel";
     private PersistingComponentStateSubscription? _persistingSubscription;
 
@@ -295,7 +308,8 @@ else
         _presentablePendingCount = presentablePendingDuels.Count;
         _onlyArenaBanMatchesRemain = _arenaBannedGameIds.Count > 0 && pendingDuels.Count > 0 && presentablePendingDuels.Count == 0;
 
-        _ordinary.Select(presentablePendingDuels, _arenaBannedGameIds, initialDuelId, avoidDuelId);
+        _ordinary.Select(presentablePendingDuels, _arenaBannedGameIds, initialDuelId, avoidDuelId,
+            _closestFirst ? _games.ToDictionary(game => game.Id, game => game.Points) : null);
         var gamesById = _games.ToDictionary(g => g.Id);
         _game1 = _currentDuel is { } duel1 ? gamesById.GetValueOrDefault(duel1.Game1Id) : null;
         _game2 = _currentDuel is { } duel2 ? gamesById.GetValueOrDefault(duel2.Game2Id) : null;
@@ -360,6 +374,14 @@ else
             : "Skipped for now. No result saved.";
     }
 
+    private async Task ToggleClosestFirst(ChangeEventArgs args)
+    {
+        // The matchup on screen stays; the new order applies from the next one.
+        _closestFirst = args.Value is true;
+        if (_shortcutModule is not null)
+            await _shortcutModule.InvokeVoidAsync("saveSession", ClosestFirstKey, _closestFirst ? "1" : "0");
+    }
+
     private bool ContainsArenaBannedTitle(Duel duel)
         => _arenaBannedGameIds.Contains(duel.Game1Id) || _arenaBannedGameIds.Contains(duel.Game2Id);
 
@@ -373,6 +395,11 @@ else
             {
                 ["1"] = "left", ["arrowleft"] = "left", ["2"] = "right", ["arrowright"] = "right", ["u"] = "undo", ["s"] = "skip"
             }, false);
+            if (await _shortcutModule.InvokeAsync<string?>("readSession", ClosestFirstKey) == "0")
+            {
+                _closestFirst = false;
+                StateHasChanged();
+            }
         }
         if (!_restoreExclusions || _restoringExclusions) return;
         var tournamentId = _currentTournament.Id;
