@@ -14,16 +14,27 @@ public static class TournamentInsights
     /// <summary>Neighbours in the standings with a stored matchup. Winner is null until it has a result.</summary>
     public sealed record Rivalry(Game Higher, Game Lower, int Gap, Game? Winner);
 
-    /// <summary>The counts cover every upset and loop; the lists hold only the most notable.</summary>
-    public sealed record Summary(IReadOnlyList<Upset> Upsets, int UpsetCount,
+    /// <summary>
+    /// The counts cover every upset and loop; the lists hold only the most notable.
+    /// UpsetGap is how far behind a winner had to stand for its win to count as an upset.
+    /// </summary>
+    public sealed record Summary(IReadOnlyList<Upset> Upsets, int UpsetCount, int UpsetGap,
         IReadOnlyList<Loop> Loops, int LoopCount, IReadOnlyList<Rivalry> Rivalries);
 
-    public static Summary Build(IEnumerable<Game> games, IEnumerable<Duel> duels, int limit = 5)
+    /// <summary>
+    /// Entries a point or two apart trade wins all the time. A win is an upset when the winner stands
+    /// a twentieth of the field behind, and never less than two points.
+    /// </summary>
+    public static int NotableGap(int entries) => Math.Max(2, (int)Math.Round(entries / 20.0));
+
+    public static Summary Build(IEnumerable<Game> games, IEnumerable<Duel> duels, int limit = 5, int? minimumGap = null)
     {
         // Positions follow the standings, so a lower position always means at least as many points.
-        var standings = TournamentStandings.Rank(games).Select(entry => entry.Game).ToArray();
+        duels = duels as IReadOnlyCollection<Duel> ?? duels.ToList();
+        var standings = TournamentStandings.Rank(games, duels).Select(entry => entry.Game).ToArray();
         var position = standings.Select((game, index) => (game.Id, index)).ToDictionary(pair => pair.Id, pair => pair.index);
         var count = standings.Length;
+        var upsetGap = minimumGap ?? NotableGap(count);
         var paired = new bool[count, count];
         var beats = new bool[count, count];
         foreach (var duel in duels)
@@ -38,7 +49,7 @@ public static class TournamentInsights
         var upsets = new List<Upset>();
         for (var loser = 0; loser < count; loser++)
             for (var winner = loser + 1; winner < count; winner++)
-                if (beats[winner, loser] && standings[winner].Points < standings[loser].Points)
+                if (beats[winner, loser] && standings[loser].Points - standings[winner].Points >= upsetGap)
                     upsets.Add(new(standings[winner], standings[loser], standings[loser].Points - standings[winner].Points));
 
         // Every loop of three is found once, starting from its highest entry, in either direction.
@@ -63,10 +74,21 @@ public static class TournamentInsights
                 beats[higher, lower] ? standings[higher] : beats[lower, higher] ? standings[lower] : null));
         }
 
+        // One startling result drags many loops along with it, so each result is listed in one loop only.
         // Stable sorts keep standings order among equals: the higher up the table, the earlier.
+        var listed = new List<Loop>();
+        var shown = new HashSet<(Game Winner, Game Loser)>();
+        foreach (var loop in loops.OrderByDescending(loop => loop.Spread))
+        {
+            (Game, Game)[] results = [(loop.First, loop.Second), (loop.Second, loop.Third), (loop.Third, loop.First)];
+            if (listed.Count == limit || results.Any(shown.Contains)) continue;
+            shown.UnionWith(results);
+            listed.Add(loop);
+        }
+
         return new(
-            upsets.OrderByDescending(upset => upset.Gap).Take(limit).ToList(), upsets.Count,
-            loops.OrderByDescending(loop => loop.Spread).Take(limit).ToList(), loops.Count,
+            upsets.OrderByDescending(upset => upset.Gap).Take(limit).ToList(), upsets.Count, upsetGap,
+            listed, loops.Count,
             rivalries.OrderBy(rivalry => rivalry.Gap).ThenBy(rivalry => rivalry.Winner is not null).Take(limit).ToList());
     }
 }

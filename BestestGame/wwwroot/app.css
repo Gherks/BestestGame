@@ -135,6 +135,8 @@ a { color: inherit; cursor: pointer; }
 :where(strong) { color: var(--heading); }
 :where(code, pre, kbd) { font-family: var(--font-mono); }
 :where(a, button, input, select, textarea, summary, [tabindex]):focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+/* Opening a page moves focus to its heading for screen readers. The heading is not a control, so it shows no ring. */
+#main-content h1:focus-visible { outline: none; }
 
 /* Familiar scrollbars, with quiet cool neutrals. */
 * { scrollbar-color: #5b6667 var(--sidebar); }
@@ -384,6 +386,28 @@ select option { background: var(--board); color: var(--text); }
 .data-table tbody tr:hover { background-size: 100% 100%; }
 .data-table caption { padding: var(--space-3) var(--space-4); color: var(--muted); text-align: left; }
 
+/* Finishing is the payoff of all that voting: the result takes a large warm canvas, with its cover standing at the
+   edge, and arrives more slowly and heavily than anything else in the application. */
+.finish { gap: var(--space-4); }
+.finish-canvas { position: relative; isolation: isolate; display: flex; flex-direction: column; align-items: flex-start; justify-content: center; gap: var(--space-3); min-height: 17rem; padding: clamp(1.5rem, 4vw, 2.75rem); border: 1px solid rgb(243 236 217 / 28%); border-radius: var(--shape-canvas); background: var(--paint-warm-wide); overflow: hidden; }
+.finish-canvas:has(> .finish-cover:not([hidden])) { padding-right: min(42%, 17rem); }
+.finish-cover { position: absolute; z-index: -1; right: 0; bottom: 0; width: auto; height: auto; max-width: 45%; max-height: 100%; -webkit-mask-image: linear-gradient(to right, transparent, #000 45%); mask-image: linear-gradient(to right, transparent, #000 45%); user-select: none; }
+.finish-canvas :is(h2, h3) { display: flex; flex-direction: column; gap: var(--space-2); }
+.finish-label { color: var(--entry-label); font-family: var(--font-label); font-size: 1.0625rem; font-style: normal; font-weight: 700; letter-spacing: 0.16em; line-height: 1.4; text-transform: uppercase; }
+.finish-title { color: var(--heading); font-size: clamp(2rem, 4.4vw, 3.25rem); line-height: 1.08; letter-spacing: -0.01em; }
+.finish-score { color: #ffd58a; font-size: 2.25rem; font-style: italic; line-height: 1; font-variant-numeric: tabular-nums; }
+.finish-score span { color: var(--heading); font-family: var(--font-label); font-size: var(--text-label); font-style: normal; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; }
+.finish-note { color: var(--text); }
+.finish-podium { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 15rem), 1fr)); gap: var(--space-3); margin: 0; padding: 0; list-style: none; }
+.finish-place { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: var(--space-4); min-height: 5rem; padding: var(--space-3) var(--space-4); border: 1px solid var(--rule); border-radius: var(--shape-canvas-alt); background: var(--glaze); }
+.finish-rank { color: var(--accent); font-size: 2.25rem; font-style: italic; line-height: 1; }
+.finish-place-entry { display: flex; flex-direction: column; min-width: 0; overflow-wrap: anywhere; }
+.finish-place-title { color: var(--heading); font-size: 1.1875rem; line-height: 1.3; }
+.finish-thumb { width: 2.75rem; aspect-ratio: 3 / 4; border-radius: var(--shape-mark); background: var(--block) center / cover no-repeat; }
+@keyframes finish-arrive { from { opacity: 0; transform: translateY(1.5rem) scale(.96); filter: blur(10px) saturate(.3); } }
+@keyframes finish-develop { from, 30% { opacity: 0; filter: saturate(0) brightness(.4); } }
+@keyframes finish-rise { from { opacity: 0; transform: translateY(.75rem); } }
+
 /* The paint drift is two numbers swinging at different paces on the duel stage. The stage outlives
    every duel, so a new canvas picks the drift up where the last one left it instead of restarting. */
 @property --paint-drift-x { syntax: "<number>"; inherits: true; initial-value: 0; }
@@ -426,6 +450,13 @@ select option { background: var(--board); color: var(--text); }
     .data-table tbody tr { transition: background-size 0.45s var(--ease-paint); }
     .progress-bar::-webkit-progress-value { transition: inline-size 0.9s ease-out; }
     .count-settle, .value-settle { animation: count-settle 0.7s ease-out; }
+    /* The canvas settles first, its cover develops like a photograph, then the rest follows one by one. */
+    .finish-canvas { animation: finish-arrive 1.2s cubic-bezier(.16, .8, .2, 1) both; }
+    .finish-cover { animation: finish-develop 2s ease-out both; }
+    .finish-place, .finish > :not(.finish-canvas, .finish-podium) { animation: finish-rise 0.8s cubic-bezier(.16, .8, .2, 1) 1.25s both; }
+    .finish-place:nth-child(1) { animation-delay: 0.65s; }
+    .finish-place:nth-child(2) { animation-delay: 0.85s; }
+    .finish-place:nth-child(3) { animation-delay: 1.05s; }
     /* Both finish within the copy's hold. */
     .duel-outgoing .duel-chosen::after { animation: choice-glow 0.16s ease-out both; }
     .duel-outgoing .duel-passed > .tactile__face { animation: choice-dim 0.2s ease-out both; }

@@ -211,6 +211,14 @@ if [[ -f "$live_database" ]]; then
     backup_path="$runtime_dir/backups/data-$release_id.json"
     cp -p -- "$live_database" "$backup_path"
     printf 'Saved live database backup: %s\n' "$backup_path"
+    # Fetched covers can be downloaded again; pictures uploaded by hand exist nowhere else.
+    # Their names never repeat, so one folder collects them across deployments.
+    for picture in "$(dirname -- "$live_database")"/covers/*.upload-*; do
+        [[ -f "$picture" ]] || continue
+        mkdir -p -- "$runtime_dir/backups/covers"
+        saved_picture="$runtime_dir/backups/covers/$(basename -- "$picture")"
+        [[ -e "$saved_picture" ]] || cp -p -- "$picture" "$saved_picture"
+    done
 else
     if [[ -f "$legacy_database" ]]; then
         cp -p -- "$legacy_database" "$runtime_dir/backups/data-$release_id.json"

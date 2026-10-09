@@ -3,23 +3,30 @@ using BestestGame.Services;
 
 namespace BestestGame.Components;
 
-// Display-only full-tournament standings. GOTY keeps its own head-to-head rules.
+// Display-only full-tournament standings.
 public static class TournamentStandings
 {
     public sealed record Entry(Game Game, int Rank);
 
-    public static List<Entry> Rank(IEnumerable<Game> games, int? year = null)
+    /// <summary>
+    /// Entries level on points are ordered by the completed matchups among them. Those that
+    /// stay level share a rank, and are listed alphabetically only for presentation.
+    /// </summary>
+    public static List<Entry> Rank(IEnumerable<Game> games, IEnumerable<Duel>? duels = null, int? year = null)
     {
-        var ordered = games.Where(game => year is null || ReleaseRankings.MatchesYear(game, year.Value))
-            .OrderByDescending(game => game.Points)
-            .ThenBy(game => game.Title, StringComparer.OrdinalIgnoreCase)
-            .ThenBy(game => game.Id).ToList();
-        var entries = new List<Entry>(ordered.Count);
-        var rank = 0;
-        for (var i = 0; i < ordered.Count; i++)
+        var results = new HeadToHead.Results(duels);
+        var entries = new List<Entry>();
+        foreach (var level in games.Where(game => year is null || ReleaseRankings.MatchesYear(game, year.Value))
+            .GroupBy(game => game.Points).OrderByDescending(level => level.Key))
         {
-            if (i == 0 || ordered[i].Points != ordered[i - 1].Points) rank = i + 1;
-            entries.Add(new(ordered[i], rank));
+            var byId = level.ToDictionary(game => game.Id);
+            foreach (var tier in HeadToHead.Tiers(byId.Keys, results))
+            {
+                var rank = entries.Count + 1;
+                entries.AddRange(tier.Select(id => byId[id])
+                    .OrderBy(game => game.Title, StringComparer.OrdinalIgnoreCase).ThenBy(game => game.Id)
+                    .Select(game => new Entry(game, rank)));
+            }
         }
         return entries;
     }

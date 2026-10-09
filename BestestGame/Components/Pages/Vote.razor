@@ -29,7 +29,10 @@ else
              data-presentation="@_ordinary.Presentation">
         <header class="page-heading">
             <h1 id="voting-heading">Voting</h1>
-            <p>@(FocusEntry is null ? "Choose the game you prefer." : $"Focused voting in {_currentTournament.Name}.")</p>
+            @if (FocusEntry is not null)
+            {
+                <p>Focused voting in @_currentTournament.Name.</p>
+            }
         </header>
         @if (FocusEntry is { } focusedId)
         {
@@ -51,8 +54,8 @@ else
             {
             <div class="voting-progress compact-progress">
                 <div class="cluster text-secondary">
-                    <span><strong class="count-settle" @key="_completedCount">@_completedCount</strong> of @_totalCount matchups complete</span>
-                    <span>@_pendingCount remaining</span>
+                    <span>Choose the game you prefer.</span>
+                    <span><strong class="count-settle" @key="_completedCount">@_completedCount</strong> of @_totalCount matchups complete · @_pendingCount remaining</span>
                 </div>
                 <progress class="progress-bar" value="@_completedCount" max="@Math.Max(1, _totalCount)" aria-label="Completed tournament matchups">@_completedCount of @_totalCount</progress>
                 @if (_arenaBannedGameIds.Count > 0)
@@ -90,30 +93,67 @@ else
                 }
                 else
                 {
-                    <div class="status status--success stack">
-                        <h2>All matchups complete</h2>
-                        <p>Your results are ready.</p>
+                    // The payoff of the whole tournament: the winner on a large canvas, the podium beneath it.
+                    var winners = _standings.Where(entry => entry.Rank == 1).ToList();
+                    var podium = _standings.Where(entry => entry.Rank is 2 or 3).Take(4).ToList();
+                    <section class="finish stack" role="status" aria-labelledby="finish-heading">
+                        <div class="finish-canvas">
+                            @if (winners.Count == 1 && CoverArt.Url(winners[0].Game) is { } winnerCover)
+                            {
+                                <img class="finish-cover" src="@winnerCover" alt="" draggable="false" onerror="this.hidden = true" />
+                            }
+                            <h2 id="finish-heading">
+                                <span class="finish-label">All matchups complete · @(winners.Count == 1 ? "Winner" : "Shared winners")</span>
+                                @foreach (var winner in winners)
+                                {
+                                    <span @key="winner.Game.Id" class="finish-title">@GetTitleDisplay(winner.Game).Title</span>
+                                }
+                            </h2>
+                            @if (winners.Count > 0)
+                            {
+                                <p class="finish-score">@winners[0].Game.Points <span>@(winners[0].Game.Points == 1 ? "point" : "points")</span></p>
+                            }
+                        </div>
+                        @if (podium.Count > 0)
+                        {
+                            <ol class="finish-podium">
+                                @foreach (var entry in podium)
+                                {
+                                    <li @key="entry.Game.Id" class="finish-place">
+                                        <span class="finish-rank" aria-label="@($"Rank {entry.Rank}")">@entry.Rank</span>
+                                        <span class="finish-place-entry">
+                                            <span class="finish-place-title">@GetTitleDisplay(entry.Game).Title</span>
+                                            <span class="helper-text">@entry.Game.Points @(entry.Game.Points == 1 ? "point" : "points")</span>
+                                        </span>
+                                        @if (CoverArt.Url(entry.Game) is { } placeCover)
+                                        {
+                                            <span class="finish-thumb" style="background-image: url('@placeCover')" aria-hidden="true"></span>
+                                        }
+                                    </li>
+                                }
+                            </ol>
+                        }
                         <div><a href="@RankingsUrl" class="button button--primary"><span class="button__content">View rankings</span></a></div>
-                    </div>
+                    </section>
                 }
             }
-            else if (_game1 is not null && _game2 is not null)
+            else if (_leftGame is not null && _rightGame is not null)
             {
                 var duelId = _currentDuel.Id;
-                var leftId = _game1.Id;
-                var rightId = _game2.Id;
-                var leftDisplay = GetTitleDisplay(_game1);
-                var rightDisplay = GetTitleDisplay(_game2);
+                var leftId = _leftGame.Id;
+                var rightId = _rightGame.Id;
+                var leftDisplay = GetTitleDisplay(_leftGame);
+                var rightDisplay = GetTitleDisplay(_rightGame);
                 <div class="matchup-grid">
-                    <button type="button" class="tactile tactile--large tactile--secondary voting-choice" disabled="@(!_sessionReady)" data-choice="left" data-action="left" data-duel-id="@duelId" data-winner-id="@leftId"
-                            aria-label="@($"Vote for {leftDisplay.Title}")" @onclick="() => CastVote(presentation, duelId, leftId)">
+                    <button type="button" class="tactile tactile--large tactile--secondary voting-choice @(CoverArt.Url(_leftGame) is null ? null : "tactile--art")" disabled="@(!_sessionReady)" data-choice="left" data-action="left" data-duel-id="@duelId" data-winner-id="@leftId"
+                            aria-keyshortcuts="1 ArrowLeft" aria-label="@($"Vote for {leftDisplay.Title}")" @onclick="() => CastVote(presentation, duelId, leftId)">
                         <span @key="(duelId, leftId)" class="tactile__face">
-                            @if (CoverArt.Url(_game1) is { } cover1)
+                            @if (CoverArt.Url(_leftGame) is { } cover1)
                             {
-                                <img class="tactile__cover" src="@cover1" alt="" draggable="false" onerror="this.hidden = true" />
+                                <span class="tactile__ground" style="background-image: url('@cover1')" aria-hidden="true"></span>
                             }
                             <span class="choice-title">@leftDisplay.Title</span>
-                            @if (_game1.IncludedTitles is { Count: > 0 } included1)
+                            @if (_leftGame.IncludedTitles is { Count: > 0 } included1)
                             {
                                 <span class="choice-context">Collection · @included1.Count included @(included1.Count == 1 ? "title" : "titles")</span>
                             }
@@ -125,18 +165,19 @@ else
                             {
                                 <span class="choice-subtitle">@leftDisplay.Subtitle</span>
                             }
+                            <span class="choice-help" aria-hidden="true">1 or ←</span>
                         </span>
                     </button>
                     <span class="matchup-versus" aria-hidden="true">vs</span>
-                    <button type="button" class="tactile tactile--large tactile--secondary voting-choice" disabled="@(!_sessionReady)" data-choice="right" data-action="right" data-duel-id="@duelId" data-winner-id="@rightId"
-                            aria-label="@($"Vote for {rightDisplay.Title}")" @onclick="() => CastVote(presentation, duelId, rightId)">
+                    <button type="button" class="tactile tactile--large tactile--secondary voting-choice @(CoverArt.Url(_rightGame) is null ? null : "tactile--art")" disabled="@(!_sessionReady)" data-choice="right" data-action="right" data-duel-id="@duelId" data-winner-id="@rightId"
+                            aria-keyshortcuts="2 ArrowRight" aria-label="@($"Vote for {rightDisplay.Title}")" @onclick="() => CastVote(presentation, duelId, rightId)">
                         <span @key="(duelId, rightId)" class="tactile__face">
-                            @if (CoverArt.Url(_game2) is { } cover2)
+                            @if (CoverArt.Url(_rightGame) is { } cover2)
                             {
-                                <img class="tactile__cover" src="@cover2" alt="" draggable="false" onerror="this.hidden = true" />
+                                <span class="tactile__ground" style="background-image: url('@cover2')" aria-hidden="true"></span>
                             }
                             <span class="choice-title">@rightDisplay.Title</span>
-                            @if (_game2.IncludedTitles is { Count: > 0 } included2)
+                            @if (_rightGame.IncludedTitles is { Count: > 0 } included2)
                             {
                                 <span class="choice-context">Collection · @included2.Count included @(included2.Count == 1 ? "title" : "titles")</span>
                             }
@@ -148,6 +189,7 @@ else
                             {
                                 <span class="choice-subtitle">@rightDisplay.Subtitle</span>
                             }
+                            <span class="choice-help" aria-hidden="true">2 or →</span>
                         </span>
                     </button>
                 </div>
@@ -175,7 +217,7 @@ else
                         <option value="">All matchups</option>
                         @* Entries with at most one matchup left are hidden, except the focused one so the selector matches the page.
                            The stable sort keeps tournament placement among equal remaining counts. *@
-                        @foreach (var entry in TournamentStandings.Rank(_games).Select(standing => standing.Game)
+                        @foreach (var entry in _standings.Select(standing => standing.Game)
                             .Where(game => _pendingPerGame.GetValueOrDefault(game.Id) > 1 || game.Id == FocusEntry)
                             .OrderByDescending(game => _pendingPerGame.GetValueOrDefault(game.Id)))
                         {
@@ -228,9 +270,10 @@ else
     private Duel? _currentDuel => _ordinary.Current;
     private ElementReference _root;
     private IJSObjectReference? _shortcutModule;
-    private Game? _game1;
-    private Game? _game2;
+    private Game? _leftGame;
+    private Game? _rightGame;
     private List<Game> _games = new();
+    private List<TournamentStandings.Entry> _standings = [];
     private Dictionary<Guid, int> _pendingPerGame = new();
     private int _pendingCount;
     private int _completedCount;
@@ -302,7 +345,7 @@ else
             // present its games under this visit's old tournament context.
             _tournamentChanged = true;
             _ordinary.Reset();
-            _game1 = _game2 = null;
+            _leftGame = _rightGame = null;
             _voteNotice = string.Empty;
             return;
         }
@@ -319,13 +362,15 @@ else
         _ordinary.Select(presentablePendingDuels, _arenaBannedGameIds, initialDuelId, avoidDuelId,
             _closestFirst ? _games.ToDictionary(game => game.Id, game => game.Points) : null);
         var gamesById = _games.ToDictionary(g => g.Id);
-        _game1 = _currentDuel is { } duel1 ? gamesById.GetValueOrDefault(duel1.Game1Id) : null;
-        _game2 = _currentDuel is { } duel2 ? gamesById.GetValueOrDefault(duel2.Game2Id) : null;
+        var sides = _currentDuel is { } duel ? OrdinaryDuelSession.Sides(duel) : default;
+        _leftGame = _currentDuel is null ? null : gamesById.GetValueOrDefault(sides.Left);
+        _rightGame = _currentDuel is null ? null : gamesById.GetValueOrDefault(sides.Right);
     }
 
     private void RefreshVoting()
     {
         _games = GameService.GetGames();
+        _standings = TournamentStandings.Rank(_games, GameService.GetCurrentTournament()?.Duels);
         _totalCount = GameService.TotalDuels();
         _completedCount = GameService.CompletedDuels();
         _pendingCount = _totalCount - _completedCount;

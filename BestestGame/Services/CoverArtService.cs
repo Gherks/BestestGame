@@ -22,6 +22,9 @@ public sealed partial class CoverArtService
     public sealed class CoverArtException(string message, Exception? inner = null) : Exception(message, inner);
 
     public const int UploadLimit = 10 * 1024 * 1024;
+    // Twice the size of a fetched cover, which is enough for a full canvas on a dense screen.
+    public const int UploadWidth = 1056;
+    public const int UploadHeight = 1408;
 
     // IGDB allows four requests a second; staying under it avoids rejected lookups.
     private static readonly TimeSpan RequestSpacing = TimeSpan.FromMilliseconds(280);
@@ -172,11 +175,14 @@ public sealed partial class CoverArtService
         throw new CoverArtException("That entry is no longer in the selected tournament.");
     }
 
+    /// <summary>Whether a file begins like a JPEG, PNG or WebP picture; its first twelve bytes are enough.</summary>
+    public static bool LooksLikePicture(ReadOnlySpan<byte> start) => PictureExtension(start) is not null;
+
     private static string? PictureExtension(ReadOnlySpan<byte> bytes)
     {
         if (bytes.StartsWith<byte>([0xFF, 0xD8, 0xFF])) return "jpg";
         if (bytes.StartsWith<byte>([0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A])) return "png";
-        return bytes.Length > 12 && bytes[..4].SequenceEqual("RIFF"u8) && bytes[8..12].SequenceEqual("WEBP"u8) ? "webp" : null;
+        return bytes.Length >= 12 && bytes[..4].SequenceEqual("RIFF"u8) && bytes[8..12].SequenceEqual("WEBP"u8) ? "webp" : null;
     }
 
     public bool ClearCover(Guid gameId) => _games.SetCover(gameId, null);

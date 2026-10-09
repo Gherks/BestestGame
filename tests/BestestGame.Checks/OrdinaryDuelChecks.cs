@@ -94,7 +94,8 @@ static class OrdinaryDuelChecks
             "New visits/tournaments reset only local choices and undo state");
         ClosestFirst();
         UndoHistory(directory);
-        Console.WriteLine("35 ordinary voting checks passed.");
+        Sides();
+        Console.WriteLine("38 ordinary voting checks passed.");
     }
 
     // Selection order only: no service or stored data is involved.
@@ -122,6 +123,19 @@ static class OrdinaryDuelChecks
         Check(session.Current?.Id == far.Id, "A requested matchup still opens ahead of closer ones");
         Check(Picks(closest: false).SetEquals(pending.Select(duel => duel.Id)),
             "With closest first off, every available matchup can come up");
+    }
+
+    // Which entry is shown on the left must not depend on which was added first.
+    private static void Sides()
+    {
+        Guid older = Guid.NewGuid(), newer = Guid.NewGuid();
+        var shown = Enumerable.Range(0, 400).Select(_ => new Duel { Game1Id = older, Game2Id = newer })
+            .Select(duel => (Duel: duel, Sides: OrdinaryDuelSession.Sides(duel))).ToList();
+        Check(shown.All(item => (item.Sides.Left == older && item.Sides.Right == newer) || (item.Sides.Left == newer && item.Sides.Right == older)),
+            "Both participants are always shown, one on each side");
+        var olderOnLeft = shown.Count(item => item.Sides.Left == older);
+        Check(olderOnLeft is > 140 and < 260, "The entry added first is on the left in about half of the duels");
+        Check(shown.All(item => OrdinaryDuelSession.Sides(item.Duel) == item.Sides), "A duel keeps its sides whenever it is shown again");
     }
 
     private static void UndoHistory(string directory)

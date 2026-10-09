@@ -53,18 +53,34 @@
         <div data-duel-content>
         @if (current.Length == 0)
         {
-            <div class="status @(_blockedCount > 0 ? "status--warning" : "status--success") stack" role="status">
-                @if (_blockedCount > 0)
-                {
+            @if (_blockedCount == 0)
+            {
+                // The entry's own payoff: where it ended up, on its canvas.
+                var standing = TournamentStandings.Rank(_games.Values, _tournamentDuels).First(entry => entry.Game.Id == GameId);
+                var won = _duels.Values.Count(duel => duel.IsCompleted && duel.WinnerId == GameId);
+                <section class="finish stack" role="status" aria-labelledby="entry-finish-heading">
+                    <div class="finish-canvas">
+                        @if (CoverArt.Url(_game) is { } finishedCover)
+                        {
+                            <img class="finish-cover" src="@finishedCover" alt="" draggable="false" onerror="this.hidden = true" />
+                        }
+                        <h3 id="entry-finish-heading">
+                            <span class="finish-label">This entry is finished</span>
+                            <span class="finish-title">Rank @standing.Rank of @_games.Count</span>
+                        </h3>
+                        <p class="finish-score">@_game.Points <span>@(_game.Points == 1 ? "point" : "points")</span></p>
+                        <p class="finish-note">Won @won · Lost @(_completedCount - won)</p>
+                    </div>
+                    <p>All of its matchups are saved. Choose another entry in Voting options or <a href="@RankingsUrl" class="text-link">view rankings</a>.</p>
+                </section>
+            }
+            else
+            {
+                <div class="status status--warning stack" role="status">
                     <h3>Only arena-banned matchups remain</h3>
                     <p>Uncheck the banned titles on <a href="@RankingsUrl" class="text-link">Rankings</a> to finish this entry.</p>
-                }
-                else
-                {
-                    <h3>This entry is finished</h3>
-                    <p>All of its matchups are saved. Choose another entry in Voting options or <a href="@RankingsUrl" class="text-link">view rankings</a>.</p>
-                }
-            </div>
+                </div>
+            }
         }
         else
         {
@@ -166,6 +182,8 @@
     private readonly Stack<VotingAction> _history = new();
     private Dictionary<Guid, Game> _games = [];
     private Dictionary<Guid, Duel> _duels = [];
+    // Every matchup of the tournament: the entry's final rank can depend on results between other entries.
+    private List<Duel> _tournamentDuels = [];
     private Guid[] _barOrder = [];
     private Game? _game;
     private Guid _presentation = Guid.NewGuid();
@@ -239,6 +257,7 @@
             return;
 
         _games = tournament!.Games.ToDictionary(game => game.Id);
+        _tournamentDuels = tournament.Duels;
         var ordered = OpponentBar.StandingOrder(tournament.Games, tournament.Duels, GameId);
         _duels = ordered.ToDictionary(duel => duel.Id);
         _barOrder = ordered.Select(duel => duel.Id).ToArray();

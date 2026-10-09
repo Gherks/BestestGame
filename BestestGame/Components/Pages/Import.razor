@@ -125,6 +125,7 @@
                             <details class="game-actions">
                                 <summary aria-label="@($"Actions for {game.Title}")">Actions</summary>
                                 <div class="game-action-list stack">
+                                    <button type="button" class="button" @onclick="() => EditGameDetails(game, rename: true)" aria-haspopup="dialog" aria-label="@($"Rename {game.Title}")"><span class="button__content">Rename</span></button>
                                     <button type="button" class="button" @onclick="() => EditGameDetails(game)" aria-haspopup="dialog" aria-label="@($"Edit details for {game.Title}")"><span class="button__content">Edit details</span></button>
                                     @if (pending > 0)
                                     {
@@ -143,9 +144,9 @@
         <dialog @ref="_entryDialog" class="dialog task-dialog" aria-labelledby="entry-heading" aria-describedby="entry-help" aria-modal="true">
             @if (_entryOpen)
             {
-                <div class="dialog__header"><h2 id="entry-heading">@(_entrySaved ? (_editingGameId is null ? "Game added" : "Details saved") : _editingGameId is null ? "Add a game" : "Edit game details")</h2></div>
+                <div class="dialog__header"><h2 id="entry-heading">@(_entrySaved ? (_editingGameId is null ? "Game added" : "Details saved") : _editingGameId is null ? "Add a game" : _renaming ? "Rename game" : "Edit game details")</h2></div>
                 <div class="stack">
-                    <p id="entry-help" class="helper-text">@(_editingGameId is null ? "New entries generate matchups with the other games in this tournament. Release years are optional." : "Change release years and included titles here. The saved entry title stays read-only.")</p>
+                    <p id="entry-help" class="helper-text">@(_editingGameId is null ? "New entries generate matchups with the other games in this tournament. Release years are optional." : "Change the title, release years and included titles here. Results and points stay with the entry.")</p>
                     @if (_messageLocation == MessageLocation.Entry && !string.IsNullOrEmpty(_message))
                     {
                         <p @ref="_formFeedback" class="@GetAlertClasses()" role="status" tabindex="-1">@_message</p>
@@ -163,7 +164,7 @@
                             <div class="entry-fields">
                                 <div class="field">
                                     <label for="entryTitle" class="field-label">Title</label>
-                                    <InputText id="entryTitle" @bind-Value="_entry.Title" readonly="@(_editingGameId is not null)" class="form-control" aria-describedby="entry-help" />
+                                    <InputText id="entryTitle" @bind-Value="_entry.Title" class="form-control" aria-describedby="entry-help" />
                                 </div>
                                 <div class="field">
                                     <label for="entryYear" class="field-label">Release year (optional)</label>
@@ -280,7 +281,7 @@
                 <div class="cover-upload field">
                     <label class="field-label" for="coverUpload">@(Covers.IsConfigured ? "Or upload a picture" : "Upload a picture")</label>
                     <InputFile id="coverUpload" OnChange="UploadCover" accept="image/jpeg,image/png,image/webp" disabled="@(_coverBusy is not null)" aria-describedby="cover-upload-help" />
-                    <p id="cover-upload-help" class="helper-text">JPEG, PNG or WebP, up to 10 MB. Upright box art fits best.</p>
+                    <p id="cover-upload-help" class="helper-text">JPEG, PNG or WebP. Upright box art fits best; a large picture is shrunk before it is saved.</p>
                 </div>
                 @if (coverGame.CoverImage is not null)
                 {
@@ -323,6 +324,8 @@
     private string _inputText = string.Empty;
     private Game _entry = new();
     private Guid? _editingGameId;
+    // Rename opens the same editor as Edit details, starting in the title.
+    private bool _renaming;
     private string _message = string.Empty;
     private string _alertClass = "alert-success";
     private bool _isImporting = false;
@@ -415,6 +418,16 @@
         }
         var adding = _editingGameId is null;
         var existingIds = _games.Select(game => game.Id).ToHashSet();
+        if (_editingGameId is { } renamedId && !GameService.RenameGame(renamedId, _entry.Title))
+        {
+            // Refresh after a stale edit while retaining its draft and feedback.
+            LoadGames();
+            _alertClass = "alert-warning";
+            _message = _games.Any(game => game.Id == renamedId)
+                ? "Another entry already has that title. Choose a different one."
+                : "Could not save. This entry is no longer in the tournament.";
+            return;
+        }
         var saved = _editingGameId is { } gameId
             ? GameService.UpdateGameDetails(gameId, _entry.ReleaseYear, _entry.IncludedTitles)
             : GameService.ImportGames(new[] { _entry }) > 0;
@@ -438,9 +451,10 @@
         }
     }
 
-    private void EditGameDetails(Game game)
+    private void EditGameDetails(Game game, bool rename = false)
     {
         _editingGameId = game.Id;
+        _renaming = rename;
         _entry = new Game
         {
             Title = game.Title,
@@ -523,6 +537,7 @@
     private void ResetEntryForm()
     {
         _editingGameId = null;
+        _renaming = false;
         _entry = new Game();
     }
 
@@ -669,9 +684,17 @@
         _coverNotice = string.Empty;
         try
         {
-            if (upload.File.Size > CoverArtService.UploadLimit)
-                throw new CoverArtService.CoverArtException("That picture is larger than 10 MB.");
-            await using var picture = upload.File.OpenReadStream(CoverArtService.UploadLimit);
+            // The browser never answers a request to shrink a file it cannot read as a picture, so the
+            // file's first bytes are checked before asking, and the request is given a time limit.
+            var start = new byte[12];
+            await using (var original = upload.File.OpenReadStream(long.MaxValue))
+                await original.ReadExactlyAsync(start.AsMemory(0, (int)Math.Min(start.Length, upload.File.Size)));
+            if (!CoverArtService.LooksLikePicture(start))
+                throw new CoverArtService.CoverArtException("That file is not a JPEG, PNG or WebP picture.");
+            // Shrinking it there means a large photo neither travels here nor is served at full size on every vote.
+            var shrunk = await upload.File.RequestImageFileAsync("image/jpeg", CoverArtService.UploadWidth, CoverArtService.UploadHeight)
+                .AsTask().WaitAsync(TimeSpan.FromSeconds(20));
+            await using var picture = shrunk.OpenReadStream(CoverArtService.UploadLimit);
             await Covers.SetUploadedCoverAsync(game.Id, picture);
             _coverCandidates.Remove(game.Id);
             LoadGames();
@@ -681,6 +704,7 @@
             CloseCoverChooser();
         }
         catch (CoverArtService.CoverArtException exception) { _coverNotice = exception.Message; }
+        catch (TimeoutException) { _coverNotice = "The browser could not read that file as a picture."; }
         catch (IOException) { _coverNotice = "The picture could not be read. Try again."; }
         finally { _coverBusy = null; }
     }
@@ -737,7 +761,7 @@
         if (_dialogModule is not null)
         {
             await _dialogModule.InvokeVoidAsync("sync", _removalDialog, _gamePendingRemoval is not null, _manageHeading);
-            await _dialogModule.InvokeVoidAsync("sync", _entryDialog, _entryOpen, _manageHeading, _editingGameId is null ? "entryTitle" : "entryYear");
+            await _dialogModule.InvokeVoidAsync("sync", _entryDialog, _entryOpen, _manageHeading, _editingGameId is null || _renaming ? "entryTitle" : "entryYear");
             await _dialogModule.InvokeVoidAsync("sync", _importDialog, _importOpen, _manageHeading, "gameTitles");
             await _dialogModule.InvokeVoidAsync("sync", _coverDialog, _coverGame is not null, _manageHeading, "coverQuery");
         }

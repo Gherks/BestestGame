@@ -2,18 +2,54 @@
 .standings :is(h2, h3), .voting-dialog :is(h2, h3) { line-height: 1.3; }
 .standings h2, .voting-dialog h2 { font-size: 1.5rem; }
 .standings h3, .voting-dialog h3 { font-size: 1.125rem; }
-#standings-heading:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
 .standings .page-heading .cluster { margin-top: var(--space-3); }
+/* The page's actions sit beside its title, so the standings start higher up. */
+.standings-heading { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: var(--space-2) var(--space-6); margin-bottom: 0; }
+/* The top of the standings stands on canvases: a sole leader on a large warm one, the next places beside it. */
+.podium { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 17rem), 1fr)); gap: var(--space-3); margin: 0; padding: 0; list-style: none; }
+.podium--led { grid-template-columns: minmax(0, 1.45fr) minmax(0, 1fr); }
+.podium--led > .podium-place--lead { grid-row: span var(--podium-rows, 2); }
+.podium-place { display: flex; min-width: 0; }
+.podium-canvas { position: relative; isolation: isolate; display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: var(--space-4); width: 100%; min-height: 7rem; padding: var(--space-4) var(--space-6); border: 1px solid rgb(243 236 217 / 28%); border-radius: var(--shape-canvas-alt); background: var(--paint-cool-wide); color: var(--text); font: inherit; text-align: left; overflow: hidden; cursor: pointer; }
+.podium-canvas:disabled { cursor: default; }
+.podium-place--first > .podium-canvas { background: var(--paint-warm-wide); }
+.podium-place:nth-child(odd) > .podium-canvas { border-radius: var(--shape-canvas); }
+/* The whole cover stands at the right edge, as tall as its canvas, fading into the paint. */
+.podium-cover { position: absolute; z-index: -1; top: 0; right: 0; width: auto; height: 100%; max-width: 46%; object-fit: cover; -webkit-mask-image: linear-gradient(to right, transparent, #000 45%); mask-image: linear-gradient(to right, transparent, #000 45%); pointer-events: none; user-select: none; }
+.podium-canvas:has(> .podium-cover:not([hidden])) { padding-right: min(34%, 8rem); }
+.podium-rank { color: var(--accent); font-size: 2.5rem; font-style: italic; line-height: 1; font-variant-numeric: tabular-nums; }
+.podium-place--first .podium-rank { color: var(--winner); }
+.podium-entry { display: flex; flex-direction: column; gap: 2px; min-width: 0; overflow-wrap: anywhere; }
+.podium-title { color: var(--heading); font-family: var(--font-display); font-size: 1.375rem; font-style: italic; line-height: 1.2; }
+.podium-context { font-size: var(--text-support); line-height: 1.5; }
+.podium-points { color: #ffd58a; font-size: 1.5rem; font-style: italic; line-height: 1.3; font-variant-numeric: tabular-nums; }
+.podium-unit { color: var(--heading); font-family: var(--font-label); font-size: var(--text-label); font-style: normal; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; }
+.podium-place--lead > .podium-canvas { min-height: 14.75rem; gap: var(--space-6); padding: clamp(1.5rem, 3vw, 2.5rem); }
+.podium-place--lead > .podium-canvas:has(> .podium-cover:not([hidden])) { padding-right: min(40%, 13rem); }
+.podium-place--lead .podium-rank { font-size: 5rem; }
+.podium-place--lead .podium-entry { gap: var(--space-2); }
+.podium-place--lead .podium-title { font-size: clamp(1.875rem, 3.2vw, 2.75rem); line-height: 1.08; letter-spacing: -0.01em; }
+.podium-place--lead .podium-points { font-size: 2.25rem; line-height: 1; }
+@media (hover: hover) {
+    .podium-canvas:enabled:hover { border-color: rgb(243 236 217 / 80%); filter: saturate(1.5) brightness(1.2); }
+}
+@media (prefers-reduced-motion: no-preference) {
+    .podium-canvas { transition: filter 0.4s ease, border-color 0.4s ease; }
+}
 .standings-filter { display: grid; grid-template-columns: minmax(0, 1fr) 10rem auto; gap: var(--space-3); align-items: start; }
 .standings-clear { margin-top: 1.875rem; }
+.standings-notes { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-1) var(--space-6); }
+.standings-notes:not(:has(:not(:empty))) { display: none; }
 /* A dab of ochre marks rankings that can still change. */
 .standings-progress { display: flex; align-items: center; gap: var(--space-3); color: #c9c3ad; font-style: italic; }
 .standings-progress::before { content: ""; flex: none; width: 2.125rem; height: .75rem; border-radius: var(--shape-mark); background: var(--ochre); }
 .standings-table { table-layout: fixed; }
 .standings-rank-column { width: 4.75rem; }
 .standings-points-column { width: 6rem; }
-.standings-table caption { caption-side: top; font-size: var(--text-support); padding: 0 0 var(--space-3); }
-.standings-table td, .standings-table th { padding: var(--space-3); vertical-align: middle; }
+.standings-table caption { caption-side: bottom; font-size: var(--text-support); padding: var(--space-4) 0 0; }
+.standings-table td, .standings-table th { padding: var(--space-2) var(--space-3); vertical-align: middle; }
+.standings-table thead th { padding-block: var(--space-3); }
+.standings-row { cursor: pointer; }
 .standings-table th[scope="row"] { color: var(--text); font-size: var(--text-body); }
 .standings-table th:last-child, .standings-table .standings-points { text-align: right; }
 .standings-table .standings-points { font-size: 1.3125rem; font-variant-numeric: tabular-nums; }
@@ -23,10 +59,14 @@
 .standings-table .standings-leader { background-color: rgb(201 162 74 / 7%); }
 .standings-table .standings-leader .standings-rank { color: var(--winner); font-size: 2.5rem; }
 .standings-leader .standings-points { color: var(--winner); }
-.standings-entry { display: flex; align-items: center; justify-content: space-between; gap: var(--space-4); }
+.standings-entry { display: flex; align-items: center; gap: var(--space-4); }
+.standings-cover { flex: none; width: 2.25rem; aspect-ratio: 3 / 4; border: 1px solid var(--border); border-radius: var(--shape-mark); background: var(--block) center / cover no-repeat; }
 .standings-entry-title { min-width: 0; overflow-wrap: anywhere; }
-.standings-entry-title > span:first-child { color: var(--heading); font-family: var(--font-display); font-size: 1.1875rem; line-height: 1.3; }
-.standings-entry > .button { flex-shrink: 0; background: transparent; }
+/* The title is a button that reads as the title; the row around it answers the pointer. */
+.standings-open { display: inline; padding: 0; border: 0; background: none; color: var(--heading); font-family: var(--font-display); font-size: 1.1875rem; line-height: 1.3; text-align: left; overflow-wrap: anywhere; cursor: pointer; }
+.standings-open:disabled { cursor: default; }
+/* Points won so far, out of the matchups an unfinished entry has played. */
+.standings-played { display: block; color: var(--muted); font-size: var(--text-support); line-height: 1.2; white-space: nowrap; }
 @media (hover: hover) {
     .standings-table tbody tr:hover .standings-entry-title { transform: translateX(8px); }
 }
@@ -76,6 +116,12 @@
     .standings-rank-column { width: 2.75rem; }
     .standings-points-column { width: 4rem; }
     .standings-table td, .standings-table th { padding: var(--space-3) var(--space-2); vertical-align: top; }
-    .standings-entry { flex-direction: column; align-items: start; gap: var(--space-2); }
+    .standings-entry { align-items: start; gap: var(--space-3); }
+    .standings-heading { align-items: flex-start; }
+    .podium--led { grid-template-columns: minmax(0, 1fr); }
+    .podium--led > .podium-place--lead { grid-row: auto; }
+    .podium-place--lead > .podium-canvas { min-height: 11rem; gap: var(--space-4); }
+    .podium-place--lead .podium-rank { font-size: 3.5rem; }
+    .podium-canvas { padding: var(--space-4); }
     .pending-match { grid-template-columns: minmax(0, 1fr); justify-items: center; }
 }

@@ -163,6 +163,30 @@ class StartupChecks(unittest.TestCase):
         self.assertEqual(second.returncode, 0, second.stderr)
         self.assertEqual(len(list((self.runtime / 'backups').glob('*.json'))), 2)
 
+    def test_update_backs_up_uploaded_cover_pictures_only(self):
+        covers = self.database.parent / 'covers'
+        covers.mkdir()
+        (covers / 'entry.upload-1a.png').write_bytes(b'uploaded by hand')
+        (covers / 'entry-co1x78.jpg').write_bytes(b'fetched, can be downloaded again')
+        result = self.run_script()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        saved = self.runtime / 'backups/covers'
+        self.assertEqual([path.name for path in saved.iterdir()], ['entry.upload-1a.png'])
+        self.assertEqual((saved / 'entry.upload-1a.png').read_bytes(), b'uploaded by hand')
+        self.assertEqual(sorted(path.name for path in covers.iterdir()), ['entry-co1x78.jpg', 'entry.upload-1a.png'])
+        # A picture removed from the live folder stays in the backup; a new one joins it.
+        (covers / 'entry.upload-1a.png').unlink()
+        (covers / 'other.upload-2b.webp').write_bytes(b'second upload')
+        second = self.run_script()
+        self.assertEqual(second.returncode, 0, second.stderr)
+        self.assertEqual(sorted(path.name for path in saved.iterdir()), ['entry.upload-1a.png', 'other.upload-2b.webp'])
+        self.assertEqual((saved / 'entry.upload-1a.png').read_bytes(), b'uploaded by hand')
+
+    def test_update_without_uploaded_covers_creates_no_cover_backup(self):
+        result = self.run_script()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertFalse((self.runtime / 'backups/covers').exists())
+
     def test_failed_checks_or_publish_leave_live_service_untouched(self):
         for stage in ('run', 'publish'):
             with self.subTest(stage=stage):
@@ -316,6 +340,26 @@ class DevelopmentDataChecks(unittest.TestCase):
             self.assert_only_development_database()
             self.development.write_text('{"debugging": "changed data"}')
             self.assertEqual(self.live.read_bytes(), self.snapshot)
+
+    def test_refresh_mirrors_live_cover_pictures(self):
+        live_covers = self.live.parent / 'covers'
+        live_covers.mkdir()
+        (live_covers / 'kept.jpg').write_bytes(b'live picture')
+        (live_covers / 'entry.upload-1a.png').write_bytes(b'uploaded in the live application')
+        development_covers = self.development.parent / 'covers'
+        development_covers.mkdir(parents=True)
+        (development_covers / 'kept.jpg').write_bytes(b'stale')
+        (development_covers / 'debugging-only.jpg').write_bytes(b'left by discarded debugging changes')
+        result = self.run_script()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual({path.name: path.read_bytes() for path in development_covers.iterdir()},
+                         {'kept.jpg': b'live picture', 'entry.upload-1a.png': b'uploaded in the live application'})
+        self.assertEqual(sorted(path.name for path in live_covers.iterdir()), ['entry.upload-1a.png', 'kept.jpg'])
+        self.assertEqual(self.development.read_bytes(), self.snapshot)
+        # Without a live covers folder the debugging pictures are left alone.
+        shutil.rmtree(live_covers)
+        self.assertEqual(self.run_script().returncode, 0)
+        self.assertEqual(len(list(development_covers.iterdir())), 2)
 
     def test_each_refresh_uses_current_live_data(self):
         self.assertEqual(self.run_script().returncode, 0)

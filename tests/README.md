@@ -9,16 +9,13 @@ Checks use an isolated temporary database and delete it afterward.
 Voting saves immediately and changes duels with a sequential slide-and-fade.
 Browser checks cover both directions/phases, ordinary/adaptive/rapid results,
 queued pointer/keyboard input, full Undo, completion, reduced motion, API fallback,
-interruption, navigation cleanup and mobile/enlarged text. See
-[the vote-transition report](../docs/ux-duel-transitions.md).
-The [static-interface follow-up](../docs/ux-no-effects.md) and numbered UX reports
-describe the interface at those earlier stages.
+interruption, navigation cleanup and mobile/enlarged text.
 
-The typography follow-up checks actual Bricolage Grotesque/DM Sans rendering,
-same-origin font loading and fallback, readable size/weight assignments, desktop/
-tablet/390px/320px layouts, 125% text, dialogs, long/Unicode/collection titles,
-native voting/full Undo and preserved data. See
-[the typography report](../docs/ux-typography.md). Bundled font licenses, source
+The reports these browser checks were recorded in are not kept in this repository; the
+numbered steps below describe what each round covered at the time. The earlier rounds ran
+against the previous theme and fonts. The current theme (Libre Baskerville and Barlow
+Condensed, painted voting canvases, cover art) was checked in Firefox at desktop, 390px and
+320px widths, with hover, keyboard and reduced-motion runs. Bundled font licenses, source
 commit and asset hashes are in [font provenance](../BestestGame/wwwroot/fonts/README.md).
 
 Focused voting checks start with 113 fully ranked entries and verify adaptive
@@ -89,7 +86,7 @@ On Games (`/import`), search the library by parent or included title. **Add game
 and **Actions → Edit details** open a shared native editor; **Import list** opens a
 separate native dialog. Title/year appear before the optional included-title
 section, which assigns independent optional years. Editing focuses the release
-year, keeps the saved title read-only, and retains the collection as one
+year (**Actions → Rename** focuses the title) and retains the collection as one
 participant with shared points and duels. Validation retains unsaved values;
 Cancel/Escape discards drafts. Success refreshes the library and shows focused
 voting links beside feedback only for entries with stored pending duels. Closing
@@ -104,11 +101,16 @@ Rankings (`/rankings`, or `/rankings?year=2007`) supports filtering, keeping gro
 participants intact and showing only included titles matching the chosen year.
 These views do not change scores or generate separate year-specific duels.
 
-`TournamentStandingsChecks` covers shared competition ranks from full-tournament
-points, stable alphabetical presentation within ties, year filtering before
+`TournamentStandingsChecks` covers competition ranks from full-tournament
+points, head-to-head order among entries level on points (repeated among those
+still level, with circles and unplayed pairs sharing a rank), stable
+alphabetical presentation within a shared rank, year filtering before
 search, preservation of ranks while searching, collection/included-title and
 Unicode matching without duplicate participants, blank/no-result/unknown-year
-cases, zero-point ties, read-only game data and the separate GOTY tie-breaks.
+cases, zero-point ties and read-only game data. It also covers when a year's
+first place is still open: contenders by points within reach, level leaders with
+matchups left, head-to-head decisions and collections as one contender. `ManagementChecks` covers
+renaming entries and tournaments and deleting a tournament with its cover pictures.
 Rankings exposes completed/pending counts and all matchup/exclusion actions
 through its native entry Details dialog, which opens with a read-only opponent bar.
 `FocusedVotingChecks` covers the bar's standing order and won/lost/banned/pending
@@ -137,9 +139,10 @@ Browser validation covers the interactive shell in the static layout, full page
 refresh, Tournaments creation/selection notifications, menu/active-page/focus,
 retained-year empty states and exclusions after switching/reloading.
 
-`TournamentInsightsChecks` adds 10 assertions for the Insights section on Rankings: upsets
-(a win by the entry with fewer points) ordered by gap, each loop of three found once from
-its highest entry, neighbouring rivalries with pending ones first among equals, ignored
+`TournamentInsightsChecks` adds 12 assertions for the Insights section on Rankings: upsets
+(a win from at least a twentieth of the field behind, and never from one point) ordered by
+gap, each loop of three found once from its highest entry and listed only if it shares no
+result with a wider one, neighbouring rivalries with pending ones first among equals, ignored
 stray results, list limits beside full counts, empty tournaments and read-only data.
 Entry names in the section open the existing Details dialog; that needs a browser.
 
@@ -154,9 +157,8 @@ Step 7 browser evidence covers all Home states, actual continuation destinations
 existing-list/creation ordering, native creation jumps/input focus, first and
 additional creation, whitespace guards, selection/creation focus and selector
 notifications, adding into a new tournament, responsive/long/grouped titles,
-native instructions before hydration and text contrast. See
-[the Step 7 report](../docs/ux-step7.md) for results and the pre-existing shared
-skip-link limitation found during these checks.
+native instructions before hydration and text contrast. A shared skip-link limitation
+found during these checks was resolved in Step 13.
 
 `GameLibraryChecks` adds 15 assertions for trimmed/case-insensitive title search,
 included-title matching without duplicate parents, Unicode and legacy included
@@ -170,16 +172,14 @@ form reveal and focus, edit cancellation/saving, unchanged validation/duplicate
 rules, real add/import/removal flows and preserved collection semantics. It also
 checks removal keyboard containment/focus return, expanded 16-title collections,
 responsive/enlarged text, reduced motion and exact isolated-data preservation.
-See [the Step 8 report](../docs/ux-step8.md) and its evidence manifest.
 
 Step 9 browser validation covers native add/edit/import dialogs, optional included
 controls, pointer/keyboard opening, containment, cancellation, Escape and visible
 focus restoration/fallbacks. It checks invalid/duplicate/empty drafts, independent
 years, unchanged IDs/points/duels on detail saves, parent-only generation on actual
 add/import, nearby focused-voting destinations, duplicate year/legacy formatting,
-and removal/Rankings dialog regressions with the shared helper. Responsive, text
-zoom, reduced-motion and isolated-data checks are recorded in
-[the Step 9 report](../docs/ux-step9.md) and its evidence manifest.
+and removal/Rankings dialog regressions with the shared helper, along with responsive,
+text zoom, reduced-motion and isolated-data checks.
 
 `OrdinaryDuelChecks` adds 35 isolated assertions for preferred/empty/excluded
 queues, choosing a different pending duel on Skip, safe single-matchup Skip,
@@ -203,7 +203,7 @@ feedback, skip/guarded undo, queued bursts, native repeats/composition/modifiers
 controlled typing/native/equivalent modal fixtures, focus-mode transitions,
 navigation disposal/reconnection, exclusions and stale tournament reload recovery.
 Responsive/long/collection, 125% text, reduced-motion, completion/setup and protected
-data evidence is in [the Step 10 report](../docs/ux-step10.md).
+data were checked as well.
 
 Step 11 browser validation covers ten compact opponent rows and native included
 context, both explicitly scoped batch actions, mobile sticky controls with a
@@ -212,8 +212,7 @@ fallback. It checks actual split/skip queue changes, all winning shortcuts,
 full-batch Undo, rapid 1v1, queued/stale input and later corrections, reload mode/
 queue restoration, tournament-specific tab exclusions, completion/recovery,
 mode/navigation cleanup, save motion, reduced motion and ordinary compatibility.
-Services/models and the adaptive queue algorithm stay unchanged. See
-[the Step 11 report](../docs/ux-step11.md) and its evidence manifest.
+Services/models and the adaptive queue algorithm stay unchanged.
 
 Step 12 browser validation covers the sole native year selector, immediate warm
 leader result, compact Rank/Title/Points nominees and initially collapsed scoring/
@@ -225,8 +224,7 @@ unknown-year exclusion and all missing/empty/no-points/completed states.
 `RankingsNavigationChecks` adds five assertions restricting the legacy redirect
 to actual Voting paths, preventing a departing Voting component from redirecting
 GOTY's year query during Back navigation. Responsive, 125% text, reduced-motion,
-pre-hydration, contrast and exact data-preservation results are recorded in
-[the Step 12 report](../docs/ux-step12.md) and its evidence manifest. The existing
+pre-hydration, contrast and exact data-preservation were checked too. The existing
 GOTY ranking algorithm and persistence behavior remain unchanged.
 
 Step 13 repeats the baseline screen/state matrix on all main pages at desktop,
@@ -242,7 +240,5 @@ The shared skip link now uses the actual current URL, preserving page/year/focus
 before and after hydration; this resolves the limitation recorded in Steps 7–12.
 Focused dock lifecycle checks cover missing/detached DOM references, repeated
 enhanced navigation and exact mode/save/batch/queue Undo, preventing a reproduced
-navigation cleanup exception. Obsolete score-button/table-wrapper styles are removed. Final assertions,
-screenshots, contrast, preservation audit and remaining validation boundaries are
-in [the final UX report](../docs/ux-final.md) and its evidence manifest. Recovery
-banner captures use a controlled reveal; no production exception was induced.
+navigation cleanup exception. Obsolete score-button/table-wrapper styles are removed. Recovery
+banner captures used a controlled reveal; no production exception was induced.

@@ -1,5 +1,7 @@
 @page "/tournaments"
 @rendermode InteractiveServer
+@implements IAsyncDisposable
+@inject IJSRuntime JS
 @using BestestGame.Models
 @using BestestGame.Services
 @inject GameService GameService
@@ -25,10 +27,15 @@
         </section>
     }
 
+    @if (!string.IsNullOrEmpty(_notice))
+    {
+        <p class="status status--success" role="status">@_notice</p>
+    }
+
     @if (_tournaments.Count > 0)
     {
         <section class="stack" aria-labelledby="tournament-list-heading">
-            <h2 id="tournament-list-heading">Your tournaments</h2>
+            <h2 id="tournament-list-heading" @ref="_listHeading" tabindex="-1">Your tournaments</h2>
             <ul class="tournament-list stack">
                 @foreach (var tournament in _tournaments.OrderByDescending(t => t.Id == _currentTournamentId).ThenBy(t => t.Name, StringComparer.OrdinalIgnoreCase))
                 {
@@ -60,6 +67,8 @@
                             {
                                 <a @ref="_selectedAction" href="@nextTask.Href" class="button button--primary" data-selected-next><span class="button__content">@nextTask.Label</span></a>
                             }
+                            <button type="button" class="button" aria-haspopup="dialog" aria-label="@($"Rename tournament: {tournament.Name}")" @onclick="() => PromptRename(tournament)"><span class="button__content">Rename</span></button>
+                            <button type="button" class="button button--danger" aria-haspopup="dialog" aria-label="@($"Delete tournament: {tournament.Name}")" @onclick="() => _pendingDeletion = tournament"><span class="button__content">Delete</span></button>
                         </div>
                     </li>
                 }
@@ -79,6 +88,40 @@
             <button type="submit" class="button @(_tournaments.Count == 0 ? "button--primary" : "")" disabled="@string.IsNullOrWhiteSpace(_newTournamentName)"><span class="button__content">Create tournament</span></button>
         </form>
     </section>
+
+    <dialog @ref="_renameDialog" class="dialog tournament-dialog" aria-labelledby="rename-heading" aria-modal="true">
+        @if (_pendingRename is not null)
+        {
+            <div class="dialog__header"><h2 id="rename-heading">Rename tournament</h2></div>
+            <form class="stack" @onsubmit="ConfirmRename" @onsubmit:preventDefault="true">
+                <div class="field">
+                    <label class="field-label" for="tournament-rename">Tournament name</label>
+                    <input id="tournament-rename" type="text" class="form-control" aria-describedby="tournament-rename-help" @bind="_renameText" @bind:event="oninput" />
+                    <p id="tournament-rename-help" class="helper-text">Its games and results stay as they are.</p>
+                </div>
+                <div class="dialog__actions">
+                    <button type="button" class="button" @onclick="CancelRename"><span class="button__content">Cancel</span></button>
+                    <button type="submit" class="button button--primary" disabled="@string.IsNullOrWhiteSpace(_renameText)"><span class="button__content">Rename</span></button>
+                </div>
+            </form>
+        }
+    </dialog>
+
+    <dialog @ref="_deleteDialog" class="dialog tournament-dialog" aria-labelledby="delete-heading" aria-describedby="delete-description" aria-modal="true">
+        @if (_pendingDeletion is { } doomed)
+        {
+            var results = doomed.Duels.Count(duel => duel.IsCompleted);
+            <div class="dialog__header"><h2 id="delete-heading">Delete tournament?</h2></div>
+            <div id="delete-description" class="stack">
+                <p>Delete <strong>@doomed.Name</strong>?</p>
+                <p class="text-secondary">This permanently deletes its @Counted(doomed.Games.Count, "entry", "entries"), @Counted(results, "saved result", "saved results") and cover pictures. It cannot be undone.</p>
+            </div>
+            <div class="dialog__actions">
+                <button type="button" autofocus class="button" @onclick="CancelDeletion"><span class="button__content">Cancel</span></button>
+                <button type="button" class="button button--danger" @onclick="ConfirmDeletion"><span class="button__content">Delete tournament</span></button>
+            </div>
+        }
+    </dialog>
 </div>
 
 @code {
@@ -90,6 +133,16 @@
     private ElementReference _selectedAction;
     private bool _focusCreatedAction;
     private bool _focusSelectedAction;
+    private string _notice = string.Empty;
+    private Tournament? _pendingRename;
+    private string _renameText = string.Empty;
+    private Tournament? _pendingDeletion;
+    private ElementReference _renameDialog;
+    private ElementReference _deleteDialog;
+    private ElementReference _listHeading;
+    private IJSObjectReference? _dialogModule;
+    private DotNetObjectReference<Tournaments>? _dialogReference;
+    private static string Counted(int count, string one, string many) => $"{count} {(count == 1 ? one : many)}";
 
     protected override void OnInitialized() => LoadTournaments();
 
@@ -104,6 +157,7 @@
         if (string.IsNullOrWhiteSpace(_newTournamentName)) return;
         var tournament = GameService.CreateTournament(_newTournamentName);
         _createMessage = $"Tournament \"{tournament.Name}\" created. It is now the active tournament.";
+        _notice = string.Empty;
         _newTournamentName = string.Empty;
         LoadTournaments();
         SelectionNotifications.NotifyChanged();
@@ -114,15 +168,76 @@
     private void SelectTournament(Guid tournamentId)
     {
         GameService.SelectTournament(tournamentId);
-        _createMessage = string.Empty;
+        _createMessage = _notice = string.Empty;
         LoadTournaments();
         SelectionNotifications.NotifyChanged();
         _focusCreatedAction = false;
         _focusSelectedAction = _currentTournamentId is not null;
     }
 
+    private void PromptRename(Tournament tournament)
+    {
+        _pendingRename = tournament;
+        _renameText = tournament.Name;
+    }
+
+    private void CancelRename() => _pendingRename = null;
+
+    private void ConfirmRename()
+    {
+        if (_pendingRename is not { } tournament || string.IsNullOrWhiteSpace(_renameText)) return;
+        _pendingRename = null;
+        _createMessage = string.Empty;
+        _notice = GameService.RenameTournament(tournament.Id, _renameText)
+            ? $"Renamed \"{tournament.Name}\" to \"{_renameText.Trim()}\"."
+            : "That tournament no longer exists.";
+        LoadTournaments();
+        SelectionNotifications.NotifyChanged();
+    }
+
+    private void CancelDeletion() => _pendingDeletion = null;
+
+    private void ConfirmDeletion()
+    {
+        if (_pendingDeletion is not { } tournament) return;
+        _pendingDeletion = null;
+        _createMessage = string.Empty;
+        var wasActive = tournament.Id == _currentTournamentId;
+        _notice = !GameService.DeleteTournament(tournament.Id) ? "That tournament no longer exists."
+            : $"Deleted \"{tournament.Name}\".{(wasActive ? " No tournament is active now." : "")}";
+        LoadTournaments();
+        SelectionNotifications.NotifyChanged();
+    }
+
+    [JSInvokable]
+    public void CancelRenameFromKeyboard()
+    {
+        CancelRename();
+        StateHasChanged();
+    }
+
+    [JSInvokable]
+    public void CancelDeletionFromKeyboard()
+    {
+        CancelDeletion();
+        StateHasChanged();
+    }
+
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
+        if (firstRender)
+        {
+            _dialogModule = await JS.InvokeAsync<IJSObjectReference>("import", "./js/importDialog.js");
+            _dialogReference = DotNetObjectReference.Create(this);
+            await _dialogModule.InvokeVoidAsync("initialize", _renameDialog, _dialogReference, "CancelRenameFromKeyboard");
+            await _dialogModule.InvokeVoidAsync("initialize", _deleteDialog, _dialogReference, "CancelDeletionFromKeyboard");
+        }
+        if (_dialogModule is not null)
+        {
+            // A deleted row cannot take focus back, so it returns to the list heading.
+            await _dialogModule.InvokeVoidAsync("sync", _renameDialog, _pendingRename is not null, _listHeading, "tournament-rename");
+            await _dialogModule.InvokeVoidAsync("sync", _deleteDialog, _pendingDeletion is not null, _listHeading);
+        }
         if (_focusCreatedAction)
         {
             _focusCreatedAction = false;
@@ -133,5 +248,20 @@
             _focusSelectedAction = false;
             await _selectedAction.FocusAsync();
         }
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (_dialogModule is not null)
+        {
+            try
+            {
+                await _dialogModule.InvokeVoidAsync("dispose", _renameDialog);
+                await _dialogModule.InvokeVoidAsync("dispose", _deleteDialog);
+                await _dialogModule.DisposeAsync();
+            }
+            catch (JSDisconnectedException) { }
+        }
+        _dialogReference?.Dispose();
     }
 }

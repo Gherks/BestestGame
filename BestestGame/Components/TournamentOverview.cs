@@ -27,7 +27,7 @@ public static class TournamentOverview
 
     public static LeaderSummary GetLeaders(Tournament tournament)
     {
-        var leaders = TournamentStandings.Rank(tournament.Games)
+        var leaders = TournamentStandings.Rank(tournament.Games, tournament.Duels)
             .Where(entry => entry.Rank == 1 && entry.Game.Points > 0).Select(entry => entry.Game).ToList();
         return new(leaders.Take(3).ToList(), leaders.Count);
     }

@@ -127,8 +127,9 @@ try
     TournamentOverviewChecks.Run();
     GameLibraryChecks.Run();
     OrdinaryDuelChecks.Run(directory);
+    ManagementChecks.Run(directory);
     await CoverArtChecks.RunAsync(directory);
-    Console.WriteLine("All persistence, release-year, GOTY ranking, focused voting, database isolation, Rankings navigation/display/session, tournament rank/search, insights, switching, Home overview, Games library, ordinary voting, and cover art checks passed.");
+    Console.WriteLine("All persistence, release-year, GOTY ranking, focused voting, database isolation, Rankings navigation/display/session, tournament rank/search, insights, switching, Home overview, Games library, ordinary voting, renaming/deleting, and cover art checks passed.");
 }
 finally
 {

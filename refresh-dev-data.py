@@ -3,6 +3,7 @@
 import json
 import os
 from pathlib import Path
+import shutil
 import sys
 import tempfile
 import time
@@ -20,6 +21,23 @@ def read_live_snapshot(database):
             if attempt == 4:
                 raise
             time.sleep(0.1)
+
+
+def mirror_covers(live_covers, development_covers):
+    """Give the debugging copy the cover pictures its refreshed database refers to."""
+    if not live_covers.is_dir():
+        return
+    development_covers.mkdir(parents=True, exist_ok=True)
+    wanted = {path.name: path for path in live_covers.iterdir() if path.is_file()}
+    # Pictures the live data does not have belong to debugging changes the refresh just discarded.
+    for existing in development_covers.iterdir():
+        if existing.is_file() and existing.name not in wanted:
+            existing.unlink()
+    # A picture's name changes whenever its content does, so a matching size means the same picture.
+    for name, source in wanted.items():
+        target = development_covers / name
+        if not target.is_file() or target.stat().st_size != source.stat().st_size:
+            shutil.copy2(source, target)
 
 
 def refresh_development_data(checkout):
@@ -58,6 +76,11 @@ def refresh_development_data(checkout):
             temporary_path.unlink(missing_ok=True)
 
     print(f"Development database refreshed from {live_database}")
+    try:
+        mirror_covers(live_database.parent / "covers", development_database.parent / "covers")
+    except OSError as error:
+        # Debugging works without pictures; the database itself is already in place.
+        print(f"Could not copy the live cover pictures: {error}", file=sys.stderr)
     print(f"Debugging data: {development_database}")
 
 

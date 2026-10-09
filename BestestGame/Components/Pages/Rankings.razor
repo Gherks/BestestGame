@@ -24,9 +24,11 @@
 else
 {
 <section class="standings stack" aria-labelledby="standings-heading">
-    <header class="page-heading">
+    <header class="page-heading standings-heading">
+        <div>
         <h1 id="standings-heading" @ref="_standingsHeading" tabindex="-1">Rankings</h1>
         <p>Full tournament scores for <strong>@_currentTournament.Name</strong>.</p>
+        </div>
         <div class="cluster">
         <a href="/vote" class="button"><span class="button__content">Continue voting</span></a>
         <a href="@(LeaderboardYear is { } year ? $"/goty?year={year}" : "/goty")" class="button"><span class="button__content">Game of the year</span></a>
@@ -39,6 +41,40 @@ else
             <button type="button" class="button" disabled="@(!_canUndo || !_sessionReady)" @onclick="UndoLastVote"><span class="button__content">Undo last vote</span></button>
         </div>
     }
+    @{ var podium = _podium; var soleLeader = podium.Count(entry => entry.Rank == 1) == 1; }
+    @if (podium.Count > 0)
+    {
+        @* The top of the standings stands on canvases; the table below continues from the next rank. *@
+        <ol class="podium @(soleLeader && podium.Count > 1 ? "podium--led" : "")" style="--podium-rows: @(podium.Count - 1)" aria-label="Top of the rankings">
+            @foreach (var entry in podium)
+            {
+                var game = entry.Game;
+                var display = GetTitleDisplay(game);
+                <li @key="game.Id" class="podium-place @(entry.Rank == 1 ? "podium-place--first" : "") @(entry.Rank == 1 && soleLeader ? "podium-place--lead" : "")" data-game-id="@game.Id">
+                    <button type="button" class="podium-canvas" data-entry-details="@game.Id" disabled="@(!_sessionReady)" aria-haspopup="dialog"
+                            aria-label="@($"Details for {display.Title}, rank {entry.Rank}, {Counted(game.Points, "point")}")" @onclick="() => ShowEntryDetails(game.Id)">
+                        @if (CoverArt.Url(game) is { } cover)
+                        {
+                            <img class="podium-cover" src="@cover" alt="" draggable="false" onerror="this.hidden = true" />
+                        }
+                        <span class="podium-rank"><span @key="entry.Rank" class="@(_rankChanged.Contains(game.Id) ? "value-settle" : null)">@entry.Rank</span></span>
+                        <span class="podium-entry">
+                            <span class="podium-title">@display.Title</span>
+                            @if (game.IncludedTitles is { Count: > 0 })
+                            {
+                                <span class="podium-context">Collection · @game.IncludedTitles.Count titles</span>
+                            }
+                            <span class="podium-points"><span @key="game.Points" class="@(_pointsChanged.Contains(game.Id) ? "value-settle" : null)">@game.Points</span> <span class="podium-unit">@(game.Points == 1 ? "point" : "points")</span></span>
+                            @if (_pendingPerGame.GetValueOrDefault(game.Id) > 0)
+                            {
+                                <span class="podium-context standings-unfinished">@Open(game)</span>
+                            }
+                        </span>
+                    </button>
+                </li>
+            }
+        </ol>
+    }
     @if (_games.Count > 1)
     {
         @* Always the full tournament: the year filter and search below only narrow the table. *@
@@ -49,11 +85,11 @@ else
                     <h3 id="insight-upsets">Biggest upsets</h3>
                     @if (_insights.UpsetCount == 0)
                     {
-                        <p class="helper-text">No result has gone against the standings.</p>
+                        <p class="helper-text">No result has gone against the standings by @Counted(_insights.UpsetGap, "point") or more.</p>
                     }
                     else
                     {
-                        <p class="helper-text">@Counted(_insights.UpsetCount, "result") went against the current standings.</p>
+                        <p class="helper-text">@Counted(_insights.UpsetCount, "result") went against the current standings by @Counted(_insights.UpsetGap, "point") or more.</p>
                         <ul class="insight-list">
                             @foreach (var upset in _insights.Upsets)
                             {
@@ -73,7 +109,7 @@ else
                     }
                     else
                     {
-                        <p class="helper-text">@Counted(_insights.LoopCount, "set") of three entries beat each other in a circle.</p>
+                        <p class="helper-text">@Counted(_insights.LoopCount, "set") of three entries beat each other in a circle. These are the widest that share no result.</p>
                         <ul class="insight-list">
                             @foreach (var loop in _insights.Loops)
                             {
@@ -113,9 +149,8 @@ else
         <div class="standings-filter">
             <div class="field standings-search">
                 <label for="standings-search" class="field-label">Search titles</label>
-                <input id="standings-search" type="search" class="form-control" placeholder="Title or collection"
-                       aria-describedby="standings-search-help" @bind="_search" @bind:event="oninput" />
-                <p id="standings-search-help" class="helper-text">Search collection names and included titles.</p>
+                <input id="standings-search" type="search" class="form-control" placeholder="Title, collection or included title"
+                       @bind="_search" @bind:event="oninput" />
             </div>
             <div class="field standings-year">
                 <label for="leaderboardYear" class="field-label">Release year</label>
@@ -137,11 +172,14 @@ else
         {
             <p class="helper-text">Collections appear when an included title matches the year. Points remain from the full tournament.</p>
         }
-        @if (_pendingMatchupCount > 0)
-        {
-            <p class="standings-progress helper-text">Rankings are still taking shape. @_pendingMatchupCount @(_pendingMatchupCount == 1 ? "matchup remains" : "matchups remain").</p>
-        }
-        <p class="helper-text" role="status">Showing @_visibleStandings.Count of @_rankedStandings.Count entries@(_rankedStandings.Count != _games.Count ? " for this year" : "").</p>
+        <div class="standings-notes">
+            @if (_pendingMatchupCount > 0)
+            {
+                <p class="standings-progress helper-text">Rankings are still taking shape. @_pendingMatchupCount @(_pendingMatchupCount == 1 ? "matchup remains" : "matchups remain").</p>
+            }
+            @* The count only says something while the table is narrowed. *@
+            <p class="helper-text" role="status">@(string.IsNullOrWhiteSpace(_search) && LeaderboardYear is null ? "" : $"Showing {_visibleStandings.Count} of {_rankedStandings.Count} entries{(_rankedStandings.Count != _games.Count ? " for this year" : "")}.")</p>
+        </div>
     }
     @if (_games.Count == 0)
     {
@@ -162,23 +200,30 @@ else
     {
         <p class="surface empty-state">No titles match your search. Clear the search or try another title.</p>
     }
-    else
+    else if (_visibleStandings.Count > podium.Count)
     {
         <table class="data-table standings-table">
-            <caption>Equal points share a rank. Search keeps these positions.</caption>
+            <caption>Entries level on points are ordered by their matchups against each other; those still level share a rank. Search keeps these positions.</caption>
             <colgroup><col class="standings-rank-column" /><col /><col class="standings-points-column" /></colgroup>
             <thead><tr><th scope="col">Rank</th><th scope="col">Title</th><th scope="col">Points</th></tr></thead>
             <tbody>
-                @foreach (var entry in _visibleStandings)
+                @foreach (var entry in _visibleStandings.Skip(podium.Count))
                 {
                     var game = entry.Game;
                     var display = GetTitleDisplay(game);
-                    <tr @key="game.Id" data-game-id="@game.Id" class="@(entry.Rank == 1 ? "standings-leader" : "")">
+                    var pending = _pendingPerGame.GetValueOrDefault(game.Id);
+                    @* The whole row opens the entry; its title is the button that keyboards and screen readers use. *@
+                    <tr @key="game.Id" data-game-id="@game.Id" class="standings-row @(entry.Rank == 1 ? "standings-leader" : "")" @onclick="() => ShowEntryDetails(game.Id)">
                         <td class="standings-rank @(entry.Rank <= 3 ? "standings-rank--podium" : "")"><span @key="entry.Rank" class="@(_rankChanged.Contains(game.Id) ? "value-settle" : null)">@entry.Rank</span></td>
                         <th scope="row" class="standings-title">
                             <div class="standings-entry">
+                                @if (_showCovers)
+                                {
+                                    <span class="standings-cover" style="@(CoverArt.Url(game) is { } cover ? $"background-image: url('{cover}')" : null)" aria-hidden="true"></span>
+                                }
                                 <div class="standings-entry-title">
-                                    <span>@display.Title</span>
+                                    <button type="button" class="standings-open" data-entry-details="@game.Id" disabled="@(!_sessionReady)" aria-haspopup="dialog"
+                                            aria-label="@($"Details for {display.Title}")">@display.Title</button>
                                     <div class="standings-markers helper-text">
                                         @if (game.IncludedTitles is { Count: > 0 })
                                         {
@@ -188,17 +233,21 @@ else
                                         {
                                             <span>Collection</span>
                                         }
-                                        @if (_pendingPerGame.GetValueOrDefault(game.Id) > 0)
+                                        @if (pending > 0)
                                         {
-                                            <span class="standings-unfinished">Unfinished</span>
+                                            <span class="standings-unfinished">@Open(game)</span>
                                         }
                                     </div>
                                 </div>
-                                <button type="button" class="button" data-entry-details="@game.Id" disabled="@(!_sessionReady)" aria-haspopup="dialog"
-                                        aria-label="@($"Details for {display.Title}")" @onclick="() => ShowEntryDetails(game.Id)"><span class="button__content">Details</span></button>
                             </div>
                         </th>
-                        <td class="standings-points"><span @key="game.Points" class="@(_pointsChanged.Contains(game.Id) ? "value-settle" : null)">@game.Points</span></td>
+                        <td class="standings-points">
+                            <span @key="game.Points" class="@(_pointsChanged.Contains(game.Id) ? "value-settle" : null)">@game.Points</span>
+                            @if (pending > 0)
+                            {
+                                <span class="standings-played" title="@($"{Counted(game.Points, "point")} from {Counted(_matchesPlayed.GetValueOrDefault(game.Id), "finished matchup")}")">of @_matchesPlayed.GetValueOrDefault(game.Id)</span>
+                            }
+                        </td>
                     </tr>
                 }
             </tbody>
@@ -350,6 +399,17 @@ else
     private List<TournamentStandings.Entry> _rankedStandings = [];
     private List<TournamentStandings.Entry> _visibleStandings => TournamentStandings.Search(_rankedStandings, _search);
     private int _pendingMatchupCount;
+    private bool _showCovers;
+    // The top three stand on canvases while no search narrows the table. A tie that would put more than
+    // six entries there, such as a tournament without results, stays in the table.
+    private List<TournamentStandings.Entry> _podium => string.IsNullOrWhiteSpace(_search) && _rankedStandings.Count > 0 &&
+        _rankedStandings[0].Game.Points > 0 && _rankedStandings.TakeWhile(entry => entry.Rank <= 3).ToList() is { Count: <= 6 } top ? top : [];
+    // What an unfinished entry can still become. Points only ever rise, so this is exact, not an estimate.
+    private string Open(Game game)
+    {
+        var left = _pendingPerGame.GetValueOrDefault(game.Id);
+        return $"{Counted(left, "matchup")} left · can reach {game.Points + left}";
+    }
     private TournamentInsights.Summary _insights = TournamentInsights.Build([], []);
     private static string Counted(int count, string noun) => $"{count} {noun}{(count == 1 ? "" : "s")}";
     private static string RivalryResult(TournamentInsights.Rivalry rivalry) => rivalry.Winner is not { } winner ? "not yet played"
@@ -449,8 +509,9 @@ else
     private void RefreshStandings()
     {
         _games = GameService.GetGames();
+        _showCovers = _games.Any(game => CoverArt.Url(game) is not null);
         _duels = GameService.GetCurrentTournament()?.Duels ?? [];
-        _rankedStandings = TournamentStandings.Rank(_games, LeaderboardYear);
+        _rankedStandings = TournamentStandings.Rank(_games, _duels, LeaderboardYear);
         _insights = TournamentInsights.Build(_games, _duels);
         var scope = (_currentTournament?.Id, LeaderboardYear);
         var compare = scope == _shownScope;

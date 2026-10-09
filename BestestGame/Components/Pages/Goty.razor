@@ -58,12 +58,13 @@
         }
         else
         {
-            var leaders = _nominees.Where(e => e.SharesRankWith(_nominees[0])).ToList();
+            var lead = ReleaseRankings.GetLead(_nominees, _pending);
+            var leaders = lead.Leaders;
             var hasPoints = _nominees[0].Points > 0;
             var votingInProgress = _tournament.Duels.Any(d => !d.IsCompleted);
-            var leaderLabel = !hasPoints ? "No points recorded" : votingInProgress
-                ? (leaders.Count > 1 ? "Current shared leaders" : "Current leader")
-                : (leaders.Count > 1 ? "Shared winners" : "Winner");
+            // A year is only called once no unfinished nominee can still take first place.
+            var leaderLabel = !hasPoints ? "No points recorded" : !lead.Settled ? "Still open"
+                : leaders.Count > 1 ? "Shared winners" : "Winner";
             <section class="goty-leaders stack" aria-labelledby="leaders-heading" @key="_selectedYear">
                 <h2 id="leaders-heading">@_selectedYear · @leaderLabel</h2>
                 @if (hasPoints)
@@ -76,21 +77,49 @@
                             {
                                 <p class="helper-text">Shared score from @leader.GroupTitle</p>
                             }
+                            @if (!lead.Settled)
+                            {
+                                <p class="helper-text">@(leaders.Count > 1 ? "Shares the lead for now" : "Leads for now")@(_pending.GetValueOrDefault(leader.GameId) > 0 ? $" · {Open(leader.GameId, leader.Points)}" : "")</p>
+                            }
                         </div>
                     }
                     <p class="goty-leader-score">@leaders[0].Points <span>points from the full tournament</span></p>
+                    @if (lead.Contenders.Count > 0)
+                    {
+                        <ul class="goty-contenders">
+                            @foreach (var contender in lead.Contenders.Take(ContendersShown))
+                            {
+                                <li @key="contender.GameId" data-contender-id="@contender.GameId">
+                                    <span><strong>@contender.Title</strong> can still take first place: @contender.Points @(contender.Points == 1 ? "point" : "points"), @Open(contender.GameId, contender.Points).</span>
+                                    <a href="@VotingRoutes.Focus(contender.GameId, null)" class="text-link">Finish its matchups</a>
+                                </li>
+                            }
+                        </ul>
+                        @if (lead.Contenders.Count > ContendersShown)
+                        {
+                            <p class="helper-text">@(lead.Contenders.Count - ContendersShown) more can still reach @leaders[0].Points points.</p>
+                        }
+                    }
+                    else if (!lead.Settled)
+                    {
+                        <p class="helper-text">The leaders still have matchups that can part them.</p>
+                    }
                 }
                 else
                 {
                     <p class="text-secondary">Start voting to establish the leaders for this year. Points come from the full tournament.</p>
                 }
                 <p class="helper-text">@_nominees.Count @(_nominees.Count == 1 ? "release" : "releases") · @_nominees.Select(e => e.GameId).Distinct().Count() tournament @(_nominees.Select(e => e.GameId).Distinct().Count() == 1 ? "entry" : "entries")</p>
-                @if (votingInProgress || !hasPoints)
+                @if (hasPoints && lead.Settled && votingInProgress)
+                {
+                    <p class="helper-text">Decided: no other release from @_selectedYear can still reach first place.@(_nominees.Any(e => _pending.GetValueOrDefault(e.GameId) > 0) ? " Other places can still change." : "")</p>
+                }
+                else if (votingInProgress || !hasPoints)
                 {
                     <div class="goty-voting-context cluster">
-                        @if (votingInProgress)
+                        @foreach (var leader in leaders.Where(e => hasPoints && _pending.GetValueOrDefault(e.GameId) > 0).DistinctBy(e => e.GameId))
                         {
-                            <span class="helper-text">Voting in progress</span>
+                            <a @key="leader.GameId" href="@VotingRoutes.Focus(leader.GameId, null)" class="button"><span class="button__content">Finish @(leader.GroupTitle ?? leader.Title)</span></a>
                         }
                         <a href="/vote" class="button @(hasPoints ? "" : "button--primary")"><span class="button__content">Continue voting</span></a>
                     </div>
@@ -121,6 +150,10 @@
                                 {
                                     <p class="helper-text">@nominee.HeadToHeadWins head-to-head @(nominee.HeadToHeadWins == 1 ? "win" : "wins") among tied entries</p>
                                 }
+                                @if (_pending.GetValueOrDefault(nominee.GameId) > 0)
+                                {
+                                    <p class="helper-text goty-open">@Open(nominee.GameId, nominee.Points)</p>
+                                }
                             </th>
                             <td class="goty-points">@nominee.Points</td>
                         </tr>
@@ -146,7 +179,8 @@
                 {
                     var releases = _entries.Where(e => e.Year == year).ToList();
                     var bestPoints = releases[0].Points;
-                    var leaders = releases.Where(e => e.SharesRankWith(releases[0])).ToList();
+                    var yearLead = ReleaseRankings.GetLead(releases, _pending);
+                    var leaders = yearLead.Leaders;
                     <a href="@YearUrl(year)" class="goty-portal button" aria-current="@(year == _selectedYear ? "page" : null)">
                         <span class="button__content">
                             <span class="goty-portal-year">@year</span>
@@ -155,7 +189,7 @@
                             {
                                 <span class="helper-text">+ @(leaders.Count - 1) tied for first</span>
                             }
-                            <span class="helper-text">@releases.Count @(releases.Count == 1 ? "release" : "releases")</span>
+                            <span class="helper-text">@releases.Count @(releases.Count == 1 ? "release" : "releases")@(bestPoints > 0 && !yearLead.Settled ? " · still open" : "")</span>
                         </span>
                     </a>
                 }
@@ -175,6 +209,15 @@
     private List<int> _years = [];
     private int _selectedYear;
     private int _unassigned;
+    private Dictionary<Guid, int> _pending = [];
+    private const int ContendersShown = 4;
+
+    // What an unfinished entry can still become: its matchups left and the points it can reach.
+    private string Open(Guid gameId, int points)
+    {
+        var left = _pending.GetValueOrDefault(gameId);
+        return $"{left} {(left == 1 ? "matchup" : "matchups")} left, can reach {points + left}";
+    }
 
     protected override void OnParametersSet()
     {
@@ -184,6 +227,7 @@
         _selectedYear = Year ?? _years.LastOrDefault();
         _nominees = _entries.Where(e => e.Year == _selectedYear).ToList();
         _unassigned = ReleaseRankings.CountUnassigned(_tournament?.Games ?? []);
+        _pending = _tournament is null ? [] : GameLibrary.PendingMatchups(_tournament);
     }
 
     private static string YearUrl(int year) => $"/goty?year={year}";

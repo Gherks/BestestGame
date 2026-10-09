@@ -21,6 +21,15 @@ public sealed class OrdinaryDuelSession
 
     public OrdinaryDuelSession(Random? random = null) => _random = random ?? new();
 
+    /// <summary>
+    /// Which entry is shown on which side. A duel stores the entry that was added first as its
+    /// first game, so showing duels as stored would always put older entries on the left. The side
+    /// follows the duel's random ID instead: either way round is equally likely, and one duel
+    /// keeps its sides across renders, reloads, Skip and Undo.
+    /// </summary>
+    public static (Guid Left, Guid Right) Sides(Duel duel)
+        => (duel.Id.ToByteArray()[15] & 1) == 0 ? (duel.Game1Id, duel.Game2Id) : (duel.Game2Id, duel.Game1Id);
+
     public void Reset()
     {
         Current = null;

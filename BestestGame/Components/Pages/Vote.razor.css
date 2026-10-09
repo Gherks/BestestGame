@@ -1,6 +1,5 @@
 .ordinary-voting { gap: var(--space-3); }
 .voting-arena h2 { font-size: 1.5rem; }
-.voting-arena h1:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
 .voting-arena .page-heading { margin-bottom: 0; }
 .voting-options { border-top: 1px solid var(--border); padding-top: var(--space-2); }
 .voting-options > summary { min-height: 44px; padding-block: var(--space-2); overflow-wrap: anywhere; font-size: var(--text-control); }
@@ -8,9 +7,19 @@
 .focus-controls { display: flex; flex-wrap: wrap; align-items: end; gap: var(--space-4); }
 .focus-controls .field { flex: 1 1 18rem; max-width: 40rem; }
 .focus-controls select { width: 100%; min-width: 0; }
-.matchup-grid { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); gap: var(--space-4); align-items: stretch; }
-.voting-choice { width: 100%; }
-.voting-choice > .tactile__face { min-height: 10rem; flex-direction: column; justify-content: center; gap: var(--space-2); }
+/* Two posters side by side, each the shape of a cover. Their height follows the window, so the choice
+   fills the page without pushing Undo and Skip off it, and the width follows from the height. */
+.matchup-grid { --poster-height: clamp(16rem, calc(100dvh - 23rem), 38rem); display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); gap: var(--space-4); align-items: start; max-width: calc(var(--poster-height) * 1.5 + 5rem); margin-inline: auto; }
+.voting-choice { width: 100%; aspect-ratio: 3 / 4; }
+.voting-choice > .tactile__face { flex-direction: column; justify-content: center; gap: var(--space-2); }
+/* With a cover the whole picture fills the poster under the paint. The glaze is thin where the picture is
+   and deepens towards the foot, where the title is written. */
+.voting-choice.tactile--art { --tactile-near: linear-gradient(rgb(20 16 14 / 6%) 17%, rgb(20 16 14 / 14%) 46%, rgb(20 16 14 / 86%) 72%, rgb(20 16 14 / 94%) 83%); }
+.voting-choice.tactile--art:nth-of-type(2) { --tactile-near: linear-gradient(rgb(12 18 20 / 6%) 17%, rgb(12 18 20 / 14%) 46%, rgb(12 18 20 / 86%) 72%, rgb(12 18 20 / 94%) 83%); }
+.voting-choice.tactile--art > .tactile__face { justify-content: flex-end; }
+.voting-choice.tactile--art > .tactile__face::before { opacity: .3; }
+.voting-choice .tactile__ground { background-position: center; }
+.choice-help { color: #f5a56f; font-family: var(--font-label); font-size: 1.125rem; font-weight: 600; letter-spacing: 0.06em; line-height: 1.4; }
 .choice-title { font-family: var(--font-display); font-size: var(--text-voting-title); font-style: italic; line-height: 1.2; overflow-wrap: anywhere; }
 .choice-context { color: var(--tactile-label); font-family: var(--font-label); font-size: var(--text-label); font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; }
 .choice-subtitle { font-size: var(--text-control); line-height: 1.5; overflow-wrap: anywhere; }
@@ -20,10 +29,11 @@
 .voting-progress { display: flex; flex-direction: column; gap: var(--space-2); padding-top: var(--space-4); border-top: 1px solid var(--border); font-size: var(--text-support); }
 .compact-progress { gap: var(--space-1); border: 0; padding: 0; }
 .compact-progress .cluster { justify-content: space-between; gap: var(--space-1) var(--space-3); }
-@media (max-width: 900px) {
-    /* Shorter canvases have narrower covers to keep clear of. */
-    .voting-choice { --tactile-cover-reserve: 5rem; }
-    .matchup-grid { grid-template-columns: minmax(0, 1fr); gap: var(--space-1); }
-    .matchup-versus { justify-self: center; }
-    .voting-choice > .tactile__face { min-height: 6rem; }
+@media (max-width: 640px) {
+    /* The posters stay side by side on a phone, as in focused voting. */
+    .matchup-grid { gap: var(--space-2); }
+    .voting-choice > .tactile__face { padding: var(--space-3); }
+    .choice-title { font-size: 1.25rem; }
+    .choice-context { font-size: var(--text-support); letter-spacing: 0.08em; }
+    .choice-help { font-size: var(--text-control); }
 }

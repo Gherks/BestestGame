@@ -109,6 +109,47 @@ public class GameService
         }
     }
 
+    /// <summary>
+    /// Renames a tournament. Its games, results and selection are untouched.
+    /// </summary>
+    public bool RenameTournament(Guid tournamentId, string name)
+    {
+        lock (_databaseLock)
+        {
+            var db = Load();
+            var tournament = db.Tournaments.FirstOrDefault(t => t.Id == tournamentId);
+            if (tournament is null || string.IsNullOrWhiteSpace(name))
+                return false;
+
+            tournament.Name = name.Trim();
+            Save(db);
+            return true;
+        }
+    }
+
+    /// <summary>
+    /// Deletes a tournament with its games, matchups, results and cover pictures.
+    /// Deleting the current tournament leaves none selected.
+    /// </summary>
+    public bool DeleteTournament(Guid tournamentId)
+    {
+        lock (_databaseLock)
+        {
+            var db = Load();
+            var tournament = db.Tournaments.FirstOrDefault(t => t.Id == tournamentId);
+            if (tournament is null)
+                return false;
+
+            db.Tournaments.Remove(tournament);
+            if (db.CurrentTournamentId == tournamentId)
+                db.CurrentTournamentId = null;
+            Save(db);
+            foreach (var game in tournament.Games)
+                DeleteCoverFile(game.CoverImage);
+            return true;
+        }
+    }
+
     public List<Game> GetGames()
     {
         var db = Load();
@@ -293,6 +334,31 @@ public class GameService
             game.ReleaseYear = ValidateReleaseYear(releaseYear);
             game.IncludedTitles = CleanIncludedTitles(includedTitles);
             Save(db);
+            return true;
+        }
+    }
+
+    /// <summary>
+    /// Changes an entry's title in the current tournament. Its ID, results and points stay as they are.
+    /// As when importing, two entries cannot share a title.
+    /// </summary>
+    public bool RenameGame(Guid gameId, string title)
+    {
+        lock (_databaseLock)
+        {
+            var db = Load();
+            var tournament = GetCurrentTournament(db);
+            var game = tournament?.Games.FirstOrDefault(g => g.Id == gameId);
+            var name = title?.Trim();
+            if (game is null || string.IsNullOrEmpty(name) || tournament!.Games.Any(other =>
+                    other.Id != gameId && string.Equals(other.Title, name, StringComparison.OrdinalIgnoreCase)))
+                return false;
+
+            if (game.Title != name)
+            {
+                game.Title = name;
+                Save(db);
+            }
             return true;
         }
     }

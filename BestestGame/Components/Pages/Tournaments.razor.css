@@ -1,4 +1,4 @@
-.tournaments-page :is(h1, #create-heading):focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+.tournaments-page #create-heading:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
 .tournaments-page { gap: var(--space-6); }
 .tournaments-page :is(h2, h3) { overflow-wrap: anywhere; }
 .tournaments-page h2 { font-size: 1.75rem; }
@@ -16,6 +16,7 @@
 .tournament-summary { display: flex; flex-wrap: wrap; gap: .25rem var(--space-4); font-size: var(--text-support); }
 .tournament-actions { flex: 0 1 auto; }
 .tournament-actions .button[aria-pressed="true"] { background: transparent; color: var(--text); }
+.tournament-dialog { width: calc(100% - 2rem); margin: auto; overflow-wrap: anywhere; }
 .active-marker { padding: .125rem .625rem; border-radius: var(--shape-mark); background: var(--primary); color: var(--primary-text); font-family: var(--font-label); font-size: var(--text-label); font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; }
 @media (max-width: 640px) {
     .create-form { grid-template-columns: minmax(0, 1fr); justify-items: start; }

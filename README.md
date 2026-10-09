@@ -143,7 +143,8 @@ a year is also present. Its Rankings link retains the year. Choosing **All
 matchups** opens ordinary `/vote`.
 
 Ordinary Voting puts the two choices, stored progress, **Undo** and **Skip for now**
-first. **Voting options** contains entry selection, Rankings/exclusions and shortcut
+first. Which entry stands on the left follows the matchup's random ID rather than
+the order the entries were added in, and stays the same whenever that matchup is shown. **Voting options** contains entry selection, Rankings/exclusions and shortcut
 guidance. Skip picks another available pending matchup when possible and keeps
 Undo for the last saved vote; a sole available matchup stays pending. Undo only
 reverses the exact saved winner, preserving a later correction. Shortcuts are
@@ -154,12 +155,12 @@ same browser tab, shared with votes cast from Rankings; saved results persist.
 If another tab changes the application-wide tournament, stale ordinary choices
 are cleared and **Reload Voting** restores the current context.
 
-Votes save immediately. The current duel fades and slides left over 180ms, then
-the next duel fades in from the right over 220ms. This applies to ordinary,
+Votes save immediately. The current duel holds for 220ms while a glow sets in on the
+chosen canvas and the other dims, then fades and slides left over 180ms, and the next
+duel fades in from the right over 220ms. This applies to ordinary,
 adaptive and rapid voting. Further vote inputs wait until the new duel is visible;
 Undo, Skip and Split can interrupt the transition. Reduced motion uses instant
-updates. Voting surfaces and loading status stay static. See
-[the vote-transition validation report](docs/ux-duel-transitions.md).
+updates.
 
 Native disclosures (Voting options, included titles, row Actions, the mobile menu
 and the Home/GOTY explanations) unfold from their summary and fold back over
@@ -172,8 +173,7 @@ buttons, navigation and labels use **Barlow Condensed** in capitals. Both are bu
 locally with their licenses, preloaded and served by the application, with system
 fallbacks. Body text is 17px, controls are at least 16px, supporting text is 15px
 and voting titles scale from 26px to 32px. Sizes use `rem` so browser text settings
-still apply. See [font asset provenance](BestestGame/wwwroot/fonts/README.md) and
-[the typography validation report](docs/ux-typography.md).
+still apply. See [font asset provenance](BestestGame/wwwroot/fonts/README.md).
 
 ## Cover art
 
@@ -184,12 +184,15 @@ folder beside the database; pages only ever load them from this application. On 
 match: the same name, and the same release year to within one when the entry has a year.
 The rest are marked, and **Actions → Choose cover** lists IGDB's candidates for that entry,
 with a search field for titles IGDB spells differently, and removes a cover again. The same
-dialog uploads a picture of your own (JPEG, PNG or WebP, up to 10 MB) for games IGDB does not
-have; that works without credentials too. A collection is looked up by its first included
+dialog uploads a picture of your own (JPEG, PNG or WebP, shrunk by the browser to at most
+1056×1408 before it is sent) for games IGDB does not have; that works without credentials too. A collection is looked up by its first included
 title.
 
-In a matchup of two games each canvas shows its whole cover at the right edge, as tall as the
-canvas and fading into the paint. When an entry meets a group in focused voting, the pictures
+In ordinary voting the two choices are posters the shape of a cover, side by side at every width and
+sized to the window so Undo and Skip stay in view. A cover fills its poster under the paint, clear at
+the top and glazed darker towards the foot, where the title is written; an entry without a cover is a
+plain painted poster with its title in the middle. In focused voting against a single opponent each
+canvas shows its whole cover at the right edge, as tall as the canvas and fading into the paint. When an entry meets a group in focused voting, the pictures
 lie under the paint instead: the entry's cover fills its canvas, and the group's canvas is
 tiled with the covers of all its games, up to four across. On a phone, where focused canvases
 stand side by side, a single cover lies across the foot of its canvas under the paint.
@@ -205,11 +208,11 @@ database file, which is `.dev-data/igdb.json` in development and
 ```
 
 The file is read when it changes, so no restart is needed, and both locations are outside
-version control. Covers are not part of the database backups: each recorded cover names its
-IGDB image, so **Fetch covers** downloads any missing picture again without a new lookup.
-That also fills the development copy, whose database is refreshed from the live one. An
-uploaded picture exists only in its own covers folder and cannot be fetched again, so keep
-the original if it matters.
+version control. Fetched covers are not backed up: each recorded cover names its IGDB image, so
+**Fetch covers** downloads any missing picture again without a new lookup. Uploaded pictures
+cannot be fetched again, so each deployment copies them to `backups/covers` beside the
+database backups. Starting a debug session copies the live covers folder into `.dev-data`
+along with the database, so development shows the same pictures as the live application.
 
 Focused Voting (`/vote?focus=<entry-id>`) shows a progress summary above two
 equal-width tactile choices: the entry on the left and its compact opponent rows
@@ -233,8 +236,7 @@ very short viewports use normal flow. Splitting saves no results, and Undo rever
 the whole last vote or queue change. **Adaptive groups** can switch to rapid 1v1;
 **Voting options** contains all shortcut guidance. The split queue and mode survive
 a reload in the same tab, as does Undo for the last 20 vote batches; undoing a split, skip
-or jump is only possible until the page is reloaded. See
-[the focused-voting validation report](docs/ux-step11.md).
+or jump is only possible until the page is reloaded.
 
 Arena exclusions are temporary settings in each browser tab's session storage,
 keyed by tournament. They apply to both voting modes across navigation and reload;
@@ -244,25 +246,43 @@ settings work in memory during navigation in that tab but cannot survive a full
 reload. See [the regression-check documentation](tests/README.md) for game and
 voting behavior.
 
-Rankings shows rank, title and full-tournament points. Equal points share
-competition ranks (for example, 1, 2, 2, 4); alphabetical order within a tie is
-only for presentation. Release-year filtering determines the standings before
+Rankings shows rank, title and full-tournament points. Entries level on points
+are ordered by the completed matchups among them: most wins first, and entries
+still level are compared again among themselves, so two entries are settled by
+their own matchup. Entries that nothing separates, such as three that beat each
+other in a circle, share a competition rank (for example, 1, 2, 2, 4);
+alphabetical order within a shared rank is only for presentation. Home, the
+finish screens and Insights use the same order.
+
+While no search narrows it, the top three ranks stand on canvases above the
+table, a sole leader on a large warm one, each with its cover; the table
+continues from the next rank. A tie that would put more than six entries there
+stays in the table. Each row shows a cover thumbnail, and the whole row, like
+each canvas, opens that entry's Details; the title is the button for keyboards
+and screen readers. An unfinished entry shows its points out of the matchups it
+has played, how many are left and the points it can still reach. Nothing is
+estimated: points only ever rise, by at most one per matchup left. Release-year filtering determines the standings before
 title search, so search preserves each entry's position. Search also matches
 included titles and returns their collection once. Open **Details** for counts,
 wins, losses/corrections, pending choices, focused completion and exclusions.
-GOTY retains its separate head-to-head rules. Search is local to the page;
+Game of the year applies the same head-to-head order among the releases of one
+year. Search is local to the page;
 release-year links retain their existing query parameter.
 
 Game of the year (`/goty?year=2007`) puts one **Release year** selector before the
 current leader or shared leaders, followed by compact rank/title/points nominees.
-Completed voting labels the result **Winner** or **Shared winners**. Points come
+A year is labelled **Winner** or **Shared winners** as soon as first place cannot
+change: no other nominee with matchups left can reach the leader's points, and
+leaders sharing first place have none left that could part them. Until then it is
+**Still open**, naming who leads for now and every entry that can still take
+first place, each with a link to finish its matchups. Unfinished nominees show
+their matchups left and the points they can reach, and the archive marks open years. Points come
 from the full tournament; collection-derived releases retain their source label.
 **How yearly rankings work** explains inheritance and head-to-head ties, while
 the initially collapsed **Release-year archive** contains year links and the
 secondary **Random year** action. Missing-year and no-points states keep clear
 assign-years/voting links. Year browsing, reload and Back preserve stored results;
-the legacy Voting redirect applies only to actual Voting URLs. See
-[the GOTY validation report](docs/ux-step12.md).
+the legacy Voting redirect applies only to actual Voting URLs.
 
 
 The shared **Active tournament** selector works on every page, including Home.
@@ -285,8 +305,9 @@ matchups** when pending duels exist, and confirmed **Remove**. Escape closes Act
 
 **Add game** and **Actions → Edit details** open the same native editor dialog;
 **Import list** opens its own dialog. Title/year appear first, with included-title
-controls in an optional disclosure. Editing focuses the release year and keeps
-the saved title read-only. Failed validation retains the draft; Cancel or Escape
+controls in an optional disclosure. **Actions → Rename** opens it in the
+title, and Edit details in the release year; a renamed entry keeps its results
+and points, and cannot take another entry's title. Failed validation retains the draft; Cancel or Escape
 discards it and returns focus to the initiating control, with a library fallback
 if that row disappears. Saves/imports refresh the collection and show pending
 **Finish matchups** links beside their confirmation. Shared display formatting
@@ -304,11 +325,12 @@ Tournaments puts the active tournament first and the existing list before the
 creation form. **Create a tournament** jumps to the form; creation becomes the
 primary task when the list is empty. Creating focuses **Add games** beside the
 confirmation. Selecting focuses the appropriate continuation action and updates
-the shared selector using the existing application-wide selection.
+the shared selector using the existing application-wide selection. Each row has **Rename** and
+**Delete**. Deleting asks for confirmation, then permanently removes the
+tournament's entries, results and cover pictures; deleting the active
+tournament leaves none selected.
 
 **Skip to content** is the first keyboard destination and focuses the current
 page's content, retaining its release-year/focused-entry query. It works before
-interactive hydration. The redesign's integrated responsive, keyboard, dialog,
-voting, correction, year-browsing and data-preservation checks are recorded in
-[the final UX validation report](docs/ux-final.md). Focused action-bar cleanup
+interactive hydration. Focused action-bar cleanup
 also tolerates a DOM reference disappearing during navigation. No deployment is included.
