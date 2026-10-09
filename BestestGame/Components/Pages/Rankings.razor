@@ -41,39 +41,29 @@ else
             <button type="button" class="button" disabled="@(!_canUndo || !_sessionReady)" @onclick="UndoLastVote"><span class="button__content">Undo last vote</span></button>
         </div>
     }
-    @{ var podium = _podium; var soleLeader = podium.Count(entry => entry.Rank == 1) == 1; }
+    @{ var podium = _podium; var soleLeader = podium.Count(entry => entry.Rank == 1) == 1; var rows = PlaceRows(podium.Count); var onCanvas = podium.Count + rows.Sum(row => row.Places.Count); }
     @if (podium.Count > 0)
     {
         @* The top of the standings stands on canvases; the table below continues from the next rank. *@
         <ol class="podium @(soleLeader && podium.Count > 1 ? "podium--led" : "")" style="--podium-rows: @(podium.Count - 1)" aria-label="Top of the rankings">
             @foreach (var entry in podium)
             {
-                var game = entry.Game;
-                var display = GetTitleDisplay(game);
-                <li @key="game.Id" class="podium-place @(entry.Rank == 1 ? "podium-place--first" : "") @(entry.Rank == 1 && soleLeader ? "podium-place--lead" : "")" data-game-id="@game.Id">
-                    <button type="button" class="podium-canvas" data-entry-details="@game.Id" disabled="@(!_sessionReady)" aria-haspopup="dialog"
-                            aria-label="@($"Details for {display.Title}, rank {entry.Rank}, {Counted(game.Points, "point")}")" @onclick="() => ShowEntryDetails(game.Id)">
-                        @if (CoverArt.Url(game) is { } cover)
-                        {
-                            <img class="podium-cover" src="@cover" alt="" draggable="false" onerror="this.hidden = true" />
-                        }
-                        <span class="podium-rank"><span @key="entry.Rank" class="@(_rankChanged.Contains(game.Id) ? "value-settle" : null)">@entry.Rank</span></span>
-                        <span class="podium-entry">
-                            <span class="podium-title">@display.Title</span>
-                            @if (game.IncludedTitles is { Count: > 0 })
-                            {
-                                <span class="podium-context">Collection · @game.IncludedTitles.Count titles</span>
-                            }
-                            <span class="podium-points"><span @key="game.Points" class="@(_pointsChanged.Contains(game.Id) ? "value-settle" : null)">@game.Points</span> <span class="podium-unit">@(game.Points == 1 ? "point" : "points")</span></span>
-                            @if (_pendingPerGame.GetValueOrDefault(game.Id) > 0)
-                            {
-                                <span class="podium-context standings-unfinished">@Open(game)</span>
-                            }
-                        </span>
-                    </button>
+                <li @key="entry.Game.Id" class="podium-place @(entry.Rank == 1 ? "podium-place--first" : "") @(entry.Rank == 1 && soleLeader ? "podium-place--lead" : "")" data-game-id="@entry.Game.Id">
+                    @PlaceCanvas(entry)
                 </li>
             }
         </ol>
+        @foreach (var row in rows)
+        {
+            <ol class="podium-row @(row.Columns == 4 ? "podium-row--far" : "")" style="--podium-columns: @Math.Min(row.Places.Count, row.Columns)" aria-label="@($"Ranks {row.Places[0].Rank} to {row.Places[^1].Rank}")">
+                @foreach (var entry in row.Places)
+                {
+                    <li @key="entry.Game.Id" class="podium-place" data-game-id="@entry.Game.Id">
+                        @PlaceCanvas(entry)
+                    </li>
+                }
+            </ol>
+        }
     }
     @if (_games.Count > 1)
     {
@@ -200,14 +190,14 @@ else
     {
         <p class="surface empty-state">No titles match your search. Clear the search or try another title.</p>
     }
-    else if (_visibleStandings.Count > podium.Count)
+    else if (_visibleStandings.Count > onCanvas)
     {
         <table class="data-table standings-table">
             <caption>Entries level on points are ordered by their matchups against each other; those still level share a rank. Search keeps these positions.</caption>
             <colgroup><col class="standings-rank-column" /><col /><col class="standings-points-column" /></colgroup>
             <thead><tr><th scope="col">Rank</th><th scope="col">Title</th><th scope="col">Points</th></tr></thead>
             <tbody>
-                @foreach (var entry in _visibleStandings.Skip(podium.Count))
+                @foreach (var entry in _visibleStandings.Skip(onCanvas))
                 {
                     var game = entry.Game;
                     var display = GetTitleDisplay(game);
@@ -404,6 +394,48 @@ else
     // six entries there, such as a tournament without results, stays in the table.
     private List<TournamentStandings.Entry> _podium => string.IsNullOrWhiteSpace(_search) && _rankedStandings.Count > 0 &&
         _rankedStandings[0].Game.Points > 0 && _rankedStandings.TakeWhile(entry => entry.Rank <= 3).ToList() is { Count: <= 6 } top ? top : [];
+    // Below the podium, ranks 4–6 and 7–10 each stand on a row of smaller canvases. A row that ties would
+    // swell past twice its size stays in the table, and so does everything ranked after it.
+    private List<(List<TournamentStandings.Entry> Places, int Columns)> PlaceRows(int podiumCount)
+    {
+        List<(List<TournamentStandings.Entry> Places, int Columns)> rows = [];
+        var taken = podiumCount;
+        foreach (var (lastRank, columns) in new[] { (6, 3), (10, 4) })
+        {
+            if (taken == 0) break;
+            var places = _rankedStandings.Skip(taken).TakeWhile(entry => entry.Rank <= lastRank).ToList();
+            if (places.Count > columns * 2) break;
+            if (places.Count == 0) continue;
+            rows.Add((places, columns));
+            taken += places.Count;
+        }
+        return rows;
+    }
+    private RenderFragment PlaceCanvas(TournamentStandings.Entry entry)
+    {
+        var game = entry.Game;
+        var display = GetTitleDisplay(game);
+        return @<button type="button" class="podium-canvas" data-entry-details="@game.Id" disabled="@(!_sessionReady)" aria-haspopup="dialog"
+                        aria-label="@($"Details for {display.Title}, rank {entry.Rank}, {Counted(game.Points, "point")}")" @onclick="() => ShowEntryDetails(game.Id)">
+            @if (CoverArt.Url(game) is { } cover)
+            {
+                <img class="podium-cover" src="@cover" alt="" draggable="false" onerror="this.hidden = true" />
+            }
+            <span class="podium-rank"><span @key="entry.Rank" class="@(_rankChanged.Contains(game.Id) ? "value-settle" : null)">@entry.Rank</span></span>
+            <span class="podium-entry">
+                <span class="podium-title">@display.Title</span>
+                @if (game.IncludedTitles is { Count: > 0 })
+                {
+                    <span class="podium-context">Collection · @game.IncludedTitles.Count titles</span>
+                }
+                <span class="podium-points"><span @key="game.Points" class="@(_pointsChanged.Contains(game.Id) ? "value-settle" : null)">@game.Points</span> <span class="podium-unit">@(game.Points == 1 ? "point" : "points")</span></span>
+                @if (_pendingPerGame.GetValueOrDefault(game.Id) > 0)
+                {
+                    <span class="podium-context standings-unfinished">@Open(game)</span>
+                }
+            </span>
+        </button>;
+    }
     // What an unfinished entry can still become. Points only ever rise, so this is exact, not an estimate.
     private string Open(Game game)
     {

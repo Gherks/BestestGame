@@ -30,6 +30,25 @@
 .podium-place--lead .podium-entry { gap: var(--space-2); }
 .podium-place--lead .podium-title { font-size: clamp(1.875rem, 3.2vw, 2.75rem); line-height: 1.08; letter-spacing: -0.01em; }
 .podium-place--lead .podium-points { font-size: 2.25rem; line-height: 1; }
+/* Below the podium the next places stand on rows of smaller canvases: 4–6, then 7–10. */
+.podium-row { display: grid; grid-template-columns: repeat(var(--podium-columns, 3), minmax(0, 1fr)); gap: var(--space-3); margin: 0; padding: 0; list-style: none; }
+.podium-row .podium-canvas { min-height: 5.75rem; gap: var(--space-3); padding: var(--space-3) var(--space-4); }
+.podium-row .podium-canvas:has(> .podium-cover:not([hidden])) { padding-right: min(34%, 5.25rem); }
+.podium-row .podium-rank { font-size: 2rem; }
+.podium-row .podium-title { font-size: 1.1875rem; }
+.podium-row .podium-points { font-size: 1.25rem; }
+.podium-row--far .podium-canvas { min-height: 5rem; }
+.podium-row--far .podium-canvas:has(> .podium-cover:not([hidden])) { padding-right: min(34%, 4.5rem); }
+.podium-row--far .podium-rank { font-size: 1.625rem; }
+.podium-row--far .podium-title { font-size: 1.0625rem; }
+.podium-row--far .podium-points { font-size: 1.125rem; }
+/* Narrower pages keep the canvases readable: 7–10 pair up first, then 4–6 stack. */
+@media (max-width: 1300px) {
+    .podium-row--far { grid-template-columns: repeat(auto-fit, minmax(max(34%, 12rem), 1fr)); }
+}
+@media (max-width: 1100px) {
+    .podium-row:not(.podium-row--far) { grid-template-columns: minmax(0, 1fr); }
+}
 @media (hover: hover) {
     .podium-canvas:enabled:hover { border-color: rgb(243 236 217 / 80%); filter: saturate(1.5) brightness(1.2); }
 }
@@ -123,5 +142,6 @@
     .podium-place--lead > .podium-canvas { min-height: 11rem; gap: var(--space-4); }
     .podium-place--lead .podium-rank { font-size: 3.5rem; }
     .podium-canvas { padding: var(--space-4); }
+    .podium-row, .podium-row--far { grid-template-columns: minmax(0, 1fr); }
     .pending-match { grid-template-columns: minmax(0, 1fr); justify-items: center; }
 }
