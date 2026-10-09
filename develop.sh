@@ -10,6 +10,6 @@ esac
 root_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 command -v dotnet >/dev/null || { printf 'The .NET 10 SDK is required.\n' >&2; exit 1; }
 python3 "$root_dir/refresh-dev-data.py"
-printf 'Development: http://localhost:5232\nDatabase: %s/.dev-data/data.json\n' "$root_dir"
+printf 'Development: http://localhost:5232\nDatabase: %s/.dev-data/data.db\n' "$root_dir"
 cd "$root_dir"
 exec dotnet watch --project "$root_dir/BestestGame/BestestGame.csproj" run --launch-profile http

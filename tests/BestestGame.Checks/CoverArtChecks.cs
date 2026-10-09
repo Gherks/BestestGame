@@ -45,21 +45,20 @@ static class CoverArtChecks
 
     public static async Task RunAsync(string directory)
     {
-        var path = Path.Combine(directory, "covers", "data.json");
+        var path = CheckData.PathFor(Path.Combine(directory, "covers"), "data");
         var solo = new Game { Title = "Dark Souls", ReleaseYear = 2011 };
         var collection = new Game { Title = "Metro", IncludedTitles = [new() { Title = "Metro 2033", ReleaseYear = 2010 }, new() { Title = "Metro Exodus" }] };
         var legacy = new Game { Title = "Assassin's Creed (1, 2)" };
         var tournament = new Tournament { Name = "Covers", Games = [solo, collection, legacy] };
         Directory.CreateDirectory(Path.GetDirectoryName(path)!);
-        File.WriteAllText(path, JsonSerializer.Serialize(new GameDatabase { CurrentTournamentId = tournament.Id, Tournaments = [tournament] }));
-        Check(!File.ReadAllText(path).Contains("CoverImage") && JsonSerializer.Deserialize<Game>("{\"Title\":\"Old\"}")!.CoverImage is null,
-            "Entries without a cover are stored exactly as before, and older data loads without one");
-
         Dictionary<string, string?> settings = new()
         {
             ["DatabasePath"] = path, ["Igdb:TokenUrl"] = "https://stub/token", ["Igdb:ApiUrl"] = "https://stub/v4", ["Igdb:ImageUrl"] = "https://stub/images"
         };
         var games = new GameService(new ConfigurationBuilder().AddInMemoryCollection(settings).Build(), null!);
+        games.Import(new GameDatabase { CurrentTournamentId = tournament.Id, Tournaments = [tournament] });
+        Check(!CheckData.Snapshot(games).Contains("CoverImage") && JsonSerializer.Deserialize<Game>("{\"Title\":\"Old\"}")!.CoverImage is null,
+            "Entries without a cover are exported exactly as before, and older data loads without one");
         var igdb = new Igdb();
         CoverArtService Service() => new(new ConfigurationBuilder().AddInMemoryCollection(settings).Build(), games, new HttpClient(igdb));
 

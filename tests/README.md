@@ -4,7 +4,8 @@ Run the persistence and tournament regression checks with:
 dotnet run --project tests/BestestGame.Checks
 ```
 
-Checks use an isolated temporary database and delete it afterward.
+Checks use isolated temporary databases and delete them afterward. They seed and compare
+data through the service (`CheckData`), not by reading its file.
 
 Voting saves immediately and changes duels with a sequential slide-and-fade.
 Browser checks cover both directions/phases, ordinary/adaptive/rapid results,
@@ -51,10 +52,13 @@ python3 tests/startup_checks.py
 
 These checks mock systemd, .NET, and HTTP commands and use temporary checkouts.
 They cover migration to the sibling `BestestGameLive` folder, separate publish
-artifacts, preservation of the live database across deployments, backups, concurrent
+artifacts, preservation of the live database across deployments, backups that include
+changes still in SQLite's write-ahead log, concurrent
 updates, rollback after build, startup, or HTTP failures, and refreshing the
-development database before debugging. They do not change your installed service
-or live database.
+development database before debugging. They also cover the first deployment that uses
+SQLite: the earlier `data.json` stays in place until the new release has built its
+database, is then kept with the backups, and is left for the restored release if that
+deployment fails. They do not change your installed service or live database.
 
 Games have an optional `ReleaseYear` and an `IncludedTitles` array of objects:
 
@@ -69,8 +73,16 @@ Games have an optional `ReleaseYear` and an `IncludedTitles` array of objects:
 ```
 
 Unknown years are `null`; assigned years must be integers from 1 to 9999.
-Older databases with string-based included titles or missing years still load.
-Saving writes included titles as objects with optional years.
+This is the shape of the earlier `data.json` and of `--export-json`. JSON files with
+string-based included titles or missing years are still moved into the database.
+
+`MigrationChecks` adds 24 assertions on moving a `data.json` into SQLite: every tournament,
+entry, included title, cover, score, result and the selection arriving unchanged and in
+order, the JSON file left untouched and ignored once the database exists, saved results
+surviving a restart, removed entries and deleted tournaments leaving no rows behind, and
+refusing a database from a newer version. Ten kinds of data the tables cannot hold
+faithfully (such as a completed duel without a winner or a duel between entries of
+different tournaments) must stop the start without creating a database.
 
 `CoverArtChecks` adds 20 assertions against a stand-in for Twitch and IGDB: nothing requested
 without credentials, rejected credentials, token reuse and renewal, safe quoting of titles,

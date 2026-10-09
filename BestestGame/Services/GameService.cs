@@ -1,5 +1,5 @@
-using System.Text.Json;
 using BestestGame.Models;
+using Microsoft.Data.Sqlite;
 
 namespace BestestGame.Services;
 
@@ -9,16 +9,20 @@ public class GameService
     public sealed record DuelResult(Guid DuelId, Guid WinnerId);
 
     private readonly string _dbPath;
+    private readonly GameStore _store;
     private readonly object _databaseLock = new();
 
     public GameService(IConfiguration configuration, IWebHostEnvironment env)
-        => _dbPath = DatabasePath(configuration, env);
+    {
+        _dbPath = DatabasePath(configuration, env);
+        _store = new GameStore(_dbPath);
+    }
 
     public static string DatabasePath(IConfiguration configuration, IWebHostEnvironment env)
     {
         var configuredPath = configuration["DatabasePath"];
         return string.IsNullOrWhiteSpace(configuredPath)
-            ? Path.Combine(env.ContentRootPath, "data.json")
+            ? Path.Combine(env.ContentRootPath, "data.db")
             : Path.IsPathRooted(configuredPath)
                 ? Path.GetFullPath(configuredPath)
                 : Path.GetFullPath(configuredPath, env.ContentRootPath);
@@ -27,42 +31,52 @@ public class GameService
     /// <summary>Cover pictures live beside the database, so they share its lifetime and survive deployments.</summary>
     public string CoversDirectory => Path.Combine(Path.GetDirectoryName(_dbPath)!, "covers");
 
-    private GameDatabase Load()
+    // One reader or writer at a time, so what a method reads cannot change before it finishes.
+    private T Read<T>(Func<SqliteConnection, T> query)
     {
         lock (_databaseLock)
         {
-            if (!File.Exists(_dbPath))
-                return new GameDatabase();
-
-            var json = File.ReadAllText(_dbPath);
-            return JsonSerializer.Deserialize<GameDatabase>(json) ?? new GameDatabase();
+            using var connection = _store.Open();
+            return query(connection);
         }
     }
 
-    private void Save(GameDatabase db)
+    // A change is saved completely or, if it fails part of the way, not at all.
+    private T Write<T>(Func<SqliteConnection, T> change)
     {
         lock (_databaseLock)
         {
-            var json = JsonSerializer.Serialize(db, new JsonSerializerOptions { WriteIndented = true });
-            Directory.CreateDirectory(Path.GetDirectoryName(_dbPath)!);
-            File.WriteAllText(_dbPath, json);
+            using var connection = _store.Open();
+            using var transaction = connection.BeginTransaction();
+            var result = change(connection);
+            transaction.Commit();
+            return result;
         }
     }
 
-    private Tournament? GetCurrentTournament(GameDatabase db)
-    {
-        if (db.CurrentTournamentId is null)
-            return null;
+    /// <summary>
+    /// Returns everything stored, in the shape of the JSON file that earlier versions saved.
+    /// </summary>
+    public GameDatabase Export() => Read(GameStore.Export);
 
-        return db.Tournaments.FirstOrDefault(t => t.Id == db.CurrentTournamentId);
-    }
+    /// <summary>
+    /// Fills an empty database with whole tournaments, keeping their identities, order, scores and results.
+    /// </summary>
+    public void Import(GameDatabase database)
+        => Write(connection =>
+        {
+            if (connection.Count("SELECT COUNT(*) FROM tournaments") > 0)
+                throw new InvalidOperationException("Data can only be imported into an empty database.");
+            GameStore.Import(connection, database);
+            return true;
+        });
 
     /// <summary>
     /// Returns all tournaments ordered by name.
     /// </summary>
     public List<Tournament> GetTournaments()
     {
-        return Load().Tournaments.OrderBy(t => t.Name).ToList();
+        return Read(connection => GameStore.ReadTournaments(connection)).OrderBy(t => t.Name).ToList();
     }
 
     /// <summary>
@@ -70,8 +84,9 @@ public class GameService
     /// </summary>
     public Tournament? GetCurrentTournament()
     {
-        var db = Load();
-        return GetCurrentTournament(db);
+        return Read(connection => GameStore.CurrentTournamentId(connection) is { } tournamentId
+            ? GameStore.ReadTournaments(connection, tournamentId).FirstOrDefault()
+            : null);
     }
 
     /// <summary>
@@ -79,17 +94,17 @@ public class GameService
     /// </summary>
     public Tournament CreateTournament(string name)
     {
-        lock (_databaseLock)
-        {
-            ArgumentNullException.ThrowIfNull(name);
+        ArgumentNullException.ThrowIfNull(name);
 
-            var db = Load();
-            var tournament = new Tournament { Name = name.Trim() };
-            db.Tournaments.Add(tournament);
-            db.CurrentTournamentId = tournament.Id;
-            Save(db);
+        var tournament = new Tournament { Name = name.Trim() };
+        return Write(connection =>
+        {
+            connection.Execute(
+                "INSERT INTO tournaments (id, position, name) VALUES ($id, (SELECT COALESCE(MAX(position), -1) + 1 FROM tournaments), $name)",
+                ("$id", tournament.Id), ("$name", tournament.Name));
+            connection.Execute("UPDATE app_state SET current_tournament_id = $id WHERE id = 1", ("$id", tournament.Id));
             return tournament;
-        }
+        });
     }
 
     /// <summary>
@@ -97,16 +112,9 @@ public class GameService
     /// </summary>
     public void SelectTournament(Guid tournamentId)
     {
-        lock (_databaseLock)
-        {
-            var db = Load();
-            var tournament = db.Tournaments.FirstOrDefault(t => t.Id == tournamentId);
-            if (tournament is null)
-                return;
-
-            db.CurrentTournamentId = tournamentId;
-            Save(db);
-        }
+        Write(connection => connection.Execute(
+            "UPDATE app_state SET current_tournament_id = $id WHERE id = 1 AND EXISTS (SELECT 1 FROM tournaments WHERE id = $id)",
+            ("$id", tournamentId)));
     }
 
     /// <summary>
@@ -114,17 +122,11 @@ public class GameService
     /// </summary>
     public bool RenameTournament(Guid tournamentId, string name)
     {
-        lock (_databaseLock)
-        {
-            var db = Load();
-            var tournament = db.Tournaments.FirstOrDefault(t => t.Id == tournamentId);
-            if (tournament is null || string.IsNullOrWhiteSpace(name))
-                return false;
+        if (string.IsNullOrWhiteSpace(name))
+            return false;
 
-            tournament.Name = name.Trim();
-            Save(db);
-            return true;
-        }
+        return Write(connection => connection.Execute(
+            "UPDATE tournaments SET name = $name WHERE id = $id", ("$name", name.Trim()), ("$id", tournamentId)) > 0);
     }
 
     /// <summary>
@@ -135,39 +137,34 @@ public class GameService
     {
         lock (_databaseLock)
         {
-            var db = Load();
-            var tournament = db.Tournaments.FirstOrDefault(t => t.Id == tournamentId);
-            if (tournament is null)
+            var (deleted, covers) = Write(connection =>
+            {
+                var pictures = connection.Query("SELECT cover_image FROM games WHERE tournament_id = $id",
+                    row => row.TextOrNull(0), ("$id", tournamentId));
+                // Its games, their included titles and its duels go with it, and the selection is cleared if it was selected.
+                return (connection.Execute("DELETE FROM tournaments WHERE id = $id", ("$id", tournamentId)) > 0, pictures);
+            });
+            if (!deleted)
                 return false;
 
-            db.Tournaments.Remove(tournament);
-            if (db.CurrentTournamentId == tournamentId)
-                db.CurrentTournamentId = null;
-            Save(db);
-            foreach (var game in tournament.Games)
-                DeleteCoverFile(game.CoverImage);
+            foreach (var cover in covers)
+                DeleteCoverFile(cover);
             return true;
         }
     }
 
     public List<Game> GetGames()
     {
-        var db = Load();
-        var tournament = GetCurrentTournament(db);
-        if (tournament is null)
-            return [];
-
-        return tournament.Games.OrderByDescending(g => g.Points).ToList();
+        return Read(connection => GameStore.CurrentTournamentId(connection) is { } tournamentId
+            ? GameStore.ReadGames(connection, tournamentId).OrderByDescending(g => g.Points).ToList()
+            : []);
     }
 
     public List<Duel> GetPendingDuels()
     {
-        var db = Load();
-        var tournament = GetCurrentTournament(db);
-        if (tournament is null)
-            return [];
-
-        return tournament.Duels.Where(d => !d.IsCompleted).ToList();
+        return Read(connection => GameStore.CurrentTournamentId(connection) is { } tournamentId
+            ? GameStore.ReadDuels(connection, tournamentId, "winner_id IS NULL")
+            : []);
     }
 
     /// <summary>
@@ -175,27 +172,34 @@ public class GameService
     /// </summary>
     public (Duel? duel, Game? game1, Game? game2) GetDuel(Guid duelId)
     {
-        var db = Load();
-        var tournament = GetCurrentTournament(db);
-        if (tournament is null)
-            return (null, null, null);
+        return Read<(Duel?, Game?, Game?)>(connection =>
+        {
+            if (GameStore.CurrentTournamentId(connection) is not { } tournamentId ||
+                !FindDuels(connection, tournamentId, [duelId]).TryGetValue(duelId, out var duel))
+                return (null, null, null);
 
-        var duel = tournament.Duels.FirstOrDefault(d => d.Id == duelId);
-        if (duel is null)
-            return (null, null, null);
+            var games = GameStore.ReadGames(connection, tournamentId);
+            return (duel, games.FirstOrDefault(g => g.Id == duel.Game1Id), games.FirstOrDefault(g => g.Id == duel.Game2Id));
+        });
+    }
 
-        var game1 = tournament.Games.FirstOrDefault(g => g.Id == duel.Game1Id);
-        var game2 = tournament.Games.FirstOrDefault(g => g.Id == duel.Game2Id);
-        return (duel, game1, game2);
+    private static Dictionary<Guid, Duel> FindDuels(SqliteConnection connection, Guid tournamentId, IEnumerable<Guid> duelIds)
+    {
+        using var find = connection.Prepare(
+            "SELECT id, game1_id, game2_id, winner_id FROM duels WHERE tournament_id = $tournament AND id = $id", "$tournament", "$id");
+        var duels = new Dictionary<Guid, Duel>();
+        foreach (var duelId in duelIds.Distinct())
+            foreach (var duel in find.With(tournamentId, duelId).ReadAll(GameStore.ReadDuel))
+                duels[duel.Id] = duel;
+        return duels;
     }
 
     public void RecordWinner(Guid duelId, Guid winnerId)
     {
         lock (_databaseLock)
         {
-            var tournament = GetCurrentTournament();
-            if (tournament is not null)
-                RecordWinners(tournament.Id, [new(duelId, winnerId)]);
+            if (Read(GameStore.CurrentTournamentId) is { } tournamentId)
+                RecordWinners(tournamentId, [new(duelId, winnerId)]);
         }
     }
 
@@ -206,35 +210,28 @@ public class GameService
     /// </summary>
     public IReadOnlyList<DuelResult> RecordWinners(Guid tournamentId, IEnumerable<DuelResult> results)
     {
-        lock (_databaseLock)
+        return Write<IReadOnlyList<DuelResult>>(connection =>
         {
-            var db = Load();
-            var tournament = GetCurrentTournament(db);
-            if (tournament?.Id != tournamentId)
+            if (GameStore.CurrentTournamentId(connection) != tournamentId)
                 return [];
 
             var votes = results.Distinct().ToArray();
-            var duels = tournament.Duels.ToDictionary(d => d.Id);
-            var games = tournament.Games.ToDictionary(g => g.Id);
+            var duels = FindDuels(connection, tournamentId, votes.Select(vote => vote.DuelId));
             if (votes.GroupBy(vote => vote.DuelId).Any(group => group.Count() > 1) ||
                 votes.Any(vote => !duels.TryGetValue(vote.DuelId, out var duel) ||
-                    (duel.Game1Id != vote.WinnerId && duel.Game2Id != vote.WinnerId) ||
-                    !games.ContainsKey(vote.WinnerId)))
+                    (duel.Game1Id != vote.WinnerId && duel.Game2Id != vote.WinnerId)))
                 return [];
 
             var recorded = votes.Where(vote => !duels[vote.DuelId].IsCompleted).ToArray();
+            using var setWinner = connection.Prepare("UPDATE duels SET winner_id = $winner WHERE id = $id", "$winner", "$id");
+            using var addPoint = connection.Prepare("UPDATE games SET points = points + 1 WHERE id = $id", "$id");
             foreach (var vote in recorded)
             {
-                var duel = duels[vote.DuelId];
-                duel.IsCompleted = true;
-                duel.WinnerId = vote.WinnerId;
-                games[vote.WinnerId].Points++;
+                setWinner.Run(vote.WinnerId, vote.DuelId);
+                addPoint.Run(vote.WinnerId);
             }
-
-            if (recorded.Length > 0)
-                Save(db);
             return recorded;
-        }
+        });
     }
 
     /// <summary>
@@ -243,32 +240,26 @@ public class GameService
     /// </summary>
     public bool UndoWinners(Guid tournamentId, IEnumerable<DuelResult> results)
     {
-        lock (_databaseLock)
+        return Write(connection =>
         {
-            var db = Load();
-            var tournament = GetCurrentTournament(db);
-            if (tournament?.Id != tournamentId)
+            if (GameStore.CurrentTournamentId(connection) != tournamentId)
                 return false;
 
             var votes = results.Distinct().ToArray();
-            var duels = tournament.Duels.ToDictionary(d => d.Id);
-            var games = tournament.Games.ToDictionary(g => g.Id);
+            var duels = FindDuels(connection, tournamentId, votes.Select(vote => vote.DuelId));
             if (votes.Length == 0 || votes.Any(vote =>
-                    !duels.TryGetValue(vote.DuelId, out var duel) || !duel.IsCompleted ||
-                    duel.WinnerId != vote.WinnerId || !games.ContainsKey(vote.WinnerId)))
+                    !duels.TryGetValue(vote.DuelId, out var duel) || !duel.IsCompleted || duel.WinnerId != vote.WinnerId))
                 return false;
 
+            using var clearWinner = connection.Prepare("UPDATE duels SET winner_id = NULL WHERE id = $id", "$id");
+            using var removePoint = connection.Prepare("UPDATE games SET points = MAX(0, points - 1) WHERE id = $id", "$id");
             foreach (var vote in votes)
             {
-                var duel = duels[vote.DuelId];
-                duel.IsCompleted = false;
-                duel.WinnerId = null;
-                games[vote.WinnerId].Points = Math.Max(0, games[vote.WinnerId].Points - 1);
+                clearWinner.Run(vote.DuelId);
+                removePoint.Run(vote.WinnerId);
             }
-
-            Save(db);
             return true;
-        }
+        });
     }
 
     public int ImportGames(IEnumerable<string> titles)
@@ -276,14 +267,14 @@ public class GameService
 
     public int ImportGames(IEnumerable<Game> games)
     {
-        lock (_databaseLock)
+        return Write(connection =>
         {
-            var db = Load();
-            var tournament = GetCurrentTournament(db);
-            if (tournament is null)
+            if (GameStore.CurrentTournamentId(connection) is not { } tournamentId)
                 return 0;
 
-            var existingTitles = tournament.Games.Select(g => g.Title)
+            var existing = connection.Query("SELECT id, title FROM games WHERE tournament_id = $tournament ORDER BY position",
+                row => (Id: row.Id(0), Title: row.GetString(1)), ("$tournament", tournamentId));
+            var existingTitles = existing.Select(g => g.Title)
                 .ToHashSet(StringComparer.OrdinalIgnoreCase);
             var newGames = games
                 .Where(g => !string.IsNullOrWhiteSpace(g.Title))
@@ -296,47 +287,56 @@ public class GameService
                 })
                 .ToList();
 
-            tournament.Games.AddRange(newGames);
+            using var rows = new GameStore.Rows(connection);
+            var gamePosition = connection.Count(
+                "SELECT COALESCE(MAX(position), -1) + 1 FROM games WHERE tournament_id = $tournament", ("$tournament", tournamentId));
+            foreach (var game in newGames)
+                rows.AddGame(tournamentId, gamePosition++, game);
 
             // Generate all missing duels (every game vs every other game)
-            var allGames = tournament.Games;
+            var allGames = existing.Select(g => g.Id).Concat(newGames.Select(g => g.Id)).ToList();
+            var paired = connection.Query("SELECT game1_id, game2_id FROM duels WHERE tournament_id = $tournament",
+                row => (row.Id(0), row.Id(1)), ("$tournament", tournamentId)).ToHashSet();
+            var duelPosition = connection.Count(
+                "SELECT COALESCE(MAX(position), -1) + 1 FROM duels WHERE tournament_id = $tournament", ("$tournament", tournamentId));
             for (int i = 0; i < allGames.Count; i++)
             {
                 for (int j = i + 1; j < allGames.Count; j++)
                 {
                     var g1 = allGames[i];
                     var g2 = allGames[j];
-                    bool duelExists = tournament.Duels.Any(d =>
-                        (d.Game1Id == g1.Id && d.Game2Id == g2.Id) ||
-                        (d.Game1Id == g2.Id && d.Game2Id == g1.Id));
-
-                    if (!duelExists)
+                    if (!paired.Contains((g1, g2)) && !paired.Contains((g2, g1)))
                     {
-                        tournament.Duels.Add(new Duel { Game1Id = g1.Id, Game2Id = g2.Id });
+                        rows.AddDuel(tournamentId, duelPosition++, new Duel { Game1Id = g1, Game2Id = g2 });
                     }
                 }
             }
 
-            Save(db);
             return newGames.Count;
-        }
+        });
     }
 
     public bool UpdateGameDetails(Guid gameId, int? releaseYear, IEnumerable<IncludedTitle> includedTitles)
     {
-        lock (_databaseLock)
+        return Write(connection =>
         {
-            var db = Load();
-            var game = GetCurrentTournament(db)?.Games.FirstOrDefault(g => g.Id == gameId);
-            if (game is null)
+            if (!IsInCurrentTournament(connection, gameId))
                 return false;
 
-            game.ReleaseYear = ValidateReleaseYear(releaseYear);
-            game.IncludedTitles = CleanIncludedTitles(includedTitles);
-            Save(db);
+            var year = ValidateReleaseYear(releaseYear);
+            var titles = CleanIncludedTitles(includedTitles);
+            connection.Execute("UPDATE games SET release_year = $year WHERE id = $id", ("$year", year), ("$id", gameId));
+            connection.Execute("DELETE FROM included_titles WHERE game_id = $id", ("$id", gameId));
+            using var rows = new GameStore.Rows(connection);
+            rows.AddIncludedTitles(gameId, titles);
             return true;
-        }
+        });
     }
+
+    private static bool IsInCurrentTournament(SqliteConnection connection, Guid gameId)
+        => connection.Count(
+            "SELECT COUNT(*) FROM games WHERE id = $id AND tournament_id = (SELECT current_tournament_id FROM app_state WHERE id = 1)",
+            ("$id", gameId)) > 0;
 
     /// <summary>
     /// Changes an entry's title in the current tournament. Its ID, results and points stay as they are.
@@ -344,23 +344,22 @@ public class GameService
     /// </summary>
     public bool RenameGame(Guid gameId, string title)
     {
-        lock (_databaseLock)
+        return Write(connection =>
         {
-            var db = Load();
-            var tournament = GetCurrentTournament(db);
-            var game = tournament?.Games.FirstOrDefault(g => g.Id == gameId);
             var name = title?.Trim();
-            if (game is null || string.IsNullOrEmpty(name) || tournament!.Games.Any(other =>
+            if (string.IsNullOrEmpty(name) || GameStore.CurrentTournamentId(connection) is not { } tournamentId)
+                return false;
+
+            // Compared here rather than by the database, whose case-insensitive matching only covers ASCII letters.
+            var titles = connection.Query("SELECT id, title FROM games WHERE tournament_id = $tournament",
+                row => (Id: row.Id(0), Title: row.GetString(1)), ("$tournament", tournamentId));
+            if (!titles.Any(game => game.Id == gameId) || titles.Any(other =>
                     other.Id != gameId && string.Equals(other.Title, name, StringComparison.OrdinalIgnoreCase)))
                 return false;
 
-            if (game.Title != name)
-            {
-                game.Title = name;
-                Save(db);
-            }
+            connection.Execute("UPDATE games SET title = $title WHERE id = $id", ("$title", name), ("$id", gameId));
             return true;
-        }
+        });
     }
 
     private static List<IncludedTitle> CleanIncludedTitles(IEnumerable<IncludedTitle>? titles)
@@ -381,22 +380,24 @@ public class GameService
     {
         lock (_databaseLock)
         {
-            var db = Load();
-            var tournament = GetCurrentTournament(db);
-            if (tournament is null)
-                return false;
+            var (removed, cover) = Write<(bool, string?)>(connection =>
+            {
+                if (GameStore.CurrentTournamentId(connection) is not { } tournamentId)
+                    return (false, null);
 
-            var game = tournament.Games.FirstOrDefault(g => g.Id == gameId);
-            if (game is null)
-                return false;
+                var covers = connection.Query("SELECT cover_image FROM games WHERE tournament_id = $tournament AND id = $id",
+                    row => row.TextOrNull(0), ("$tournament", tournamentId), ("$id", gameId));
+                if (covers.Count == 0)
+                    return (false, null);
 
-            tournament.Games.Remove(game);
-            tournament.Duels.RemoveAll(d => d.Game1Id == gameId || d.Game2Id == gameId);
-            RecalculatePoints(tournament);
-
-            Save(db);
-            DeleteCoverFile(game.CoverImage);
-            return true;
+                // Its included titles and duels go with it.
+                connection.Execute("DELETE FROM games WHERE id = $id", ("$id", gameId));
+                RecalculatePoints(connection, tournamentId);
+                return (true, covers[0]);
+            });
+            if (removed)
+                DeleteCoverFile(cover);
+            return removed;
         }
     }
 
@@ -410,16 +411,17 @@ public class GameService
             throw new ArgumentException("A cover is a file name inside the covers folder.", nameof(fileName));
         lock (_databaseLock)
         {
-            var db = Load();
-            var game = GetCurrentTournament(db)?.Games.FirstOrDefault(g => g.Id == gameId);
-            if (game is null)
-                return false;
+            var (found, replaced) = Write<(bool, string?)>(connection =>
+            {
+                if (!IsInCurrentTournament(connection, gameId))
+                    return (false, null);
 
-            var replaced = game.CoverImage;
-            game.CoverImage = fileName;
-            Save(db);
-            if (replaced != fileName) DeleteCoverFile(replaced);
-            return true;
+                var previous = connection.Query("SELECT cover_image FROM games WHERE id = $id", row => row.TextOrNull(0), ("$id", gameId))[0];
+                connection.Execute("UPDATE games SET cover_image = $cover WHERE id = $id", ("$cover", fileName), ("$id", gameId));
+                return (true, previous);
+            });
+            if (found && replaced != fileName) DeleteCoverFile(replaced);
+            return found;
         }
     }
 
@@ -434,16 +436,14 @@ public class GameService
 
     public int TotalDuels()
     {
-        var db = Load();
-        var tournament = GetCurrentTournament(db);
-        return tournament?.Duels.Count ?? 0;
+        return Read(connection => connection.Count(
+            "SELECT COUNT(*) FROM duels WHERE tournament_id = (SELECT current_tournament_id FROM app_state WHERE id = 1)"));
     }
 
     public int CompletedDuels()
     {
-        var db = Load();
-        var tournament = GetCurrentTournament(db);
-        return tournament?.Duels.Count(d => d.IsCompleted) ?? 0;
+        return Read(connection => connection.Count(
+            "SELECT COUNT(*) FROM duels WHERE winner_id IS NOT NULL AND tournament_id = (SELECT current_tournament_id FROM app_state WHERE id = 1)"));
     }
 
     /// <summary>
@@ -453,11 +453,22 @@ public class GameService
     {
         lock (_databaseLock)
         {
-            var tournament = GetCurrentTournament();
-            var duel = tournament?.Duels.FirstOrDefault(d => d.Id == duelId);
-            if (duel?.WinnerId is { } winnerId)
-                UndoWinners(tournament!.Id, [new(duelId, winnerId)]);
+            var saved = Read<(Guid TournamentId, Guid WinnerId)?>(connection =>
+                GameStore.CurrentTournamentId(connection) is { } tournamentId &&
+                FindDuels(connection, tournamentId, [duelId]).GetValueOrDefault(duelId)?.WinnerId is { } winnerId
+                    ? (tournamentId, winnerId)
+                    : null);
+            if (saved is { } result)
+                UndoWinners(result.TournamentId, [new(duelId, result.WinnerId)]);
         }
+    }
+
+    // The current tournament's entries in the order they were added, with its completed duels.
+    private (List<Game> Games, List<Duel> Completed) ReadResults()
+    {
+        return Read(connection => GameStore.CurrentTournamentId(connection) is { } tournamentId
+            ? (GameStore.ReadGames(connection, tournamentId), GameStore.ReadDuels(connection, tournamentId, "winner_id IS NOT NULL"))
+            : (new List<Game>(), new List<Duel>()));
     }
 
     /// <summary>
@@ -465,15 +476,11 @@ public class GameService
     /// </summary>
     public Dictionary<Guid, List<LossDetail>> GetGamesPickedOverDetails()
     {
-        var db = Load();
-        var tournament = GetCurrentTournament(db);
-        if (tournament is null)
-            return [];
+        var (games, completed) = ReadResults();
+        var gamesById = games.ToDictionary(g => g.Id);
+        var result = games.ToDictionary(g => g.Id, _ => new List<LossDetail>());
 
-        var gamesById = tournament.Games.ToDictionary(g => g.Id);
-        var result = tournament.Games.ToDictionary(g => g.Id, _ => new List<LossDetail>());
-
-        foreach (var duel in tournament.Duels.Where(d => d.IsCompleted))
+        foreach (var duel in completed)
         {
             if (duel.WinnerId is not { } winnerId)
                 continue;
@@ -494,15 +501,11 @@ public class GameService
     /// </summary>
     public Dictionary<Guid, List<LossDetail>> GetWinsOverDetails()
     {
-        var db = Load();
-        var tournament = GetCurrentTournament(db);
-        if (tournament is null)
-            return [];
+        var (games, completed) = ReadResults();
+        var gamesById = games.ToDictionary(g => g.Id);
+        var result = games.ToDictionary(g => g.Id, _ => new List<LossDetail>());
 
-        var gamesById = tournament.Games.ToDictionary(g => g.Id);
-        var result = tournament.Games.ToDictionary(g => g.Id, _ => new List<LossDetail>());
-
-        foreach (var duel in tournament.Duels.Where(d => d.IsCompleted))
+        foreach (var duel in completed)
         {
             if (duel.WinnerId is not { } winnerId)
                 continue;
@@ -534,38 +537,21 @@ public class GameService
     /// </summary>
     public bool ChangeCompletedDuelWinner(Guid duelId, Guid winnerId)
     {
-        lock (_databaseLock)
+        return Write(connection =>
         {
-            var db = Load();
-            var tournament = GetCurrentTournament(db);
-            if (tournament is null)
+            if (GameStore.CurrentTournamentId(connection) is not { } tournamentId ||
+                !FindDuels(connection, tournamentId, [duelId]).TryGetValue(duelId, out var duel) ||
+                duel.WinnerId is not { } previousWinnerId)
                 return false;
 
-            var duel = tournament.Duels.FirstOrDefault(d => d.Id == duelId);
-            if (duel is null || !duel.IsCompleted || !duel.WinnerId.HasValue)
+            if ((duel.Game1Id != winnerId && duel.Game2Id != winnerId) || previousWinnerId == winnerId)
                 return false;
 
-            if (duel.Game1Id != winnerId && duel.Game2Id != winnerId)
-                return false;
-
-            var previousWinnerId = duel.WinnerId.Value;
-            if (previousWinnerId == winnerId)
-                return false;
-
-            var previousWinner = tournament.Games.FirstOrDefault(g => g.Id == previousWinnerId);
-            var newWinner = tournament.Games.FirstOrDefault(g => g.Id == winnerId);
-            if (newWinner is null)
-                return false;
-
-            if (previousWinner is not null)
-                previousWinner.Points = Math.Max(0, previousWinner.Points - 1);
-
-            newWinner.Points++;
-            duel.WinnerId = winnerId;
-
-            Save(db);
+            connection.Execute("UPDATE games SET points = MAX(0, points - 1) WHERE id = $id", ("$id", previousWinnerId));
+            connection.Execute("UPDATE games SET points = points + 1 WHERE id = $id", ("$id", winnerId));
+            connection.Execute("UPDATE duels SET winner_id = $winner WHERE id = $id", ("$winner", winnerId), ("$id", duelId));
             return true;
-        }
+        });
     }
 
     /// <summary>
@@ -573,18 +559,14 @@ public class GameService
     /// </summary>
     public Dictionary<Guid, int> GetMatchesPlayedPerGame()
     {
-        var db = Load();
-        var tournament = GetCurrentTournament(db);
-        if (tournament is null)
-            return [];
-
+        var (games, completed) = ReadResults();
         var counts = new Dictionary<Guid, int>();
-        foreach (var game in tournament.Games)
+        foreach (var game in games)
         {
             counts[game.Id] = 0;
         }
 
-        foreach (var duel in tournament.Duels.Where(d => d.IsCompleted))
+        foreach (var duel in completed)
         {
             if (counts.ContainsKey(duel.Game1Id))
                 counts[duel.Game1Id]++;
@@ -595,23 +577,13 @@ public class GameService
         return counts;
     }
 
-    private static void RecalculatePoints(Tournament tournament)
+    private static void RecalculatePoints(SqliteConnection connection, Guid tournamentId)
     {
-        foreach (var game in tournament.Games)
-        {
-            game.Points = 0;
-        }
-
-        var gamesById = tournament.Games.ToDictionary(g => g.Id);
-        foreach (var duel in tournament.Duels.Where(d => d.IsCompleted))
-        {
-            if (!duel.WinnerId.HasValue)
-                continue;
-
-            if (gamesById.TryGetValue(duel.WinnerId.Value, out var winner))
-            {
-                winner.Points++;
-            }
-        }
+        connection.Execute(
+            """
+            UPDATE games SET points = (SELECT COUNT(*) FROM duels
+                                       WHERE duels.tournament_id = games.tournament_id AND duels.winner_id = games.id)
+            WHERE tournament_id = $tournament
+            """, ("$tournament", tournamentId));
     }
 }

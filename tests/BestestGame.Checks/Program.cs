@@ -9,14 +9,10 @@ var directory = Path.Combine(Path.GetTempPath(), $"bestestgame-checks-{Guid.NewG
 Directory.CreateDirectory(directory);
 try
 {
-    var path = Path.Combine(directory, "data.json");
-    var configuration = new ConfigurationBuilder().AddInMemoryCollection(
-        new Dictionary<string, string?> { ["DatabasePath"] = path }).Build();
-    var service = new GameService(configuration, null!);
     var tournamentId = Guid.NewGuid();
     var oldGameId = Guid.NewGuid();
     const string oldTitle = "Assassin's Creed (1, 2, 3: Brotherhood, 4: Revelations)";
-    File.WriteAllText(path, JsonSerializer.Serialize(new
+    var service = CheckData.FromLegacyFile(directory, "data", JsonSerializer.Serialize(new
     {
         CurrentTournamentId = tournamentId,
         Tournaments = new[] { new
@@ -56,18 +52,18 @@ try
     Check(JsonSerializer.Serialize(service.GetCurrentTournament()!.Duels) == duelsBeforeEdit, "Edit preserves all duel state");
     Check(service.UpdateGameDetails(group.Id, null, []), "Can clear included titles");
     Check(service.GetGames().Single(g => g.Id == group.Id).IncludedTitles.Count == 0 && service.GetGames().Single(g => g.Id == group.Id).ReleaseYear is null, "Cleared list and year persist");
-    var beforeInvalid = File.ReadAllText(path);
+    var beforeInvalid = CheckData.Snapshot(service);
     foreach (var invalid in new[] { 0, -1, 10000 })
     {
         ExpectInvalid(() => service.ImportGames(new[] { new Game { Title = "Invalid", ReleaseYear = invalid } }));
         ExpectInvalid(() => service.UpdateGameDetails(group.Id, null, [new() { Title = "Invalid", ReleaseYear = invalid }]));
     }
-    Check(File.ReadAllText(path) == beforeInvalid, "Invalid years do not change the database");
+    Check(CheckData.Snapshot(service) == beforeInvalid, "Invalid years do not change the database");
     Check(!service.UpdateGameDetails(Guid.NewGuid(), null, [new() { Title = "Unknown" }]), "Unknown game cannot be edited");
     Check(service.ImportGames(new[] { "Solo", "solo", " " }) == 1, "Plain bulk import still works");
     Check(service.GetGames().Single(g => g.Title == "Solo").IncludedTitles.Count == 0, "Plain titles have empty lists");
     Check(service.TotalDuels() == 3 && service.CompletedDuels() == 1, "New imports retain completed duels");
-    using var saved = JsonDocument.Parse(File.ReadAllText(path));
+    using var saved = JsonDocument.Parse(CheckData.Snapshot(service));
     Check(saved.RootElement.GetProperty("Tournaments")[0].GetProperty("Games").EnumerateArray()
         .All(g => g.TryGetProperty("ReleaseYear", out _) && g.GetProperty("IncludedTitles").EnumerateArray()
             .All(t => t.ValueKind == JsonValueKind.Object && t.TryGetProperty("ReleaseYear", out _))), "Every saved game has a list");
@@ -111,14 +107,14 @@ try
     var cycle = Enumerable.Range(0, 3).Select(i => new Duel { Game1Id = tiedTrio[i].Id, Game2Id = tiedTrio[(i + 1) % 3].Id, WinnerId = tiedTrio[i].Id, IsCompleted = true }).ToList();
     var cycleRanks = ReleaseRankings.GetEntries(tiedTrio, cycle);
     Check(cycleRanks.All(e => e.HeadToHeadWins == 1 && e.SharesRankWith(cycleRanks[0])), "Circular head-to-head results remain tied");
-    var liveContents = File.ReadAllText(path);
+    var liveContents = CheckData.Snapshot(service);
     var developmentConfig = new ConfigurationBuilder().AddInMemoryCollection(
-        new Dictionary<string, string?> { ["DatabasePath"] = "development/data.json" }).Build();
+        new Dictionary<string, string?> { ["DatabasePath"] = "development/data" + CheckData.Extension }).Build();
     var developmentService = new GameService(developmentConfig, new CheckEnvironment(directory));
     Check(developmentService.GetTournaments().Count == 0, "A separate development database starts empty");
     developmentService.CreateTournament("Development only");
-    Check(File.Exists(Path.Combine(directory, "development", "data.json")), "Relative database paths use the content root and create missing directories");
-    Check(File.ReadAllText(path) == liveContents, "Development writes do not modify the live database");
+    Check(File.Exists(Path.Combine(directory, "development", "data" + CheckData.Extension)), "Relative database paths use the content root and create missing directories");
+    Check(CheckData.Snapshot(service) == liveContents, "Development writes do not modify the live database");
     FocusedVotingChecks.Run(directory);
     await RankingsNavigationChecks.RunAsync();
     TournamentStandingsChecks.Run();
@@ -128,8 +124,9 @@ try
     GameLibraryChecks.Run();
     OrdinaryDuelChecks.Run(directory);
     ManagementChecks.Run(directory);
+    MigrationChecks.Run(directory);
     await CoverArtChecks.RunAsync(directory);
-    Console.WriteLine("All persistence, release-year, GOTY ranking, focused voting, database isolation, Rankings navigation/display/session, tournament rank/search, insights, switching, Home overview, Games library, ordinary voting, renaming/deleting, and cover art checks passed.");
+    Console.WriteLine("All persistence, release-year, GOTY ranking, focused voting, database isolation, Rankings navigation/display/session, tournament rank/search, insights, switching, Home overview, Games library, ordinary voting, renaming/deleting, migration, and cover art checks passed.");
 }
 finally
 {

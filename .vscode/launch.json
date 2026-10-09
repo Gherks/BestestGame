@@ -12,7 +12,7 @@
       "env": {
         "ASPNETCORE_ENVIRONMENT": "Development",
         "DOTNET_ENVIRONMENT": "Development",
-        "DatabasePath": "${workspaceFolder}/.dev-data/data.json"
+        "DatabasePath": "${workspaceFolder}/.dev-data/data.db"
       },
       "serverReadyAction": {
         "action": "openExternally",

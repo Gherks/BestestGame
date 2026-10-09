@@ -17,7 +17,7 @@
         "environmentVariables": {
           "ASPNETCORE_ENVIRONMENT": "Development",
           "DOTNET_ENVIRONMENT": "Development",
-          "DatabasePath": "../.dev-data/data.json"
+          "DatabasePath": "../.dev-data/data.db"
         }
       },
       "https": {
@@ -28,7 +28,7 @@
         "environmentVariables": {
           "ASPNETCORE_ENVIRONMENT": "Development",
           "DOTNET_ENVIRONMENT": "Development",
-          "DatabasePath": "../.dev-data/data.json"
+          "DatabasePath": "../.dev-data/data.db"
         }
       },
       "IIS Express": {
@@ -37,7 +37,7 @@
         "environmentVariables": {
           "ASPNETCORE_ENVIRONMENT": "Development",
           "DOTNET_ENVIRONMENT": "Development",
-          "DatabasePath": "../.dev-data/data.json"
+          "DatabasePath": "../.dev-data/data.db"
         }
       }
     }

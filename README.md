@@ -4,8 +4,8 @@ BestestGame supports a live application and a separate development application:
 
 | | Address | Database | Application files |
 |---|---|---|---|
-| Live | http://localhost:5231 | `../BestestGameLive/data/data.json` | Published copy in `../BestestGameLive/current` |
-| Development | http://localhost:5232 | `.dev-data/data.json` | Source checkout and Debug build |
+| Live | http://localhost:5231 | `../BestestGameLive/data/data.db` | Published copy in `../BestestGameLive/current` |
+| Development | http://localhost:5232 | `.dev-data/data.db` | Source checkout and Debug build |
 
 Requires the .NET 10 SDK, Python 3, `curl`, `flock` (util-linux), and systemd for
 the live service. All scripts run as your normal user.
@@ -33,7 +33,7 @@ account. Lingering also applies to other enabled systemd user services.
 
 If you already installed the earlier service that runs directly from the source
 checkout, run `./update-live.sh` once to migrate it to `BestestGameLive`. The first
-deployment copies the existing database into `BestestGameLive/data/data.json`
+deployment copies the existing database into `BestestGameLive/data`
 after stopping the old service. Existing data and boot startup settings are
 preserved; the original database is also retained. Later deployments never replace
 the live database. Close any terminal running
@@ -50,7 +50,7 @@ Use `./develop.sh --no-browser` to skip opening the browser. You can also run
 or `dotnet run --project BestestGame/BestestGame.csproj --launch-profile http`.
 The `http` and `https` launch profiles both use a separate development database;
 the HTTPS profile uses port 7215. `develop.sh` copies the current live database
-into `.dev-data/data.json` before starting, replacing previous development data.
+into `.dev-data/data.db` before starting, replacing previous development data.
 Direct `dotnet` commands keep the existing development copy; run
 `python3 refresh-dev-data.py` first if you want to refresh it. Development data
 is never copied over the live database.
@@ -58,10 +58,11 @@ is never copied over the live database.
 For breakpoints, open `BestestGame/BestestGame.code-workspace` in VS Code with the
 Microsoft C# extension, select **BestestGame (development)** in Run and Debug,
 and press F5. Each new debug session builds the app, then copies
-`BestestGameLive/data/data.json` into `.dev-data/data.json` before
+`BestestGameLive/data/data.db` into `.dev-data/data.db` before
 starting on port 5232. This replaces changes made during previous debug sessions;
-the live database stays untouched. If the live database cannot be read or contains
-invalid JSON, preparation fails and the existing development copy is preserved.
+the live database stays untouched, and may be in use while it is copied. If the live
+database cannot be read or is damaged, preparation fails and the existing development
+copy is preserved.
 Stop `develop.sh` before using F5, since both are development instances using that port.
 
 When your changes are ready, update the live application with:
@@ -82,6 +83,42 @@ service configuration. A failed build leaves the running version untouched.
 Database backups and previous releases remain in `BestestGameLive`; code rollback
 does not replace the live database. The service runs with `Production` settings
 and no longer rebuilds or reads application assets from your source checkout.
+
+## Data storage
+
+Tournaments, entries, results and the selected tournament are stored in one SQLite
+file, `data.db`. Each vote is saved as a single change that either completes or leaves
+the file as it was. While the application runs, SQLite keeps `data.db-wal` and
+`data.db-shm` beside the file; they hold the newest changes and belong to it, so copy
+the database with `sqlite3 data.db ".backup copy.db"` or the scripts here rather than
+by copying `data.db` alone. Each deployment saves such a copy as
+`BestestGameLive/backups/data-<release>.db`. To look at the data without changing it:
+
+```bash
+sqlite3 "file:../BestestGameLive/data/data.db?mode=ro" "SELECT name FROM tournaments"
+```
+
+Earlier versions kept everything in `data.json`. A version that uses SQLite and finds
+that file but no `data.db` beside it builds the database from it when it starts, and
+only keeps the result if reading it back gives exactly what the file holds; otherwise it
+refuses to start and the file is left as it was. The JSON file is never changed. For the
+live service the deployment then moves it to `BestestGameLive/backups/data-<release>.json`.
+If that first deployment fails, the previous release is restored on its unchanged
+`data.json` and the half-built database is set aside in `backups`.
+
+A release from before SQLite cannot read `data.db`. To go back to one, stop the service,
+write the current data in the earlier format where that release expects it, and move
+the database out of the way so that it cannot be taken for current data later:
+
+```bash
+cd /home/gherks/Repos/BestestGame/BestestGameLive
+(cd current && dotnet ./BestestGame.dll --export-json /home/gherks/Repos/BestestGame/BestestGameLive/data/data.json)
+mv data/data.db backups/data-before-going-back.db
+```
+
+A deployment stops before changing anything if it finds a `data.json` newer than the
+`data.db` beside it. The same export command writes a readable copy of all data at any
+time, also while the live application is running; give it another file name for that.
 
 To open the live application, double-click `BestestGame.desktop` and allow it to
 launch if KDE asks. After installation, its launcher starts the published service
@@ -110,10 +147,11 @@ The underlying scripts can also be run from a terminal:
 `xdg-open` opens the browser automatically. Before installing the service, the
 launcher retains its original behavior: build and run the source checkout on
 port 5231, keeping the terminal open. Before the first deployment, the database is
-`/home/gherks/Repos/BestestGame/Database/data.json`, as configured by `DatabasePath`
-in `BestestGame/appsettings.json`. This is used only to seed the new live folder
+`/home/gherks/Repos/BestestGame/Database/data.db`, as configured by `DatabasePath`
+in `BestestGame/appsettings.json`, or the `data.json` an earlier version left in that
+folder. This is used only to seed the new live folder
 on its first deployment. Published configuration and the service use an absolute
-path to `BestestGameLive/data/data.json`, independent of development configuration
+path to `BestestGameLive/data/data.db`, independent of development configuration
 and release folders. Until migration, the debug-data refresh script supports the
 old configured database location.
 

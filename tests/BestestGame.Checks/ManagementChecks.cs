@@ -1,16 +1,13 @@
 using System.Text.Json;
 using BestestGame.Models;
 using BestestGame.Services;
-using Microsoft.Extensions.Configuration;
 
 // Renaming entries and tournaments, and deleting a tournament.
 static class ManagementChecks
 {
     public static void Run(string directory)
     {
-        var path = Path.Combine(directory, "management.json");
-        var config = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?> { ["DatabasePath"] = path }).Build();
-        var service = new GameService(config, null!);
+        var service = CheckData.Create(directory, "management");
         var kept = service.CreateTournament("Kept");
         service.ImportGames(new[] { "Keeper" });
         var doomed = service.CreateTournament("Doomed");
@@ -23,9 +20,9 @@ static class ManagementChecks
 
         Check(service.RenameGame(typo.Id, "  Fixed title ") && service.GetGames().Single(game => game.Id == typo.Id) is { Title: "Fixed title", Points: 1 } &&
             JsonSerializer.Serialize(service.GetCurrentTournament()!.Duels) == duelsBefore, "Renaming an entry trims the title and keeps its ID, points and results");
-        var saved = File.ReadAllText(path);
+        var saved = CheckData.Snapshot(service);
         Check(!service.RenameGame(typo.Id, "oTHER") && !service.RenameGame(typo.Id, "  ") && !service.RenameGame(Guid.NewGuid(), "New") &&
-            File.ReadAllText(path) == saved, "Duplicate, blank and unknown renames change nothing");
+            CheckData.Snapshot(service) == saved, "Duplicate, blank and unknown renames change nothing");
         Check(service.RenameGame(typo.Id, "Fixed title") && service.RenameGame(other.Id, "OTHER") && service.GetGames().Single(game => game.Id == other.Id).Title == "OTHER",
             "An entry can keep its title or change only its capitals");
         service.SelectTournament(kept.Id);

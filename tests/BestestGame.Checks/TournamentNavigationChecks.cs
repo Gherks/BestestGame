@@ -1,8 +1,6 @@
 using System.Text.Json;
 using BestestGame.Components;
-using BestestGame.Services;
 using Microsoft.AspNetCore.Components;
-using Microsoft.Extensions.Configuration;
 
 static class TournamentNavigationChecks
 {
@@ -25,9 +23,8 @@ static class TournamentNavigationChecks
         Directory.CreateDirectory(directory);
         try
         {
-            var path = Path.Combine(directory, "data.json");
-            var configuration = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?> { ["DatabasePath"] = path }).Build();
-            var service = new GameService(configuration, null!);
+            var path = CheckData.PathFor(directory, "data");
+            var service = CheckData.Open(path);
             var first = service.CreateTournament("First");
             service.ImportGames(["A", "B"]);
             var duel = service.GetPendingDuels().Single();
@@ -38,12 +35,12 @@ static class TournamentNavigationChecks
             service.SelectTournament(first.Id);
             Check(service.GetCurrentTournament()!.Id == first.Id && JsonSerializer.Serialize(service.GetTournaments()) == before,
                 "Selection preserves every tournament's games, points and duels");
-            Check(new GameService(configuration, null!).GetCurrentTournament()!.Id == first.Id, "The active selection stays application-wide and persisted");
+            Check(CheckData.Open(path).GetCurrentTournament()!.Id == first.Id, "The active selection stays application-wide and persisted");
             service.SelectTournament(second.Id);
             Check(service.GetGames().Single().Title == "Other" && service.GetPendingDuels().Count == 0, "Switching reads only the selected tournament's entries and matchups");
-            var saved = File.ReadAllText(path);
+            var saved = CheckData.Snapshot(service);
             service.SelectTournament(Guid.NewGuid());
-            Check(File.ReadAllText(path) == saved, "An unavailable tournament selection cannot overwrite existing data");
+            Check(CheckData.Snapshot(service) == saved, "An unavailable tournament selection cannot overwrite existing data");
         }
         finally { Directory.Delete(directory, recursive: true); }
     }
