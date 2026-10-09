@@ -14,8 +14,8 @@
 /* Hollow is still to vote, filled is saved, tall is current: never colour alone. */
 .bar-fill--pending { background: transparent; border-color: var(--input-border); }
 .bar-fill--current { height: 1.25rem; background: var(--current); border-color: var(--current); }
-.bar-fill--won { background: var(--entry); }
-.bar-fill--lost { background: var(--opponent); }
+.bar-fill--won { background: var(--opponent); }
+.bar-fill--lost { background: var(--entry); }
 .bar-fill--banned { border: 1px dashed var(--quiet); }
 /* Rapid 1v1 tints the group and fills only the current opponent's place in it. */
 .bar-fill--single { background: rgb(243 236 217 / 22%); }
