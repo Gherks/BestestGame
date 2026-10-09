@@ -701,7 +701,7 @@ else
         }
         if (_dialogModule is null)
         {
-            _dialogModule = await JS.InvokeAsync<IJSObjectReference>("import", "./js/importDialog.js");
+            _dialogModule = await JS.InvokeAsync<IJSObjectReference>("import", ScriptModules.Url("importDialog.js"));
             _dialogReference = DotNetObjectReference.Create(this);
             await _dialogModule.InvokeVoidAsync("initialize", _detailsDialog, _dialogReference, "CloseVotingDialogFromKeyboard");
         }
@@ -710,7 +710,7 @@ else
         if (_restoreUndo)
         {
             _restoreUndo = false;
-            _sessionModule ??= await JS.InvokeAsync<IJSObjectReference>("import", "./js/focusedVoting.js");
+            _sessionModule ??= await JS.InvokeAsync<IJSObjectReference>("import", ScriptModules.Url("focusedVoting.js"));
             _undoHistory = await VoteHistoryStore.ReadAsync(_sessionModule, _currentTournament.Id, _duels);
             if (_canUndo && string.IsNullOrEmpty(_voteNotice))
             {

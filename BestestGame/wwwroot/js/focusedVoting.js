@@ -1,4 +1,6 @@
-import { connect as connectTransitions, disconnect as disconnectTransitions } from "./duelTransitions.js";
+// The transitions are fetched with this module's own version, so both always come from the same release.
+const { connect: connectTransitions, disconnect: disconnectTransitions } =
+    await import(`./duelTransitions.js${new URL(import.meta.url).search}`);
 
 const handlers = new WeakMap();
 const shortcuts = {

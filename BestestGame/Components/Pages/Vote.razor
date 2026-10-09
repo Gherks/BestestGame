@@ -448,7 +448,7 @@ else
         if (_currentTournament is null) return;
         if (_shortcutModule is null)
         {
-            _shortcutModule = await JS.InvokeAsync<IJSObjectReference>("import", "./js/focusedVoting.js");
+            _shortcutModule = await JS.InvokeAsync<IJSObjectReference>("import", ScriptModules.Url("focusedVoting.js"));
             await _shortcutModule.InvokeVoidAsync("connect", _root, new Dictionary<string, string>
             {
                 ["1"] = "left", ["arrowleft"] = "left", ["2"] = "right", ["arrowright"] = "right", ["u"] = "undo", ["s"] = "skip"

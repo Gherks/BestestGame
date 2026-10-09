@@ -21,6 +21,7 @@ builder.Services.AddSingleton(services => new CoverArtService(
 builder.Services.AddScoped<TournamentSelectionNotifications>();
 
 var app = builder.Build();
+ScriptModules.Files = app.Environment.WebRootFileProvider;
 
 // Configure the HTTP request pipeline.
 if (!app.Environment.IsDevelopment())
@@ -36,7 +37,10 @@ else if (!OperatingSystem.IsWindows())
 
 app.UseHttpsRedirection();
 
-app.UseStaticFiles();
+// Scripts and styles keep their file names from one release to the next. Without this the browser guesses
+// how long its copy stays good, and can pair a new page with an old script; now it asks each time, and an
+// unchanged file costs only a short "not modified" answer.
+app.UseStaticFiles(new StaticFileOptions { OnPrepareResponse = file => file.Context.Response.Headers.CacheControl = "no-cache" });
 app.UseStaticFiles(new StaticFileOptions { FileProvider = new PhysicalFileProvider(coversDirectory), RequestPath = "/covers" });
 app.UseAntiforgery();
 

@@ -395,7 +395,7 @@
     {
         if (firstRender)
         {
-            _module = await JS.InvokeAsync<IJSObjectReference>("import", "./js/focusedVoting.js");
+            _module = await JS.InvokeAsync<IJSObjectReference>("import", ScriptModules.Url("focusedVoting.js"));
             if (_disposed)
                 return;
             _showFinished = await _module.InvokeAsync<string?>("readSession", ShowFinishedKey) == "1";
@@ -420,7 +420,7 @@
                 catch (JsonException) { }
             }
             await _module.InvokeVoidAsync("connect", _root);
-            _controlsModule = await JS.InvokeAsync<IJSObjectReference>("import", "./js/focusedControls.js");
+            _controlsModule = await JS.InvokeAsync<IJSObjectReference>("import", ScriptModules.Url("focusedControls.js"));
             if (_disposed)
                 return;
             await _controlsModule.InvokeVoidAsync("connect", _root);

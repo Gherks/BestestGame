@@ -156,8 +156,8 @@ If another tab changes the application-wide tournament, stale ordinary choices
 are cleared and **Reload Voting** restores the current context.
 
 Votes save immediately. The current duel holds for 220ms while a glow sets in on the
-chosen canvas and the other dims, then fades and slides left over 180ms, and the next
-duel fades in from the right over 220ms. This applies to ordinary,
+chosen canvas, a backglow spreads out behind it and the other dims, then fades and slides over 180ms towards the side that was chosen,
+and the next duel fades in from the other side over 220ms. This applies to ordinary,
 adaptive and rapid voting. Further vote inputs wait until the new duel is visible;
 Undo, Skip and Split can interrupt the transition. Reduced motion uses instant
 updates.
@@ -174,6 +174,10 @@ locally with their licenses, preloaded and served by the application, with syste
 fallbacks. Body text is 17px, controls are at least 16px, supporting text is 15px
 and voting titles scale from 26px to 32px. Sizes use `rem` so browser text settings
 still apply. See [font asset provenance](BestestGame/wwwroot/fonts/README.md).
+
+Script modules are requested with a version that changes whenever any script file does, and
+scripts, styles and fonts are served with `Cache-Control: no-cache`. A browser therefore never
+runs a page with a script it stored before an edit or a deployment; no hard reload is needed.
 
 ## Cover art
 

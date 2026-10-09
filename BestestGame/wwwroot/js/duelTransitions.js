@@ -1,4 +1,5 @@
 // A vote saves normally. An inert copy leaves while Blazor renders the next duel.
+// The copy leaves towards the side that was chosen, and the next duel arrives from the other side.
 const transitions = new WeakMap();
 const voteActions = new Set(["left", "right", "win", "lose"]);
 // The outgoing copy holds still this long, so the glow on the chosen side sets in before it leaves.
@@ -36,7 +37,7 @@ function enter(state) {
     pending.copy.remove();
     state.stage.dataset.transitionPhase = "incoming";
     pending.incomingAnimation = content.animate([
-        { opacity: 0, transform: `translateX(${pending.distance}px)` },
+        { opacity: 0, transform: `translateX(${-pending.direction * pending.distance}px)` },
         { opacity: 1, transform: "translateX(0)" }
     ], { duration: 220, easing: "cubic-bezier(0, 0, .2, 1)", fill: "both" });
     pending.incomingAnimation.finished.then(() => {
@@ -65,6 +66,8 @@ function leave(state, button) {
     const pending = state.pending = {
         copy, key: state.stage.dataset.duelKey, presentation: state.root.dataset.presentation,
         minHeight: state.stage.style.minHeight,
+        // The second choice is the one on the right.
+        direction: choices.indexOf(button) === 1 ? 1 : -1,
         distance: Math.min(96, content.getBoundingClientRect().width * .3)
     };
     state.stage.style.minHeight = `${state.stage.getBoundingClientRect().height}px`;
@@ -73,7 +76,7 @@ function leave(state, button) {
     state.root.dataset.duelTransitionBusy = "true";
     pending.outgoingAnimation = copy.animate([
         { opacity: 1, transform: "translateX(0)" },
-        { opacity: 0, transform: `translateX(-${pending.distance}px)` }
+        { opacity: 0, transform: `translateX(${pending.direction * pending.distance}px)` }
     ], { delay: hold, duration: 180, easing: "cubic-bezier(.4, 0, 1, 1)", fill: "both" });
     pending.outgoingAnimation.finished.then(() => {
         if (state.pending !== pending) return;

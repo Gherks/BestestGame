@@ -227,7 +227,7 @@
     {
         if (firstRender)
         {
-            _dialogModule = await JS.InvokeAsync<IJSObjectReference>("import", "./js/importDialog.js");
+            _dialogModule = await JS.InvokeAsync<IJSObjectReference>("import", ScriptModules.Url("importDialog.js"));
             _dialogReference = DotNetObjectReference.Create(this);
             await _dialogModule.InvokeVoidAsync("initialize", _renameDialog, _dialogReference, "CancelRenameFromKeyboard");
             await _dialogModule.InvokeVoidAsync("initialize", _deleteDialog, _dialogReference, "CancelDeletionFromKeyboard");

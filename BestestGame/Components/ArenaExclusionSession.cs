@@ -16,7 +16,7 @@ public sealed class ArenaExclusionSession : IAsyncDisposable
 
     public async Task RestoreAsync(IJSRuntime js, Guid tournamentId, IEnumerable<Guid> available)
     {
-        _module ??= await js.InvokeAsync<IJSObjectReference>("import", "./js/arenaExclusions.js");
+        _module ??= await js.InvokeAsync<IJSObjectReference>("import", ScriptModules.Url("arenaExclusions.js"));
         _available = available.ToHashSet();
         var restored = await _module.InvokeAsync<Guid[]>("read", tournamentId, _available.ToArray());
         _ids = restored.Where(_available.Contains).ToHashSet();

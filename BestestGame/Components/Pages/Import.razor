@@ -749,13 +749,13 @@
         if (_currentTournament is null) return;
         if (firstRender)
         {
-            _dialogModule = await JS.InvokeAsync<IJSObjectReference>("import", "./js/importDialog.js");
+            _dialogModule = await JS.InvokeAsync<IJSObjectReference>("import", ScriptModules.Url("importDialog.js"));
             _dialogReference = DotNetObjectReference.Create(this);
             await _dialogModule.InvokeVoidAsync("initialize", _removalDialog, _dialogReference);
             await _dialogModule.InvokeVoidAsync("initialize", _entryDialog, _dialogReference, "CancelEntryFromKeyboard");
             await _dialogModule.InvokeVoidAsync("initialize", _importDialog, _dialogReference, "CancelImportFromKeyboard");
             await _dialogModule.InvokeVoidAsync("initialize", _coverDialog, _dialogReference, "CancelCoverFromKeyboard");
-            _libraryModule = await JS.InvokeAsync<IJSObjectReference>("import", "./js/gameLibrary.js");
+            _libraryModule = await JS.InvokeAsync<IJSObjectReference>("import", ScriptModules.Url("gameLibrary.js"));
             await _libraryModule.InvokeVoidAsync("initialize", _libraryRoot);
         }
         if (_dialogModule is not null)

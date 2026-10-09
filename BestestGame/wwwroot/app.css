@@ -418,12 +418,18 @@ select option { background: var(--board); color: var(--text); }
 /* A vote is answered on the outgoing copy of the duel, which holds still for a beat before its exit (the hold
    is set in duelTransitions.js). A cream glow sets in over the chosen canvas and the other dims; both then
    leave with the copy. Cream shows on the warm canvas as clearly as on the cool one. */
-.duel-outgoing .duel-chosen::after { content: ""; position: absolute; inset: 0; border: 2px solid var(--heading); border-radius: inherit; background: rgb(243 236 217 / 18%); box-shadow: inset 0 0 2rem rgb(243 236 217 / 32%); pointer-events: none; }
+.duel-outgoing .duel-chosen::after { content: ""; position: absolute; inset: 0; border: 2px solid var(--heading); border-radius: inherit; background: rgb(243 236 217 / 13%); box-shadow: inset 0 0 2rem rgb(243 236 217 / 24%); pointer-events: none; }
+/* Behind the same canvas a backglow spreads outward for as long as the copy holds. It belongs to the canvas,
+   so it tilts and leaves with it. */
+.duel-outgoing .duel-chosen::before { content: ""; position: absolute; inset: 0; z-index: -1; border-radius: inherit; box-shadow: 0 0 2.25rem .375rem rgb(243 236 217 / 55%); pointer-events: none; }
 @keyframes choice-glow { from { opacity: 0; } }
+@keyframes choice-backglow { from { box-shadow: 0 0 0 0 rgb(243 236 217 / 0%); } }
 @keyframes choice-dim { to { filter: saturate(.4) brightness(.6); } }
 
 /* Only the changing duel moves; progress, notices and queue controls stay put. */
-.duel-stage { position: relative; isolation: isolate; min-width: 0; overflow: clip; margin: -8px; padding: 8px; }
+/* Sideways the stage clips the slide a little beyond the choices, leaving room for the backglow; upward and
+   downward nothing leaves it but that glow. */
+.duel-stage { position: relative; isolation: isolate; min-width: 0; overflow-x: clip; overflow-y: visible; overflow-clip-margin: 1.5rem; margin: -8px; padding: 8px; }
 .duel-stage[data-transition-phase] > [data-duel-content] { opacity: 0; }
 .duel-outgoing { position: absolute; top: 8px; left: 8px; pointer-events: none; }
 
@@ -459,6 +465,7 @@ select option { background: var(--board); color: var(--text); }
     .finish-place:nth-child(3) { animation-delay: 1.05s; }
     /* Both finish within the copy's hold. */
     .duel-outgoing .duel-chosen::after { animation: choice-glow 0.16s ease-out both; }
+    .duel-outgoing .duel-chosen::before { animation: choice-backglow 0.22s ease-out both; }
     .duel-outgoing .duel-passed > .tactile__face { animation: choice-dim 0.2s ease-out both; }
 }
 
