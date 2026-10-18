@@ -65,51 +65,68 @@
             // A year is only called once no unfinished nominee can still take first place.
             var leaderLabel = !hasPoints ? "No points recorded" : !lead.Settled ? "Still open"
                 : leaders.Count > 1 ? "Shared winners" : "Winner";
-            <section class="goty-leaders stack" aria-labelledby="leaders-heading" @key="_selectedYear">
-                <h2 id="leaders-heading">@_selectedYear · @leaderLabel</h2>
-                @if (hasPoints)
+            // The year's standings stand on the same canvases as Rankings, once a result has been recorded.
+            var canvases = hasPoints ? StandingsCanvases.Arrange(_places, place => place.Rank) : new([], []);
+            var podium = canvases.Podium;
+            var rows = canvases.Rows;
+            var onCanvas = canvases.Count;
+            var soleLeader = podium.Count(place => place.Rank == 1) == 1;
+            var entryCount = _nominees.Select(e => e.GameId).Distinct().Count();
+            // Canvases arrive one after another, in the order they are read.
+            var arrival = 0;
+            <section class="goty-year stack" aria-labelledby="leaders-heading" @key="_selectedYear" data-arrival="@_arrival"
+                     data-prerendered="@(!RendererInfo.IsInteractive)">
+                <header class="goty-verdict">
+                    <h2 id="leaders-heading"><span class="goty-verdict-year">@_selectedYear</span> <span class="eyebrow">@leaderLabel</span></h2>
+                    <p class="helper-text">@_nominees.Count @(_nominees.Count == 1 ? "release" : "releases") · @entryCount tournament @(entryCount == 1 ? "entry" : "entries") · points from the full tournament</p>
+                </header>
+                @if (podium.Count > 0)
                 {
-                    @foreach (var leader in leaders)
+                    <ol class="podium @(soleLeader && podium.Count > 1 ? "podium--led" : "")" style="--podium-rows: @(podium.Count - 1)" aria-label="@($"Top of {_selectedYear}")">
+                        @foreach (var place in podium)
+                        {
+                            <li class="podium-place @(place.Rank == 1 ? "podium-place--first" : "") @(place.Rank == 1 && soleLeader ? "podium-place--lead" : "")" style="--arrival: @(arrival++)" data-game-id="@place.Entry.GameId">
+                                @PlaceCanvas(place)
+                            </li>
+                        }
+                    </ol>
+                    @foreach (var row in rows)
                     {
-                        <div class="goty-leader" data-leader-game-id="@leader.GameId">
-                            <h3>@leader.Title</h3>
-                            @if (leader.GroupTitle is not null)
+                        var columns = Math.Min(row.Places.Count, row.Columns);
+                        <ol class="podium-row @(row.Far ? "podium-row--far" : columns == 4 ? "podium-row--four" : "")" style="--podium-columns: @columns" aria-label="@($"Ranks {row.Places[0].Rank} to {row.Places[^1].Rank}")">
+                            @foreach (var place in row.Places)
                             {
-                                <p class="helper-text">Shared score from @leader.GroupTitle</p>
-                            }
-                            @if (!lead.Settled)
-                            {
-                                <p class="helper-text">@(leaders.Count > 1 ? "Shares the lead for now" : "Leads for now")@(_pending.GetValueOrDefault(leader.GameId) > 0 ? $" · {Open(leader.GameId, leader.Points)}" : "")</p>
-                            }
-                        </div>
-                    }
-                    <p class="goty-leader-score">@leaders[0].Points <span>points from the full tournament</span></p>
-                    @if (lead.Contenders.Count > 0)
-                    {
-                        <ul class="goty-contenders">
-                            @foreach (var contender in lead.Contenders.Take(ContendersShown))
-                            {
-                                <li @key="contender.GameId" data-contender-id="@contender.GameId">
-                                    <span><strong>@contender.Title</strong> can still take first place: @contender.Points @(contender.Points == 1 ? "point" : "points"), @Open(contender.GameId, contender.Points).</span>
-                                    <a href="@VotingRoutes.Focus(contender.GameId, null)" class="text-link">Finish its matchups</a>
+                                <li class="podium-place" style="--arrival: @(arrival++)" data-game-id="@place.Entry.GameId">
+                                    @PlaceCanvas(place)
                                 </li>
                             }
-                        </ul>
-                        @if (lead.Contenders.Count > ContendersShown)
-                        {
-                            <p class="helper-text">@(lead.Contenders.Count - ContendersShown) more can still reach @leaders[0].Points points.</p>
-                        }
-                    }
-                    else if (!lead.Settled)
-                    {
-                        <p class="helper-text">The leaders still have matchups that can part them.</p>
+                        </ol>
                     }
                 }
-                else
+                @if (!hasPoints)
                 {
-                    <p class="text-secondary">Start voting to establish the leaders for this year. Points come from the full tournament.</p>
+                    <p class="text-secondary">Start voting to establish the leaders for this year.</p>
                 }
-                <p class="helper-text">@_nominees.Count @(_nominees.Count == 1 ? "release" : "releases") · @_nominees.Select(e => e.GameId).Distinct().Count() tournament @(_nominees.Select(e => e.GameId).Distinct().Count() == 1 ? "entry" : "entries")</p>
+                else if (lead.Contenders.Count > 0)
+                {
+                    <ul class="goty-contenders">
+                        @foreach (var contender in lead.Contenders.Take(ContendersShown))
+                        {
+                            <li @key="contender.GameId" data-contender-id="@contender.GameId">
+                                <span><strong>@contender.Title</strong> can still take first place: @contender.Points @(contender.Points == 1 ? "point" : "points"), @Open(contender.GameId, contender.Points).</span>
+                                <a href="@VotingRoutes.Focus(contender.GameId, null)" class="text-link">Finish its matchups</a>
+                            </li>
+                        }
+                    </ul>
+                    @if (lead.Contenders.Count > ContendersShown)
+                    {
+                        <p class="helper-text">@(lead.Contenders.Count - ContendersShown) more can still reach @leaders[0].Points points.</p>
+                    }
+                }
+                else if (!lead.Settled)
+                {
+                    <p class="helper-text">The leaders still have matchups that can part them.</p>
+                }
                 @if (hasPoints && lead.Settled && votingInProgress)
                 {
                     <p class="helper-text">Decided: no other release from @_selectedYear can still reach first place.@(_nominees.Any(e => _pending.GetValueOrDefault(e.GameId) > 0) ? " Other places can still change." : "")</p>
@@ -128,38 +145,40 @@
                 {
                     <p class="helper-text">All tournament matchups are saved.</p>
                 }
+                @if (_places.Count > onCanvas)
+                {
+                    <table class="data-table goty-list">
+                        <caption>@(onCanvas == 0 ? $"{_selectedYear} nominees" : $"{_selectedYear} nominees from rank {_places[onCanvas].Rank}")</caption>
+                        <colgroup><col class="goty-rank-column" /><col /><col class="goty-points-column" /></colgroup>
+                        <thead><tr><th scope="col">Rank</th><th scope="col">Title</th><th scope="col">Points</th></tr></thead>
+                        <tbody>
+                            @foreach (var place in _places.Skip(onCanvas))
+                            {
+                                var nominee = place.Entry;
+                                <tr class="goty-nominee @(place.Rank == 1 && hasPoints ? "goty-nominee--leader" : null)" data-game-id="@nominee.GameId">
+                                    <td class="goty-rank">@place.Rank</td>
+                                    <th scope="row" class="goty-nominee-title">
+                                        <span>@nominee.Title</span>
+                                        @if (nominee.GroupTitle is not null)
+                                        {
+                                            <p class="helper-text">Shared score from @nominee.GroupTitle</p>
+                                        }
+                                        @if (LevelOnPoints(nominee))
+                                        {
+                                            <p class="helper-text">@HeadToHead(nominee)</p>
+                                        }
+                                        @if (_pending.GetValueOrDefault(nominee.GameId) > 0)
+                                        {
+                                            <p class="helper-text goty-open">@Open(nominee.GameId, nominee.Points)</p>
+                                        }
+                                    </th>
+                                    <td class="goty-points">@nominee.Points</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                }
             </section>
-
-            <table class="data-table goty-list">
-                <caption>@_selectedYear nominees</caption>
-                <colgroup><col class="goty-rank-column" /><col /><col class="goty-points-column" /></colgroup>
-                <thead><tr><th scope="col">Rank</th><th scope="col">Title</th><th scope="col">Points</th></tr></thead>
-                <tbody>
-                    @foreach (var nominee in _nominees)
-                    {
-                        var rank = _nominees.FindIndex(e => e.SharesRankWith(nominee)) + 1;
-                        <tr class="goty-nominee @(rank == 1 && hasPoints ? "goty-nominee--leader" : null)" data-game-id="@nominee.GameId">
-                            <td class="goty-rank">@rank</td>
-                            <th scope="row" class="goty-nominee-title">
-                                <span>@nominee.Title</span>
-                                @if (nominee.GroupTitle is not null)
-                                {
-                                    <p class="helper-text">Shared score from @nominee.GroupTitle</p>
-                                }
-                                @if (_nominees.Where(e => e.Points == nominee.Points).Select(e => e.GameId).Distinct().Count() > 1)
-                                {
-                                    <p class="helper-text">@nominee.HeadToHeadWins head-to-head @(nominee.HeadToHeadWins == 1 ? "win" : "wins") among tied entries</p>
-                                }
-                                @if (_pending.GetValueOrDefault(nominee.GameId) > 0)
-                                {
-                                    <p class="helper-text goty-open">@Open(nominee.GameId, nominee.Points)</p>
-                                }
-                            </th>
-                            <td class="goty-points">@nominee.Points</td>
-                        </tr>
-                    }
-                </tbody>
-            </table>
         }
 
         @if (_unassigned > 0)
@@ -167,13 +186,14 @@
             <p class="helper-text goty-unassigned">@_unassigned @(_unassigned == 1 ? "title has" : "titles have") no year and @(_unassigned == 1 ? "is" : "are") outside the archive. <a href="/import" class="text-link">Assign years</a></p>
         }
 
-        <details class="goty-archive">
+        <details class="goty-archive" open>
             <summary>Release-year archive · @_years.Count @(_years.Count == 1 ? "year" : "years")</summary>
             @* One wrapper: the disclosure animation unfolds a single child. *@
             <div>
             <div class="goty-explore">
-                <button type="button" class="button" @onclick="SurpriseMe"><span class="button__content">Random year</span></button>
+                <button type="button" class="button" data-scroll-top @onclick="SurpriseMe"><span class="button__content">Random year</span></button>
             </div>
+            @* Every year is a canvas of the same size, carrying the cover of whoever leads it. *@
             <div class="goty-archive-grid">
                 @foreach (var year in _years.AsEnumerable().Reverse())
                 {
@@ -181,15 +201,23 @@
                     var bestPoints = releases[0].Points;
                     var yearLead = ReleaseRankings.GetLead(releases, _pending);
                     var leaders = yearLead.Leaders;
-                    <a href="@YearUrl(year)" class="goty-portal button" aria-current="@(year == _selectedYear ? "page" : null)">
-                        <span class="button__content">
-                            <span class="goty-portal-year">@year</span>
-                            <span>@(bestPoints > 0 ? leaders[0].Title : "No points recorded")</span>
+                    <a @key="year" href="@YearUrl(year)" class="goty-portal" data-scroll-top aria-current="@(year == _selectedYear ? "page" : null)">
+                        @if (bestPoints > 0 && CoverArt.Url(leaders[0].CoverImage) is { } cover)
+                        {
+                            <img class="goty-portal-cover" src="@cover" alt="" loading="lazy" draggable="false" onerror="this.hidden = true" />
+                        }
+                        <span class="goty-portal-year">@year</span>
+                        <span class="goty-portal-title @(bestPoints > 0 ? "" : "goty-portal-title--none")">@(bestPoints > 0 ? leaders[0].Title : "No points recorded")</span>
+                        <span class="goty-portal-notes">
                             @if (bestPoints > 0 && leaders.Count > 1)
                             {
-                                <span class="helper-text">+ @(leaders.Count - 1) tied for first</span>
+                                <span>+ @(leaders.Count - 1) tied for first</span>
                             }
-                            <span class="helper-text">@releases.Count @(releases.Count == 1 ? "release" : "releases")@(bestPoints > 0 && !yearLead.Settled ? " · still open" : "")</span>
+                            <span>@releases.Count @(releases.Count == 1 ? "release" : "releases")</span>
+                            @if (bestPoints > 0 && !yearLead.Settled)
+                            {
+                                <span class="goty-open">Still open</span>
+                            }
                         </span>
                     </a>
                 }
@@ -206,8 +234,15 @@
     private Tournament? _tournament;
     private List<ReleaseRankings.Entry> _entries = [];
     private List<ReleaseRankings.Entry> _nominees = [];
+    // The year's nominees with their rank; releases level on points and head-to-head share one.
+    private sealed record Place(ReleaseRankings.Entry Entry, int Rank);
+    private List<Place> _places = [];
     private List<int> _years = [];
     private int _selectedYear;
+    // How the year on show arrived: "enter" when the page opens, or "later" or "earlier" when another year is
+    // chosen on it. The prerendered page stays hidden and still: the interactive one replaces its markup, which
+    // would restart the animation.
+    private string? _arrival;
     private int _unassigned;
     private Dictionary<Guid, int> _pending = [];
     private const int ContendersShown = 4;
@@ -219,13 +254,50 @@
         return $"{left} {(left == 1 ? "matchup" : "matchups")} left, can reach {points + left}";
     }
 
+    private bool LevelOnPoints(ReleaseRankings.Entry nominee)
+        => _nominees.Where(e => e.Points == nominee.Points).Select(e => e.GameId).Distinct().Count() > 1;
+    private static string HeadToHead(ReleaseRankings.Entry nominee)
+        => $"{nominee.HeadToHeadWins} head-to-head {(nominee.HeadToHeadWins == 1 ? "win" : "wins")} among tied entries";
+
+    private RenderFragment PlaceCanvas(Place place)
+    {
+        var nominee = place.Entry;
+        return @<div class="podium-canvas">
+            @if (CoverArt.Url(nominee.CoverImage) is { } cover)
+            {
+                <img class="podium-cover" src="@cover" alt="" draggable="false" onerror="this.hidden = true" />
+            }
+            <span class="podium-rank">@place.Rank</span>
+            <span class="podium-entry">
+                <span class="podium-title">@nominee.Title</span>
+                @if (nominee.GroupTitle is not null)
+                {
+                    <span class="podium-context">Shared score from @nominee.GroupTitle</span>
+                }
+                <span class="podium-points">@nominee.Points <span class="podium-unit">@(nominee.Points == 1 ? "point" : "points")</span></span>
+                @if (LevelOnPoints(nominee))
+                {
+                    <span class="podium-context">@HeadToHead(nominee)</span>
+                }
+                @if (_pending.GetValueOrDefault(nominee.GameId) > 0)
+                {
+                    <span class="podium-context goty-open">@Open(nominee.GameId, nominee.Points)</span>
+                }
+            </span>
+        </div>;
+    }
+
     protected override void OnParametersSet()
     {
         _tournament = GameService.GetCurrentTournament();
         _entries = ReleaseRankings.GetEntries(_tournament?.Games ?? [], _tournament?.Duels);
         _years = _entries.Select(e => e.Year).Distinct().Order().ToList();
+        var previous = _selectedYear;
         _selectedYear = Year ?? _years.LastOrDefault();
+        if (previous != _selectedYear)
+            _arrival = previous != 0 ? _selectedYear > previous ? "later" : "earlier" : RendererInfo.IsInteractive ? "enter" : null;
         _nominees = _entries.Where(e => e.Year == _selectedYear).ToList();
+        _places = _nominees.Select(entry => new Place(entry, _nominees.FindIndex(e => e.SharesRankWith(entry)) + 1)).ToList();
         _unassigned = ReleaseRankings.CountUnassigned(_tournament?.Games ?? []);
         _pending = _tournament is null ? [] : GameLibrary.PendingMatchups(_tournament);
     }

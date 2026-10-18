@@ -68,6 +68,7 @@ public class GameService
             if (connection.Count("SELECT COUNT(*) FROM tournaments") > 0)
                 throw new InvalidOperationException("Data can only be imported into an empty database.");
             GameStore.Import(connection, database);
+            GameStore.MoveCollectionCovers(connection);
             return true;
         });
 
@@ -139,8 +140,11 @@ public class GameService
         {
             var (deleted, covers) = Write(connection =>
             {
-                var pictures = connection.Query("SELECT cover_image FROM games WHERE tournament_id = $id",
-                    row => row.TextOrNull(0), ("$id", tournamentId));
+                var pictures = connection.Query(
+                    """
+                    SELECT cover_image FROM games WHERE tournament_id = $id
+                    UNION SELECT included.cover_image FROM included_titles included JOIN games ON games.id = included.game_id WHERE games.tournament_id = $id
+                    """, row => row.TextOrNull(0), ("$id", tournamentId));
                 // Its games, their included titles and its duels go with it, and the selection is cleared if it was selected.
                 return (connection.Execute("DELETE FROM tournaments WHERE id = $id", ("$id", tournamentId)) > 0, pictures);
             });
@@ -316,21 +320,42 @@ public class GameService
         });
     }
 
+    /// <summary>
+    /// Changes an entry's year and included titles. A title keeps the picture it is given back with, as long as
+    /// the entry already held that picture; pictures of titles that are gone are deleted.
+    /// </summary>
     public bool UpdateGameDetails(Guid gameId, int? releaseYear, IEnumerable<IncludedTitle> includedTitles)
     {
-        return Write(connection =>
+        lock (_databaseLock)
         {
-            if (!IsInCurrentTournament(connection, gameId))
-                return false;
+            var (updated, dropped) = Write<(bool, List<string>)>(connection =>
+            {
+                if (!IsInCurrentTournament(connection, gameId))
+                    return (false, []);
 
-            var year = ValidateReleaseYear(releaseYear);
-            var titles = CleanIncludedTitles(includedTitles);
-            connection.Execute("UPDATE games SET release_year = $year WHERE id = $id", ("$year", year), ("$id", gameId));
-            connection.Execute("DELETE FROM included_titles WHERE game_id = $id", ("$id", gameId));
-            using var rows = new GameStore.Rows(connection);
-            rows.AddIncludedTitles(gameId, titles);
-            return true;
-        });
+                var year = ValidateReleaseYear(releaseYear);
+                var own = connection.Query("SELECT cover_image FROM games WHERE id = $id", row => row.TextOrNull(0), ("$id", gameId))[0];
+                var held = connection.Query("SELECT cover_image FROM included_titles WHERE game_id = $id ORDER BY position",
+                    row => row.TextOrNull(0), ("$id", gameId));
+                var before = held.Append(own).OfType<string>().ToList();
+                var titles = CleanIncludedTitles(includedTitles, before);
+                // The picture that stood for the entry stays with it when it becomes a collection or stops being one.
+                if (titles.Count > 0 && own is not null && titles[0].CoverImage is null && titles.All(title => title.CoverImage != own))
+                    titles[0].CoverImage = own;
+                var ownAfter = titles.Count > 0 ? null : own ?? held.FirstOrDefault(file => file is not null);
+
+                connection.Execute("UPDATE games SET release_year = $year, cover_image = $cover WHERE id = $id",
+                    ("$year", year), ("$cover", ownAfter), ("$id", gameId));
+                connection.Execute("DELETE FROM included_titles WHERE game_id = $id", ("$id", gameId));
+                using var rows = new GameStore.Rows(connection);
+                rows.AddIncludedTitles(gameId, titles);
+                var after = titles.Select(title => title.CoverImage).Append(ownAfter).ToHashSet();
+                return (true, before.Where(file => !after.Contains(file)).Distinct().ToList());
+            });
+            foreach (var file in dropped)
+                DeleteCoverFile(file);
+            return updated;
+        }
     }
 
     private static bool IsInCurrentTournament(SqliteConnection connection, Guid gameId)
@@ -362,9 +387,14 @@ public class GameService
         });
     }
 
-    private static List<IncludedTitle> CleanIncludedTitles(IEnumerable<IncludedTitle>? titles)
+    // A title can only carry a picture its entry already holds; any other name is dropped.
+    private static List<IncludedTitle> CleanIncludedTitles(IEnumerable<IncludedTitle>? titles, IReadOnlyCollection<string>? pictures = null)
         => (titles ?? []).Where(t => !string.IsNullOrWhiteSpace(t.Title))
-            .Select(t => new IncludedTitle { Title = t.Title.Trim(), ReleaseYear = ValidateReleaseYear(t.ReleaseYear) }).ToList();
+            .Select(t => new IncludedTitle
+            {
+                Title = t.Title.Trim(), ReleaseYear = ValidateReleaseYear(t.ReleaseYear),
+                CoverImage = t.CoverImage is { } file && pictures?.Contains(file) == true ? file : null
+            }).ToList();
 
     private static int? ValidateReleaseYear(int? year)
     {
@@ -380,32 +410,34 @@ public class GameService
     {
         lock (_databaseLock)
         {
-            var (removed, cover) = Write<(bool, string?)>(connection =>
+            var (removed, covers) = Write<(bool, List<string?>)>(connection =>
             {
                 if (GameStore.CurrentTournamentId(connection) is not { } tournamentId)
-                    return (false, null);
+                    return (false, []);
 
-                var covers = connection.Query("SELECT cover_image FROM games WHERE tournament_id = $tournament AND id = $id",
+                var pictures = connection.Query("SELECT cover_image FROM games WHERE tournament_id = $tournament AND id = $id",
                     row => row.TextOrNull(0), ("$tournament", tournamentId), ("$id", gameId));
-                if (covers.Count == 0)
-                    return (false, null);
+                if (pictures.Count == 0)
+                    return (false, []);
 
+                pictures.AddRange(connection.Query("SELECT cover_image FROM included_titles WHERE game_id = $id", row => row.TextOrNull(0), ("$id", gameId)));
                 // Its included titles and duels go with it.
                 connection.Execute("DELETE FROM games WHERE id = $id", ("$id", gameId));
                 RecalculatePoints(connection, tournamentId);
-                return (true, covers[0]);
+                return (true, pictures);
             });
-            if (removed)
+            foreach (var cover in covers.Distinct())
                 DeleteCoverFile(cover);
             return removed;
         }
     }
 
     /// <summary>
-    /// Records which stored picture belongs to an entry of the selected tournament, or none.
+    /// Records which stored picture belongs to an entry of the selected tournament, or none. In a collection
+    /// the picture belongs to one included title, counted from zero; without one named, to the first.
     /// The picture it replaces is deleted.
     /// </summary>
-    public bool SetCover(Guid gameId, string? fileName)
+    public bool SetCover(Guid gameId, string? fileName, int? title = null)
     {
         if (fileName is not null && (fileName.Length == 0 || Path.GetFileName(fileName) != fileName))
             throw new ArgumentException("A cover is a file name inside the covers folder.", nameof(fileName));
@@ -416,18 +448,36 @@ public class GameService
                 if (!IsInCurrentTournament(connection, gameId))
                     return (false, null);
 
-                var previous = connection.Query("SELECT cover_image FROM games WHERE id = $id", row => row.TextOrNull(0), ("$id", gameId))[0];
-                connection.Execute("UPDATE games SET cover_image = $cover WHERE id = $id", ("$cover", fileName), ("$id", gameId));
-                return (true, previous);
+                var titles = connection.Query("SELECT position, cover_image FROM included_titles WHERE game_id = $id ORDER BY position",
+                    row => (Position: row.GetInt32(0), Cover: row.TextOrNull(1)), ("$id", gameId));
+                if (titles.Count == 0)
+                {
+                    if (title is not null) return (false, null);
+                    var previous = connection.Query("SELECT cover_image FROM games WHERE id = $id", row => row.TextOrNull(0), ("$id", gameId))[0];
+                    connection.Execute("UPDATE games SET cover_image = $cover WHERE id = $id", ("$cover", fileName), ("$id", gameId));
+                    return (true, previous);
+                }
+                var index = title ?? 0;
+                if (index < 0 || index >= titles.Count) return (false, null);
+                connection.Execute("UPDATE included_titles SET cover_image = $cover WHERE game_id = $id AND position = $position",
+                    ("$cover", fileName), ("$id", gameId), ("$position", titles[index].Position));
+                return (true, titles[index].Cover);
             });
             if (found && replaced != fileName) DeleteCoverFile(replaced);
             return found;
         }
     }
 
-    private void DeleteCoverFile(string? fileName)
+    /// <summary>
+    /// Deletes a stored picture that no entry or included title refers to. Titles of one collection can show
+    /// the same picture, so it only goes once the last of them has let go of it.
+    /// </summary>
+    public void DeleteCoverFile(string? fileName)
     {
         if (string.IsNullOrEmpty(fileName) || Path.GetFileName(fileName) != fileName) return;
+        if (Read(connection => connection.Count(
+                "SELECT (SELECT COUNT(*) FROM games WHERE cover_image = $file) + (SELECT COUNT(*) FROM included_titles WHERE cover_image = $file)",
+                ("$file", fileName))) > 0) return;
         try { File.Delete(Path.Combine(CoversDirectory, fileName)); }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException) { /* A leftover picture is harmless. */ }
     }

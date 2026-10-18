@@ -153,9 +153,58 @@ static class CoverArtChecks
 
         Check(covers.ClearCover(solo.Id) && games.GetGames().Single(game => game.Id == solo.Id).CoverImage is null &&
             !File.Exists(Path.Combine(games.CoversDirectory, $"{solo.Id:N}-co9new.jpg")), "Clearing a cover removes the record and the picture");
+        // Pictures of the titles inside a collection.
+        Game Collection() => games.GetGames().Single(game => game.Id == collection.Id);
+        string Name(string image) => $"{collection.Id:N}-{image}.jpg";
+        bool Kept(string image) => File.Exists(Path.Combine(games.CoversDirectory, Name(image)));
+        Check(Collection() is { CoverImage: null } pictured && pictured.IncludedTitles[0].CoverImage == Name("co2abc") && pictured.Cover == Name("co2abc"),
+            "A cover given to a collection belongs to its first included title and stands for the collection");
+        Check(CoverArtService.Slots(solo).Single().Title is null && CoverArtService.Slots(collection).Select(slot => slot.Title).SequenceEqual(new int?[] { 0, 1 }) &&
+            CoverArtService.Subject(collection, 1) == ("Metro Exodus", null), "Every included title can hold a picture and is looked up by its own name");
+        igdb.Games = "[{\"id\":5,\"name\":\"Metro Exodus\",\"cover\":{\"image_id\":\"co3exo\"}}]";
+        result = await covers.FetchAsync(CoverArtService.Slots(Collection())[1]);
+        Check(result.Outcome == CoverArtService.Outcome.Added && igdb.Queries[^1].Contains("\"Metro Exodus\"") && Kept("co3exo") &&
+            Collection().IncludedTitles[1].CoverImage == Name("co3exo") && Collection().Cover == Name("co2abc"),
+            "Fetching gives an included title its own cover and leaves the collection's alone");
+        Check(covers.ClearCover(collection.Id, 0) && !Kept("co2abc") && Collection().Cover == Name("co3exo") &&
+            !covers.HasCoverFile(Collection()) && covers.HasCoverFile(CoverArtService.Slots(Collection())[1]),
+            "A collection whose first title has no cover is shown with the first title that has one");
+        await covers.SetCoverAsync(collection.Id, "co3exo", 0);
+        Check(covers.ClearCover(collection.Id, 1) && Kept("co3exo") && Collection().IncludedTitles[0].CoverImage == Name("co3exo") && Collection().IncludedTitles[1].CoverImage is null,
+            "A picture two titles share stays until the last of them lets go of it");
+        Check(!games.SetCover(collection.Id, "x.jpg", 2) && !games.SetCover(collection.Id, "x.jpg", -1) && !games.SetCover(solo.Id, "x.jpg", 0) &&
+            await Fails(() => covers.SetCoverAsync(collection.Id, "co2abc", 5)) && !Kept("co2abc"),
+            "A title that is not there cannot be given a cover, and nothing is left behind");
+        await covers.SetCoverAsync(collection.Id, "co2abc", 1);
+        var held = Collection().IncludedTitles;
+        games.UpdateGameDetails(collection.Id, null, [held[1], new() { Title = "Metro: Last Light", CoverImage = $"{solo.Id:N}-other.jpg" }, held[0]]);
+        Check(Collection().IncludedTitles.Select(title => title.CoverImage).SequenceEqual([Name("co2abc"), null, Name("co3exo")]) && Collection().Cover == Name("co2abc"),
+            "Editing a collection keeps each title's picture with it, and a title cannot claim a picture its entry did not hold");
+        games.UpdateGameDetails(collection.Id, null, [Collection().IncludedTitles[2]]);
+        Check(!Kept("co2abc") && Kept("co3exo") && Collection().IncludedTitles.Single().CoverImage == Name("co3exo"), "The picture of a removed title is deleted");
+        games.UpdateGameDetails(collection.Id, 2010, []);
+        Check(Collection() is { IncludedTitles.Count: 0 } single && single.CoverImage == Name("co3exo") && Kept("co3exo"),
+            "An entry that stops being a collection keeps the picture that stood for it");
+        games.UpdateGameDetails(collection.Id, null, collection.IncludedTitles);
+        Check(Collection() is { CoverImage: null } again && again.IncludedTitles[0].CoverImage == Name("co3exo") && again.IncludedTitles[1].CoverImage is null,
+            "An entry that becomes a collection hands its picture to its first title");
+        var trilogy = new Game { Title = "Trilogy", IncludedTitles = [new() { Title = "One", ReleaseYear = 2001 },
+            new() { Title = "Two", ReleaseYear = 2002, CoverImage = "two.jpg" }, new() { Title = "Three", ReleaseYear = 2003, CoverImage = "three.jpg" }] };
+        var releases = ReleaseRankings.GetEntries([trilogy, new Game { Title = "Alone", ReleaseYear = 2001, CoverImage = "alone.jpg" }])
+            .ToDictionary(entry => entry.Title, entry => entry.CoverImage);
+        Check(trilogy.Cover == "two.jpg" && releases["One"] == "two.jpg" && releases["Two"] == "two.jpg" && releases["Three"] == "three.jpg" && releases["Alone"] == "alone.jpg",
+            "Game of the year shows a release's own picture, and the one that stands for its collection when it has none");
+        var copy = JsonSerializer.Deserialize<Game>(JsonSerializer.Serialize(trilogy))!;
+        Check(copy.IncludedTitles.Select(title => title.CoverImage).SequenceEqual([null, "two.jpg", "three.jpg"]) &&
+            JsonSerializer.Serialize(trilogy.IncludedTitles[0]) == "{\"Title\":\"One\",\"ReleaseYear\":2001}",
+            "Exported data carries each title's picture, and a title without one is written as before");
+
+        await covers.SetCoverAsync(collection.Id, "co2abc");
+        await covers.SetCoverAsync(collection.Id, "co3exo", 1);
         var collectionFile = Path.Combine(games.CoversDirectory, $"{collection.Id:N}-co2abc.jpg");
-        Check(File.Exists(collectionFile) && games.RemoveGame(collection.Id) && !File.Exists(collectionFile), "Removing an entry removes its picture");
-        Console.WriteLine("20 cover art checks passed.");
+        Check(File.Exists(collectionFile) && Kept("co3exo") && games.RemoveGame(collection.Id) && !File.Exists(collectionFile) && !Kept("co3exo"),
+            "Removing an entry removes its picture and those of its included titles");
+        Console.WriteLine("32 cover art checks passed.");
     }
 
     private static async Task<bool> Fails(Func<Task> action)

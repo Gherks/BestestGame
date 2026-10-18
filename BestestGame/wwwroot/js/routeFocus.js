@@ -38,14 +38,23 @@ document.addEventListener('keydown', event => {
     menu.querySelector('summary')?.focus();
 });
 
+// A change of query on the same page keeps the scroll position. Links and buttons marked data-scroll-top
+// change what the top of their page shows from further down it, so their navigation starts from the top.
 let menuNavigation = false;
+let scrollToTop = false;
 document.addEventListener('click', event => {
     if (event.button !== 0 || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;
-    if (event.target instanceof Element && event.target.closest('[data-mobile-menu] a[href]'))
+    if (!(event.target instanceof Element)) return;
+    if (event.target.closest('[data-mobile-menu] a[href]'))
         menuNavigation = true;
+    scrollToTop = event.target.closest('[data-scroll-top]') !== null;
 });
 
 Blazor.addEventListener('enhancedload', () => {
+    if (scrollToTop) {
+        scrollToTop = false;
+        window.scrollTo({ top: 0, behavior: 'instant' });
+    }
     document.querySelectorAll('[data-mobile-menu][open]').forEach(menu => { menu.open = false; });
     if (!menuNavigation) return;
     menuNavigation = false;

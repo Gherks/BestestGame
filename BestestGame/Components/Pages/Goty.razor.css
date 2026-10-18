@@ -3,13 +3,10 @@
 .goty-page h2 { font-size: 1.5rem; }
 .goty-page .page-heading { margin-bottom: 0; }
 .goty-year-select { width: 100%; max-width: 18rem; }
-/* The year's leaders hang on a warm canvas. */
-.goty-leaders { padding: var(--space-6) clamp(1.25rem, 4vw, 2.5rem); gap: var(--space-3); border: 1px solid rgb(243 236 217 / 28%); border-radius: var(--shape-canvas-alt); background: var(--paint-warm-wide); }
-.goty-leaders h2 { color: var(--entry-label); font-family: var(--font-label); font-size: 1.0625rem; font-style: normal; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; }
-.goty-leaders .helper-text, .goty-leaders .text-secondary { color: var(--text); }
-.goty-leader h3 { font-size: var(--text-voting-title); }
-.goty-leader-score { color: #ffd58a; font-size: 1.875rem; font-style: italic; line-height: 1.3; }
-.goty-leader-score span { font-size: var(--text-support); color: var(--text); font-style: normal; }
+/* The year and its verdict head the standings, which stand on the canvases shared with Rankings. */
+.goty-verdict { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: var(--space-1) var(--space-6); }
+.goty-verdict h2 { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 var(--space-3); font-size: 2rem; font-variant-numeric: tabular-nums; }
+.goty-verdict .eyebrow { font-style: normal; letter-spacing: 0.16em; }
 .goty-voting-context { gap: var(--space-2) var(--space-3); }
 /* Who can still take the year, each with the way to settle it. */
 .goty-contenders { display: grid; gap: var(--space-2); margin: 0; padding: 0; list-style: none; }
@@ -34,12 +31,53 @@
 .goty-page summary { min-height: 44px; padding-block: var(--space-3); cursor: pointer; font-size: var(--text-control); }
 .goty-scoring p { padding-bottom: var(--space-3); max-width: 75ch; }
 .goty-explore { margin-top: var(--space-2); }
-.goty-archive-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 14rem), 1fr)); gap: var(--space-3); margin-top: var(--space-3); }
-.goty-portal { width: 100%; min-width: 0; text-align: left; }
-.goty-portal > .button__content { flex-direction: column; align-items: start; justify-content: start; gap: var(--space-1); }
-.goty-portal > .button__content > * { min-width: 0; max-width: 100%; }
-.goty-portal[aria-current="page"] { background: var(--accent-soft); border-color: var(--accent); }
-.goty-portal-year { font-size: 1.375rem; font-weight: 700; }
+/* Every year is a canvas of one size: the columns share the width evenly and every row is as tall as the
+   tallest canvas. The year on show is the warm one. */
+.goty-archive-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 14.5rem), 1fr)); grid-auto-rows: 1fr; gap: var(--space-3); margin-top: var(--space-3); }
+.goty-portal { position: relative; isolation: isolate; display: flex; flex-direction: column; gap: var(--space-1); min-width: 0; min-height: 8.25rem; padding: var(--space-3) var(--space-4); border: 1px solid rgb(243 236 217 / 28%); border-radius: var(--shape-canvas-alt); background: var(--paint-cool-wide); color: var(--text); text-decoration: none; overflow: hidden; touch-action: manipulation; }
+.goty-portal:nth-child(odd) { border-radius: var(--shape-canvas); }
+.goty-portal[aria-current="page"] { background: var(--paint-warm-wide); }
+/* The leader's whole cover stands at the right edge, as on the standings canvases. */
+.goty-portal-cover { position: absolute; z-index: -1; top: 0; right: 0; width: auto; height: 100%; max-width: 44%; object-fit: cover; -webkit-mask-image: linear-gradient(to right, transparent, #000 45%); mask-image: linear-gradient(to right, transparent, #000 45%); pointer-events: none; user-select: none; }
+.goty-portal:has(> .goty-portal-cover:not([hidden])) { padding-right: min(38%, 6.5rem); }
+.goty-portal-year { color: var(--accent); font-size: 1.875rem; font-style: italic; line-height: 1.1; font-variant-numeric: tabular-nums; }
+.goty-portal[aria-current="page"] .goty-portal-year { color: var(--winner); }
+/* A long title gives way after three lines, so one year cannot stretch every canvas. */
+.goty-portal-title { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; line-clamp: 3; overflow: hidden; color: var(--heading); font-family: var(--font-display); font-size: 1.0625rem; font-style: italic; line-height: 1.3; }
+.goty-portal-title--none { color: var(--text); font-style: normal; }
+.goty-portal-notes { display: flex; flex-wrap: wrap; gap: 0 var(--space-3); margin-top: auto; padding-top: var(--space-1); color: var(--heading); font-family: var(--font-label); font-size: .9375rem; font-weight: 600; letter-spacing: 0.14em; line-height: 1.4; text-transform: uppercase; }
+.goty-portal-notes .goty-open { color: var(--winner); }
+@media (hover: hover) {
+    .goty-portal:hover { border-color: rgb(243 236 217 / 80%); filter: saturate(1.5) brightness(1.2); }
+}
+.goty-portal:active { transform: translateY(2px); }
+@media (prefers-reduced-motion: no-preference) {
+    .goty-portal { transition: filter 0.4s ease, border-color 0.4s ease, transform 0.1s ease; }
+}
+/* A year arrives when the page opens, rising into place. A newly chosen one arrives from its side of the calendar: its number drifts in out of a blur, its canvases
+   follow one after another in reading order with their covers developing, and the rest of the year rises last. */
+@media (prefers-reduced-motion: no-preference) {
+    .goty-year[data-arrival] { --arrival-from: 1; }
+    .goty-year[data-arrival="earlier"] { --arrival-from: -1; }
+    .goty-year[data-arrival="enter"] { --arrival-from: 0; }
+    /* Should the page never become interactive, its prerendered year still shows. */
+    .goty-year[data-prerendered] { animation: goty-reveal 0.3s 1s both; }
+    .goty-year[data-arrival] .goty-verdict-year { animation: goty-year-in 0.5s cubic-bezier(.16, .8, .2, 1) both; }
+    .goty-year[data-arrival] .goty-verdict :is(.eyebrow, .helper-text) { animation: goty-rise 0.4s cubic-bezier(.16, .8, .2, 1) 0.1s both; }
+    .goty-year[data-arrival] .podium-place { --arrival-delay: calc(0.05s + min(var(--arrival, 0), 10) * 0.035s); animation: goty-canvas-in 0.5s cubic-bezier(.16, .8, .2, 1) var(--arrival-delay) both; }
+    .goty-year[data-arrival] .podium-cover { animation: goty-develop 0.8s ease-out var(--arrival-delay) both; }
+    .goty-year[data-arrival] > :not(.goty-verdict, .podium, .podium-row) { animation: goty-rise 0.45s cubic-bezier(.16, .8, .2, 1) 0.25s both; }
+}
+@keyframes goty-year-in { from { opacity: 0; transform: translateX(calc(var(--arrival-from) * 0.6em)); filter: blur(8px); } }
+@keyframes goty-canvas-in { from { opacity: 0; transform: translate(calc(var(--arrival-from) * 1.5rem), 0.5rem) scale(.97); filter: blur(8px) saturate(.3); } }
+@keyframes goty-develop { from, 25% { opacity: 0; filter: saturate(0) brightness(.4); } }
+@keyframes goty-reveal { from { opacity: 0; } }
+@keyframes goty-rise { from { opacity: 0; transform: translateY(.75rem); } }
+/* This page is narrower than Rankings and its canvases say more, so the leader takes a row of its own sooner. */
+@media (max-width: 1300px) {
+    .podium--led { grid-template-columns: minmax(0, 1fr); }
+    .podium--led > .podium-place--lead { grid-row: auto; }
+}
 @media (max-width: 480px) {
     .goty-rank-column { width: 3rem; }
     .goty-points-column { width: 3.5rem; }

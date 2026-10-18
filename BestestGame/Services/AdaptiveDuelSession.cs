@@ -47,16 +47,26 @@ public sealed class AdaptiveDuelSession
         return true;
     }
 
-    /// <summary>Makes the group holding this duel current. The rest of the queue keeps its order.</summary>
-    public bool BringToFront(Guid duelId)
+    /// <summary>
+    /// Makes the group holding this duel current. Voting then continues from there: each next group is the
+    /// nearest one below it in the standings, and once none is left, the nearest one above it.
+    /// </summary>
+    /// <param name="standingOrder">Every duel of the entry, its opponents from highest to lowest ranked.</param>
+    public bool BringToFront(Guid duelId, IReadOnlyList<Guid> standingOrder)
     {
         var index = _groups.FindIndex(group => group.Contains(duelId));
         if (index <= 0)
             return false;
 
-        var group = _groups[index];
-        _groups.RemoveAt(index);
-        _groups.Insert(0, group);
+        var position = standingOrder.Select((id, rank) => (id, rank)).ToDictionary(item => item.id, item => item.rank);
+        int PositionOf(Guid[] group) => group.Min(id => position.GetValueOrDefault(id, int.MaxValue));
+        var picked = _groups[index];
+        var at = PositionOf(picked);
+        var rest = _groups.Where((_, other) => other != index).ToArray();
+        _groups.Clear();
+        _groups.Add(picked);
+        _groups.AddRange(rest.Where(group => PositionOf(group) > at).OrderBy(PositionOf));
+        _groups.AddRange(rest.Where(group => PositionOf(group) <= at).OrderByDescending(PositionOf));
         return true;
     }
 

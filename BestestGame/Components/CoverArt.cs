@@ -2,9 +2,12 @@ using BestestGame.Models;
 
 namespace BestestGame.Components;
 
-// Where an entry's stored picture is served from.
+// Where a stored picture is served from.
 public static class CoverArt
 {
-    public static string? Url(Game? game)
-        => string.IsNullOrEmpty(game?.CoverImage) ? null : $"/covers/{Uri.EscapeDataString(game.CoverImage)}";
+    /// <summary>The picture that stands for an entry; a collection shows that of its first included title that has one.</summary>
+    public static string? Url(Game? game) => Url(game?.Cover);
+
+    public static string? Url(string? file)
+        => string.IsNullOrEmpty(file) ? null : $"/covers/{Uri.EscapeDataString(file)}";
 }

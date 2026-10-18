@@ -85,6 +85,7 @@
                     {
                         var pending = _pendingMatchups.GetValueOrDefault(game.Id);
                         var display = EntryTitles.GetTitleDisplay(game);
+                        var undecided = CoverArtService.Slots(game).Count(slot => slot.File is null && _coverCandidates.ContainsKey((game.Id, slot.Title)));
                         <li @key="game.Id" class="game-row" data-game-id="@game.Id">
                             <div class="game-main">
                             @if (CoverArt.Url(game) is { } cover)
@@ -93,9 +94,9 @@
                             }
                             <div class="game-details stack">
                                 <h3>@display.Title</h3>
-                                @if (game.CoverImage is null && _coverCandidates.ContainsKey(game.Id))
+                                @if (undecided > 0)
                                 {
-                                    <p class="helper-text">No certain cover match. Choose one from Actions.</p>
+                                    <p class="helper-text">@(game.IncludedTitles is { Count: > 0 } ? $"No certain cover match for {undecided} included {(undecided == 1 ? "title" : "titles")}. Choose from Actions." : "No certain cover match. Choose one from Actions.")</p>
                                 }
                                 @if (pending > 0)
                                 {
@@ -105,12 +106,7 @@
                                 {
                                     <details class="included-disclosure">
                                         <summary>Collection · @game.IncludedTitles.Count included @(game.IncludedTitles.Count == 1 ? "title" : "titles")</summary>
-                                        <ul class="included-summary text-secondary">
-                                            @foreach (var title in game.IncludedTitles)
-                                            {
-                                                <li>@EntryTitles.FormatTitleWithYear(title.Title, title.ReleaseYear)</li>
-                                            }
-                                        </ul>
+                                        @CoverShelf(game)
                                     </details>
                                 }
                                 else if (display.Subtitle is not null)
@@ -153,6 +149,31 @@
                     }
                     @if (_entrySaved)
                     {
+                        @if (_editingGameId is null && _addedGames.FirstOrDefault() is { } addedGame)
+                        {
+                            @* A new entry is looked up at once; its shelf shows what was found and is the way to choose otherwise. *@
+                            var addedSlots = CoverArtService.Slots(addedGame);
+                            var pictured = addedSlots.Count(slot => !string.IsNullOrEmpty(slot.File));
+                            <div class="entry-cover stack" role="group" aria-labelledby="entry-cover-label" aria-busy="@(_entryCoverBusy ? "true" : "false")">
+                                <p id="entry-cover-label" class="field-label">@(addedSlots.Count == 1 ? "Cover" : "Covers")</p>
+                                @if (_entryCoverBusy)
+                                {
+                                    <p class="loading-state" role="status">@(addedSlots.Count == 1 ? "Looking up a cover…" : "Looking up covers…")</p>
+                                }
+                                else
+                                {
+                                    @if (!string.IsNullOrEmpty(_entryCoverProblem))
+                                    {
+                                        <p class="status status--warning" role="status">@_entryCoverProblem</p>
+                                    }
+                                    <p class="helper-text" role="status">@(addedSlots.Count == 1
+                                        ? pictured == 1 ? "Select the cover to choose another." : "No cover yet. Select the frame to choose one."
+                                        : pictured == addedSlots.Count ? "Every title has a cover. Select one to change it."
+                                        : $"{pictured} of {addedSlots.Count} titles have a cover. Select a title to choose its cover.")</p>
+                                }
+                                @CoverShelf(addedGame)
+                            </div>
+                        }
                         @VotingActions
                         <div class="dialog__actions"><button type="button" class="button" @onclick="CloseEntry"><span class="button__content">Done</span></button></div>
                     }
@@ -239,10 +260,37 @@
         <dialog @ref="_coverDialog" class="dialog task-dialog cover-dialog" aria-labelledby="cover-heading" aria-modal="true">
             @if (_coverGame is { } coverGame)
             {
+                var coverSlots = CoverArtService.Slots(coverGame);
+                var coverSlot = coverSlots.First(slot => slot.Title == _coverTitle);
                 <div class="dialog__header">
                     <h2 id="cover-heading">Cover for @EntryTitles.GetTitleDisplay(coverGame).Title</h2>
                     <button type="button" class="button" @onclick="CloseCoverChooser"><span class="button__content">Close</span></button>
                 </div>
+                @if (_coverTitle is not null)
+                {
+                    @* Each included title has a cover of its own; the first of them with one stands for the collection. *@
+                    var representative = coverSlots.FirstOrDefault(slot => !string.IsNullOrEmpty(slot.File))?.Title;
+                    <div class="cover-title">
+                        <div class="field">
+                            <label class="field-label" for="coverTitle">Included title</label>
+                            <select id="coverTitle" class="form-control" value="@_coverTitle" disabled="@(_coverBusy is not null)" aria-describedby="cover-title-help" @onchange="ChangeCoverTitle">
+                                @foreach (var slot in coverSlots)
+                                {
+                                    <option @key="slot.Title" value="@slot.Title">@SlotTitle(slot)@(string.IsNullOrEmpty(slot.File) ? " · no cover" : slot.Title == representative ? " · collection cover" : "")</option>
+                                }
+                            </select>
+                            <p id="cover-title-help" class="helper-text">The collection is shown with the cover of its first title that has one.</p>
+                        </div>
+                        @if (CoverArt.Url(coverSlot.File) is { } currentCover)
+                        {
+                            <span class="game-cover cover-current" style="background-image: url('@currentCover')" role="img" aria-label="@($"Current cover of {SlotTitle(coverSlot)}")"></span>
+                        }
+                    </div>
+                }
+                @if (!string.IsNullOrEmpty(_coverSaved))
+                {
+                    <p class="status status--success cover-saved" role="status">@_coverSaved</p>
+                }
                 @if (Covers.IsConfigured)
                 {
                     <form class="cover-search" @onsubmit="SearchCovers" @onsubmit:preventDefault="true">
@@ -283,10 +331,10 @@
                     <InputFile id="coverUpload" OnChange="UploadCover" accept="image/jpeg,image/png,image/webp" disabled="@(_coverBusy is not null)" aria-describedby="cover-upload-help" />
                     <p id="cover-upload-help" class="helper-text">JPEG, PNG or WebP. Upright box art fits best; a large picture is shrunk before it is saved.</p>
                 </div>
-                @if (coverGame.CoverImage is not null)
+                @if (!string.IsNullOrEmpty(coverSlot.File))
                 {
                     <div class="dialog__actions">
-                        <button type="button" class="button button--danger" disabled="@(_coverBusy is not null)" @onclick="() => RemoveCover(coverGame)"><span class="button__content">Remove cover</span></button>
+                        <button type="button" class="button button--danger" disabled="@(_coverBusy is not null)" @onclick="() => RemoveCover(coverSlot)"><span class="button__content">Remove cover</span></button>
                     </div>
                 }
             }
@@ -339,6 +387,8 @@
     private ElementReference _validationFeedback;
     private bool _entryOpen;
     private bool _entrySaved;
+    private bool _entryCoverBusy;
+    private string _entryCoverProblem = string.Empty;
     private bool _importOpen;
     private bool _importCompleted;
     private bool _showIncludedTitles;
@@ -392,7 +442,7 @@
         }
     }
 
-    private void SaveEntry()
+    private async Task SaveEntry()
     {
         _messageLocation = MessageLocation.Entry;
         _focusFeedback = true;
@@ -438,17 +488,42 @@
             : "Could not save. If this title already exists, use Edit details in its Actions.";
         if (saved)
         {
+            // Candidates are kept by a title's place in its collection, which an edit can change.
+            foreach (var slot in _coverCandidates.Keys.Where(slot => slot.Game == _editingGameId).ToList())
+                _coverCandidates.Remove(slot);
             LoadGames();
             _entrySaved = true;
             _addedGames = adding
                 ? _games.Where(game => !existingIds.Contains(game.Id)).ToList()
                 : _games.Where(game => game.Id == _editingGameId).ToList();
+            if (adding) await LookUpAddedCovers();
         }
         else
         {
             // Refresh after a stale edit while retaining its draft and feedback.
             LoadGames();
         }
+    }
+
+    // A game added by hand gets its covers straight away: certain matches are saved, the rest wait for a choice.
+    private async Task LookUpAddedCovers()
+    {
+        _entryCoverProblem = string.Empty;
+        if (!Covers.IsConfigured || _addedGames.FirstOrDefault() is not { } game) return;
+        _entryCoverBusy = true;
+        StateHasChanged();
+        try
+        {
+            foreach (var slot in CoverArtService.Slots(game))
+            {
+                var result = await Covers.FetchAsync(slot);
+                if (result.Outcome == CoverArtService.Outcome.NeedsChoice)
+                    _coverCandidates[(game.Id, slot.Title)] = result.Candidates;
+            }
+        }
+        catch (CoverArtService.CoverArtException exception) { _entryCoverProblem = exception.Message; }
+        finally { _entryCoverBusy = false; }
+        LoadGames();
     }
 
     private void EditGameDetails(Game game, bool rename = false)
@@ -459,7 +534,7 @@
         {
             Title = game.Title,
             ReleaseYear = game.ReleaseYear,
-            IncludedTitles = (game.IncludedTitles ?? []).Select(t => new IncludedTitle { Title = t.Title, ReleaseYear = t.ReleaseYear }).ToList()
+            IncludedTitles = (game.IncludedTitles ?? []).Select(t => new IncludedTitle { Title = t.Title, ReleaseYear = t.ReleaseYear, CoverImage = t.CoverImage }).ToList()
         };
         OpenEntry();
     }
@@ -474,6 +549,8 @@
     {
         _entryOpen = true;
         _entrySaved = false;
+        _entryCoverBusy = false;
+        _entryCoverProblem = string.Empty;
         _showIncludedTitles = false;
         _message = string.Empty;
         _addedGames = [];
@@ -576,27 +653,72 @@
         _message = "Could not remove that game title. Please refresh and try again.";
     }
 
-    // Cover art: a run over every entry without a picture, and a chooser for the ones that need a person.
+    // Cover art: a run over every entry and included title without a picture, and a chooser for the ones that
+    // need a person. A picture belongs to a single game or to one included title of a collection.
     private CancellationTokenSource? _coverRun;
     private int _coverDone;
     private int _coverTotal;
-    private readonly Dictionary<Guid, IReadOnlyList<CoverArtService.Candidate>> _coverCandidates = [];
+    private readonly Dictionary<(Guid Game, int? Title), IReadOnlyList<CoverArtService.Candidate>> _coverCandidates = [];
     private ElementReference _coverDialog;
     private Game? _coverGame;
+    // The included title the chooser is on, counted from zero; none for a single game.
+    private int? _coverTitle;
     private string _coverQuery = string.Empty;
     private IReadOnlyList<CoverArtService.Candidate>? _coverResults;
     private string _coverNotice = string.Empty;
+    private string _coverSaved = string.Empty;
     private string? _coverBusy;
+
+    // A shelf of covers: one for a single game, one for each included title of a collection. Each is a button
+    // that opens the cover chooser on it; a collection's shelf marks the cover that stands for the collection.
+    private RenderFragment CoverShelf(Game game)
+    {
+        var shelf = CoverArtService.Slots(game);
+        var standsFor = shelf.FirstOrDefault(slot => slot.Title is not null && !string.IsNullOrEmpty(slot.File))?.Title;
+        return @<ul class="title-shelf">
+            @foreach (var slot in shelf)
+            {
+                var title = slot.Title is { } index ? game.IncludedTitles[index] : null;
+                var picture = CoverArt.Url(slot.File);
+                <li @key="slot.Title">
+                    <button type="button" class="title-card" data-included-title="@slot.Title" aria-haspopup="dialog" @onclick="() => OpenCoverChooser(game, slot.Title)"
+                            aria-label="@($"Choose cover for {SlotTitle(slot)}{(picture is null ? ", no cover yet" : standsFor is not null && slot.Title == standsFor ? ", the collection's cover" : "")}")">
+                        @if (picture is not null)
+                        {
+                            <span class="title-card-cover" style="background-image: url('@picture')"></span>
+                        }
+                        else
+                        {
+                            <span class="title-card-cover title-card-cover--none"><span>No cover</span></span>
+                        }
+                        <span class="title-card-title">@(title?.Title ?? game.Title)</span>
+                        @if ((title is null ? game.ReleaseYear : title.ReleaseYear) is { } released)
+                        {
+                            <span class="title-card-year">@released</span>
+                        }
+                        @if (standsFor is not null && slot.Title == standsFor)
+                        {
+                            <span class="title-card-mark">Collection cover</span>
+                        }
+                    </button>
+                </li>
+            }
+        </ul>;
+    }
+
+    private static string SlotTitle(CoverArtService.Slot slot) => slot.Title is { } index
+        ? EntryTitles.FormatTitleWithYear(slot.Game.IncludedTitles[index].Title, slot.Game.IncludedTitles[index].ReleaseYear)
+        : EntryTitles.GetTitleDisplay(slot.Game).Title;
 
     private async Task FetchMissingCovers()
     {
         if (_coverRun is not null) return;
-        var missing = _games.Where(game => !Covers.HasCoverFile(game)).ToList();
+        var missing = _games.SelectMany(CoverArtService.Slots).Where(slot => !Covers.HasCoverFile(slot)).ToList();
         _messageLocation = MessageLocation.Library;
         _alertClass = "alert-success";
         if (missing.Count == 0)
         {
-            _message = "Every entry already has a cover.";
+            _message = "Every entry and included title already has a cover.";
             return;
         }
         _message = string.Empty;
@@ -606,16 +728,16 @@
         using var run = _coverRun = new CancellationTokenSource();
         try
         {
-            foreach (var game in missing)
+            foreach (var slot in missing)
             {
-                var result = await Covers.FetchAsync(game, run.Token);
+                var result = await Covers.FetchAsync(slot, run.Token);
                 if (result.Outcome == CoverArtService.Outcome.Added) added++;
                 else if (result.Outcome == CoverArtService.Outcome.NotFound) unknown++;
                 else if (result.Outcome == CoverArtService.Outcome.UploadMissing) absent++;
                 else
                 {
                     undecided++;
-                    _coverCandidates[game.Id] = result.Candidates;
+                    _coverCandidates[(slot.Game.Id, slot.Title)] = result.Candidates;
                 }
                 _coverDone++;
                 StateHasChanged();
@@ -636,12 +758,34 @@
         }.Where(part => part is not null));
     }
 
-    private async Task OpenCoverChooser(Game game)
+    // A collection opens on the title that was picked from its shelf, or else on the one that most needs a person:
+    // one with candidates waiting, else one without a cover, else its first.
+    private async Task OpenCoverChooser(Game game, int? title = null)
     {
+        var slots = CoverArtService.Slots(game);
         _coverGame = game;
-        _coverQuery = CoverArtService.Subject(game).Title;
+        _coverTitle = (slots.FirstOrDefault(slot => title is not null && slot.Title == title)
+            ?? slots.FirstOrDefault(slot => slot.File is null && _coverCandidates.ContainsKey((game.Id, slot.Title)))
+            ?? slots.FirstOrDefault(slot => slot.File is null) ?? slots[0]).Title;
+        _coverSaved = string.Empty;
+        await ShowCoverSlot();
+    }
+
+    private async Task ChangeCoverTitle(ChangeEventArgs change)
+    {
+        if (_coverGame is not { } game || _coverBusy is not null || !int.TryParse(change.Value?.ToString(), out var title) ||
+            title < 0 || title >= game.IncludedTitles.Count) return;
+        _coverTitle = title;
+        _coverSaved = string.Empty;
+        await ShowCoverSlot();
+    }
+
+    private async Task ShowCoverSlot()
+    {
+        if (_coverGame is not { } game) return;
+        _coverQuery = CoverArtService.Subject(game, _coverTitle).Title;
         _coverNotice = string.Empty;
-        _coverResults = _coverCandidates.GetValueOrDefault(game.Id);
+        _coverResults = _coverCandidates.GetValueOrDefault((game.Id, _coverTitle));
         if (_coverResults is null && Covers.IsConfigured) await SearchCovers();
     }
 
@@ -665,16 +809,15 @@
         _coverBusy = "Saving the cover…";
         try
         {
-            await Covers.SetCoverAsync(game.Id, candidate.ImageId);
-            _coverCandidates.Remove(game.Id);
-            LoadGames();
-            _messageLocation = MessageLocation.Library;
-            _alertClass = "alert-success";
-            _message = $"Cover saved for {EntryTitles.GetTitleDisplay(game).Title}.";
-            CloseCoverChooser();
+            await Covers.SetCoverAsync(game.Id, candidate.ImageId, _coverTitle);
         }
-        catch (CoverArtService.CoverArtException exception) { _coverNotice = exception.Message; }
+        catch (CoverArtService.CoverArtException exception)
+        {
+            _coverNotice = exception.Message;
+            return;
+        }
         finally { _coverBusy = null; }
+        await CoverSaved();
     }
 
     private async Task UploadCover(InputFileChangeEventArgs upload)
@@ -695,34 +838,58 @@
             var shrunk = await upload.File.RequestImageFileAsync("image/jpeg", CoverArtService.UploadWidth, CoverArtService.UploadHeight)
                 .AsTask().WaitAsync(TimeSpan.FromSeconds(20));
             await using var picture = shrunk.OpenReadStream(CoverArtService.UploadLimit);
-            await Covers.SetUploadedCoverAsync(game.Id, picture);
-            _coverCandidates.Remove(game.Id);
-            LoadGames();
-            _messageLocation = MessageLocation.Library;
-            _alertClass = "alert-success";
-            _message = $"Cover saved for {EntryTitles.GetTitleDisplay(game).Title}.";
-            CloseCoverChooser();
+            await Covers.SetUploadedCoverAsync(game.Id, picture, _coverTitle);
         }
-        catch (CoverArtService.CoverArtException exception) { _coverNotice = exception.Message; }
-        catch (TimeoutException) { _coverNotice = "The browser could not read that file as a picture."; }
-        catch (IOException) { _coverNotice = "The picture could not be read. Try again."; }
+        catch (Exception exception) when (exception is CoverArtService.CoverArtException or TimeoutException or IOException)
+        {
+            _coverNotice = exception switch
+            {
+                TimeoutException => "The browser could not read that file as a picture.",
+                IOException => "The picture could not be read. Try again.",
+                _ => exception.Message
+            };
+            return;
+        }
         finally { _coverBusy = null; }
+        await CoverSaved();
     }
 
-    private void RemoveCover(Game game)
+    // A collection stays open on its next title without a cover, so all of them can be chosen in one go.
+    private async Task CoverSaved()
     {
-        Covers.ClearCover(game.Id);
+        if (_coverGame is not { } game) return;
+        var saved = SlotTitle(new(game, _coverTitle));
+        _coverCandidates.Remove((game.Id, _coverTitle));
         LoadGames();
-        _messageLocation = MessageLocation.Library;
+        _messageLocation = _entryOpen ? MessageLocation.Entry : MessageLocation.Library;
         _alertClass = "alert-success";
-        _message = $"Cover removed from {EntryTitles.GetTitleDisplay(game).Title}.";
+        _message = $"Cover saved for {saved}.";
+        if (_coverGame is { } current && _coverTitle is not null &&
+            CoverArtService.Slots(current).FirstOrDefault(slot => string.IsNullOrEmpty(slot.File)) is { } next)
+        {
+            _coverTitle = next.Title;
+            _coverSaved = $"Cover saved for {saved}. Next without one: {SlotTitle(next)}.";
+            await ShowCoverSlot();
+        }
+        else CloseCoverChooser();
+    }
+
+    private void RemoveCover(CoverArtService.Slot slot)
+    {
+        Covers.ClearCover(slot.Game.Id, slot.Title);
+        LoadGames();
+        _messageLocation = _entryOpen ? MessageLocation.Entry : MessageLocation.Library;
+        _alertClass = "alert-success";
+        _message = $"Cover removed from {SlotTitle(slot)}.";
         CloseCoverChooser();
     }
 
     private void CloseCoverChooser()
     {
         _coverGame = null;
+        _coverTitle = null;
         _coverResults = null;
+        _coverSaved = string.Empty;
     }
 
     private void LoadGames()
@@ -733,6 +900,13 @@
             .ThenBy(g => g.Id)
             .ToList();
         _pendingMatchups = _currentTournament is null ? [] : GameLibrary.PendingMatchups(_currentTournament);
+        _addedGames = _addedGames.Select(added => _games.FirstOrDefault(game => game.Id == added.Id)).OfType<Game>().ToList();
+        // An open cover chooser follows the entry as it is now, and closes if the entry or its title has gone.
+        if (_coverGame is { } shown)
+        {
+            _coverGame = _games.FirstOrDefault(game => game.Id == shown.Id);
+            if (_coverGame is null || CoverArtService.Slots(_coverGame).All(slot => slot.Title != _coverTitle)) CloseCoverChooser();
+        }
     }
 
     private string GetAlertClasses() => _alertClass == "alert-warning"

@@ -333,7 +333,7 @@
     private Task Select(Guid presentation, Guid duelId) => Perform(presentation, () =>
     {
         var before = _session.Snapshot();
-        if (_session.BringToFront(duelId))
+        if (_session.BringToFront(duelId, _barOrder))
         {
             _history.Push(new(before, []));
             _notice = _useGroups ? "Switched to another group. No wins or losses recorded."

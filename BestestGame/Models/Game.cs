@@ -11,7 +11,14 @@ public class Game
     public int? ReleaseYear { get; set; }
     public List<IncludedTitle> IncludedTitles { get; set; } = new();
     public int Points { get; set; } = 0;
-    /// <summary>File name of this entry's picture in the covers folder beside the database, if it has one.</summary>
+    /// <summary>
+    /// File name of this entry's picture in the covers folder beside the database, if it has one.
+    /// A collection keeps none of its own: its included titles carry theirs.
+    /// </summary>
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? CoverImage { get; set; }
+
+    /// <summary>The picture that stands for this entry: its own, or for a collection that of its first included title that has one.</summary>
+    [JsonIgnore]
+    public string? Cover => (IncludedTitles ?? []).Select(title => title.CoverImage).FirstOrDefault(file => !string.IsNullOrEmpty(file)) ?? CoverImage;
 }

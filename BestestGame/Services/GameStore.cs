@@ -59,8 +59,24 @@ internal sealed class GameStore
         CREATE INDEX duels_by_tournament ON duels (tournament_id, position);
         CREATE INDEX duels_by_game1 ON duels (tournament_id, game1_id);
         CREATE INDEX duels_by_game2 ON duels (tournament_id, game2_id);
-        """
+        """,
+        // Included titles get pictures of their own, and a collection's picture becomes its first title's.
+        "ALTER TABLE included_titles ADD COLUMN cover_image TEXT;" + CollectionCoversToFirstTitle
     ];
+
+    /// <summary>
+    /// A collection is pictured by its included titles. A picture still recorded on the collection itself, as
+    /// before titles had their own and in data from then, moves to its first title; one that title already has stays.
+    /// </summary>
+    private const string CollectionCoversToFirstTitle =
+        """
+        UPDATE included_titles SET cover_image = (SELECT cover_image FROM games WHERE games.id = included_titles.game_id)
+        WHERE cover_image IS NULL
+            AND position = (SELECT MIN(position) FROM included_titles first WHERE first.game_id = included_titles.game_id);
+        UPDATE games SET cover_image = NULL WHERE cover_image IS NOT NULL AND id IN (SELECT game_id FROM included_titles);
+        """;
+
+    public static void MoveCollectionCovers(SqliteConnection connection) => connection.Execute(CollectionCoversToFirstTitle);
 
     private readonly string _connectionString;
 
@@ -132,6 +148,8 @@ internal sealed class GameStore
                 }
                 if (JsonSerializer.Serialize(Export(connection)) != JsonSerializer.Serialize(legacy))
                     throw new InvalidOperationException("Reading the new database back did not give the same data.");
+                // Only once everything is known to have arrived: the JSON file kept a collection's picture on the collection.
+                MoveCollectionCovers(connection);
             }
             File.Move(buildingPath, path);
             Console.WriteLine($"Moved {legacyPath} into {path}: {legacy.Tournaments.Count} tournaments, " +
@@ -180,11 +198,11 @@ internal sealed class GameStore
         var byId = games.ToDictionary(game => game.Id);
         var included = connection.Query(
             """
-            SELECT included.game_id, included.title, included.release_year
+            SELECT included.game_id, included.title, included.release_year, included.cover_image
             FROM included_titles included JOIN games ON games.id = included.game_id
             WHERE games.tournament_id = $tournament ORDER BY included.game_id, included.position
             """,
-            row => (GameId: row.Id(0), Title: new IncludedTitle { Title = row.GetString(1), ReleaseYear = row.IntOrNull(2) }),
+            row => (GameId: row.Id(0), Title: new IncludedTitle { Title = row.GetString(1), ReleaseYear = row.IntOrNull(2), CoverImage = row.TextOrNull(3) }),
             ("$tournament", tournamentId));
         foreach (var (gameId, title) in included)
             byId[gameId].IncludedTitles.Add(title);
@@ -234,8 +252,8 @@ internal sealed class GameStore
             VALUES ($id, $tournament, $position, $title, $year, $points, $cover)
             """, "$id", "$tournament", "$position", "$title", "$year", "$points", "$cover");
         private readonly SqliteCommand _includedTitle = connection.Prepare(
-            "INSERT INTO included_titles (game_id, position, title, release_year) VALUES ($game, $position, $title, $year)",
-            "$game", "$position", "$title", "$year");
+            "INSERT INTO included_titles (game_id, position, title, release_year, cover_image) VALUES ($game, $position, $title, $year, $cover)",
+            "$game", "$position", "$title", "$year", "$cover");
         private readonly SqliteCommand _duel = connection.Prepare(
             """
             INSERT INTO duels (id, tournament_id, position, game1_id, game2_id, winner_id)
@@ -251,7 +269,7 @@ internal sealed class GameStore
         public void AddIncludedTitles(Guid gameId, IReadOnlyList<IncludedTitle> titles)
         {
             for (var position = 0; position < titles.Count; position++)
-                _includedTitle.Run(gameId, position, titles[position].Title, titles[position].ReleaseYear);
+                _includedTitle.Run(gameId, position, titles[position].Title, titles[position].ReleaseYear, titles[position].CoverImage);
         }
 
         public void AddDuel(Guid tournamentId, int position, Duel duel)

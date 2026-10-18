@@ -227,8 +227,27 @@ match: the same name, and the same release year to within one when the entry has
 The rest are marked, and **Actions → Choose cover** lists IGDB's candidates for that entry,
 with a search field for titles IGDB spells differently, and removes a cover again. The same
 dialog uploads a picture of your own (JPEG, PNG or WebP, shrunk by the browser to at most
-1056×1408 before it is sent) for games IGDB does not have; that works without credentials too. A collection is looked up by its first included
-title.
+1056×1408 before it is sent) for games IGDB does not have; that works without credentials too.
+
+**Add game** gives a new entry its cover as part of adding it. With credentials, the entry (and
+each included title) is looked up as soon as it is added and a certain match is saved; the
+**Game added** step then shows the covers on a shelf, with an empty frame for any still missing.
+Selecting one opens the cover chooser over the dialog to pick a candidate or upload a picture.
+Without credentials the frame is the way to upload one. A list imported in bulk is not looked
+up; **Fetch covers** does that.
+
+Every included title of a collection has a cover of its own, looked up by that title's name, and
+**Fetch covers** covers them all. The collection itself is shown with the cover of its first
+included title that has one: on Voting, in the tiled group canvas of focused voting, on Rankings and
+on Games. Game of the year shows each release with its own cover, and with the collection's when it
+has none. On Games a collection unfolds into a shelf of its titles, each under its own cover or
+an empty frame, with the collection's cover marked; a title there opens the cover chooser on
+itself. On a phone the shelf is a list with small covers. For a collection, **Choose cover** has an **Included title** selector that marks the
+collection's cover and the titles without one; after a cover is saved the dialog moves on to the
+next title without one. Editing a collection keeps each title's cover with it, and a removed
+title's picture is deleted. A database from before this (its collections' pictures recorded on the
+collection) is brought up to date when the application starts: each such picture moves to the
+collection's first included title.
 
 In ordinary voting the two choices are posters the shape of a cover, side by side at every width and
 sized to the window so Undo and Skip stay in view. A cover fills its poster under the paint, clear at
@@ -312,7 +331,15 @@ year. Search is local to the page;
 release-year links retain their existing query parameter.
 
 Game of the year (`/goty?year=2007`) puts one **Release year** selector before the
-current leader or shared leaders, followed by compact rank/title/points nominees.
+year's standings, which stand on the same canvases as Rankings: the top three on a
+podium with the leader on a large warm canvas, ranks 4–6 and 7–10 on rows of
+smaller ones, each with its own cover or failing that its collection's, and a compact
+rank/title/points table for anything ranked after that. A year with fewer than
+ten releases fills as many canvases as it has; a year without points stays in the table.
+Lists of three, four, five, seven, eight or ten entries, here and on Rankings, put only
+two on the podium, the second taking the whole side of the leader, and share the
+rest evenly: one row of one, two or three, or two rows of 2 + 3, 3 + 3 or 4 + 4.
+Entries sharing a rank are never parted; such a list is arranged by rank as above.
 A year is labelled **Winner** or **Shared winners** as soon as first place cannot
 change: no other nominee with matchups left can reach the leader's points, and
 leaders sharing first place have none left that could part them. Until then it is
@@ -320,9 +347,12 @@ leaders sharing first place have none left that could part them. Until then it i
 first place, each with a link to finish its matchups. Unfinished nominees show
 their matchups left and the points they can reach, and the archive marks open years. Points come
 from the full tournament; collection-derived releases retain their source label.
-**How yearly rankings work** explains inheritance and head-to-head ties, while
-the initially collapsed **Release-year archive** contains year links and the
-secondary **Random year** action. Missing-year and no-points states keep clear
+The **Release-year archive** starts open and can be folded away. Each year in it is
+a canvas of the same width and height, showing the year, its leader with that
+leader's cover and the number of releases; the year on show is the warm one. A
+year canvas and the secondary **Random year** action return the page to its top
+(`data-scroll-top`, handled in `routeFocus.js`), since a change of query alone
+keeps the scroll position. Missing-year and no-points states keep clear
 assign-years/voting links. Year browsing, reload and Back preserve stored results;
 the legacy Voting redirect applies only to actual Voting URLs.
 

@@ -53,7 +53,7 @@ static class MigrationChecks
             "Results saved afterwards are there when the application starts again");
         Check(reopened.GetTournaments().Count == 2, "Once the database exists the JSON file is no longer read");
 
-        Check(Count(path, "PRAGMA user_version") == 1 && Text(path, "PRAGMA journal_mode") == "wal",
+        Check(Count(path, "PRAGMA user_version") == 2 && Text(path, "PRAGMA journal_mode") == "wal",
             "The file records its schema version and can be read while the application writes");
         reopened.ImportGames(new[] { new Game { Title = "Removed", IncludedTitles = [new() { Title = "Removed part" }] } });
         var removed = reopened.GetGames().Single(game => game.Title == "Removed");
@@ -86,7 +86,28 @@ static class MigrationChecks
         Count(newerPath, "PRAGMA user_version = 99");
         Check(Fails(() => CheckData.Open(newerPath)) && Count(newerPath, "SELECT COUNT(*) FROM tournaments") == 1,
             "A database written by a newer version is refused and left alone");
-        Console.WriteLine("24 migration checks passed.");
+
+        // A collection's picture used to be recorded on the collection; it now belongs to its first included title.
+        var pictured = new Game { Title = "Pictured", CoverImage = "collection.jpg", IncludedTitles = [new() { Title = "First" }, new() { Title = "Second" }] };
+        var single = new Game { Title = "Single", CoverImage = "single.jpg" };
+        var earlier = new GameDatabase { Tournaments = [new() { Name = "Pictures", Games = [pictured, single] }] };
+        bool Moved(GameService opened) => opened.Export().Tournaments.Single().Games is [var collection, var alone] && collection.CoverImage is null &&
+            collection.IncludedTitles.Select(title => title.CoverImage).SequenceEqual(["collection.jpg", null]) &&
+            collection.Cover == "collection.jpg" && alone.CoverImage == "single.jpg";
+        Check(Moved(CheckData.FromLegacyFile(directory, "pictures", JsonSerializer.Serialize(earlier))),
+            "A collection's picture in an earlier JSON file moves to its first included title");
+        var versionPath = CheckData.PathFor(directory, "version1");
+        Check(Moved(CheckData.Create(directory, "version1", earlier)), "Imported data from before titles had pictures is moved the same way");
+        // The same database as the first version of the tables held it.
+        foreach (var statement in new[] { "UPDATE games SET cover_image = 'collection.jpg' WHERE title = 'Pictured'",
+            "ALTER TABLE included_titles DROP COLUMN cover_image", "PRAGMA user_version = 1" })
+            Count(versionPath, statement);
+        // As after a restart: the connections kept open above still remember the tables as they were.
+        SqliteConnection.ClearAllPools();
+        Check(Moved(CheckData.Open(versionPath)) && Count(versionPath, "PRAGMA user_version") == 2 &&
+            Count(versionPath, "SELECT COUNT(*) FROM games WHERE cover_image IS NOT NULL") == 1,
+            "An existing database is brought up to date: its collections' pictures move to their first included titles");
+        Console.WriteLine("27 migration checks passed.");
 
         GameDatabase Legacy(Action<List<Duel>> change)
         {

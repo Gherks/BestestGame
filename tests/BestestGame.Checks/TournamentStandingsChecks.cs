@@ -49,10 +49,44 @@ static class TournamentStandingsChecks
         duel.IsCompleted = true;
         HeadToHeadTiers();
         OpenLead();
+        Canvases();
         Check(JsonSerializer.Serialize(games) == before, "Rank and search leave IDs, stored points, titles, years and included releases intact");
         var legacyNull = new Game { Title = "Legacy (First, Second)", ReleaseYear = 2007, IncludedTitles = null! };
         Check(TournamentStandings.Search(TournamentStandings.Rank([legacyNull], year: 2007), "First").Single().Game == legacyNull &&
             legacyNull.IncludedTitles is null, "Legacy null lists remain searchable by stored title without mutation");
+    }
+
+    // Which ranks stand on canvases, as on Rankings and Game of the year, for lists of any length.
+    private static void Canvases()
+    {
+        static (int Podium, int[] Rows) Arrange(params int[] ranks)
+        {
+            var canvases = StandingsCanvases.Arrange(ranks, rank => rank);
+            return (canvases.Podium.Count, canvases.Rows.Select(row => row.Places.Count).ToArray());
+        }
+        static int[] Ranks(int count) => Enumerable.Range(1, count).ToArray();
+        Check(Arrange() is (0, { Length: 0 }), "An empty list fills no canvas");
+        Check(Arrange(1) is (1, { Length: 0 }) && Arrange(1, 2) is (2, { Length: 0 }), "One or two entries stand on the podium alone");
+        Check(Arrange(Ranks(3)) is (2, [1]) && Arrange(Ranks(4)) is (2, [2]) && Arrange(Ranks(5)) is (2, [3]),
+            "Of three to five entries the second stands alone beside the leader and the rest share one row");
+        Check(Arrange(Ranks(7)) is (2, [2, 3]) && Arrange(Ranks(8)) is (2, [3, 3]) && Arrange(Ranks(10)) is (2, [4, 4]),
+            "Seven, eight and ten entries share two rows under a podium of two");
+        Check(Arrange(Ranks(6)) is (3, [3]) && Arrange(Ranks(9)) is (3, [3, 3]), "Six and nine entries fill a podium of three and rows of three");
+        Check(Arrange(Ranks(11)) is (3, [3, 4]) && Arrange(Ranks(12)) is (3, [3, 4]), "Entries ranked after the tenth stay in the table");
+        var ten = StandingsCanvases.Arrange(Ranks(10), rank => rank);
+        Check(ten.Count == 10 && ten.Rows.Select(row => (row.Places[0], row.Columns, row.Far)).SequenceEqual([(3, 4, false), (7, 4, true)]),
+            "Each row keeps its order and its own width; only the farther row is the smaller one");
+        Check(Arrange(1, 1, 3, 4) is (2, [2]) && Arrange(1, 2, 3, 3) is (2, [2]) && Arrange(1, 1, 3, 3, 3) is (2, [3]),
+            "Shared ranks stand together within the podium or a row");
+        Check(Arrange(1, 2, 2) is (3, { Length: 0 }) && Arrange(1, 2, 2, 4) is (3, [1]) && Arrange(1, 1, 1, 4) is (3, [1]) &&
+            Arrange(1, 2, 3, 4, 4, 6, 7) is (3, [3, 1]) && Arrange(1, 1, 1, 1) is (4, { Length: 0 }),
+            "A list whose shared rank would be parted between the podium and a row, or between rows, is arranged by rank instead");
+        Check(Arrange(1, 1, 3, 4, 4, 4, 4, 8, 9) is (3, [4, 2]), "By rank, entries sharing one stand together on a row");
+        Check(Arrange(1, 2, 3, 4, 5, 6, 6, 6, 6, 6, 6, 12) is (3, { Length: 0 }) && Arrange(1, 2, 3, 4, 5, 6, 7, 7, 7, 7, 7, 7, 7, 7, 7) is (3, [3]),
+            "A row that a tie would swell past twice its size stays in the table, with everything after it");
+        Check(Arrange(1, 1, 1, 1, 1, 1, 1) is (0, { Length: 0 }), "A tie that would put more than six entries on the podium leaves all of them in the table");
+        Check(Arrange(1, 2, 3, 7, 8, 9) is (3, [3]) && StandingsCanvases.Arrange(new[] { 1, 2, 3, 7, 8, 9 }, rank => rank).Rows.Single().Far,
+            "A row keeps its own size when the row above it is empty");
     }
 
     private static void HeadToHeadTiers()

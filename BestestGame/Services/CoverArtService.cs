@@ -55,11 +55,21 @@ public sealed partial class CoverArtService
 
     public bool IsConfigured => ClientId is not null && ClientSecret is not null;
 
-    /// <summary>What to look up for an entry: a collection is represented by its first included title.</summary>
-    public static (string Title, int? Year) Subject(Game game)
+    /// <summary>One picture an entry can hold: its own, or that of one included title of a collection, counted from zero.</summary>
+    public sealed record Slot(Game Game, int? Title)
+    {
+        public string? File => Title is { } index ? Game.IncludedTitles[index].CoverImage : Game.CoverImage;
+    }
+
+    /// <summary>Every picture an entry can hold: one for a single game, one for each included title of a collection.</summary>
+    public static IReadOnlyList<Slot> Slots(Game game) => game.IncludedTitles is { Count: > 0 } titles
+        ? titles.Select((_, index) => new Slot(game, index)).ToList() : [new Slot(game, null)];
+
+    /// <summary>What to look up: the entry itself, or the included title that is named. A collection without one named is looked up by its first.</summary>
+    public static (string Title, int? Year) Subject(Game game, int? includedTitle = null)
     {
         var (title, year) = game.IncludedTitles is { Count: > 0 } included
-            ? (included[0].Title, included[0].ReleaseYear ?? game.ReleaseYear)
+            ? (included[includedTitle ?? 0].Title, included[includedTitle ?? 0].ReleaseYear ?? game.ReleaseYear)
             : (game.Title, game.ReleaseYear);
         // Stored titles can end in a year or a legacy list of parts, which IGDB's names do not carry.
         var open = title.LastIndexOf('(');
@@ -67,28 +77,32 @@ public sealed partial class CoverArtService
         return (title.Trim(), year);
     }
 
-    public bool HasCoverFile(Game game)
-        => !string.IsNullOrEmpty(game.CoverImage) && File.Exists(Path.Combine(_games.CoversDirectory, game.CoverImage));
+    public bool HasCoverFile(Game game) => HasCoverFile(Slots(game)[0]);
+
+    public bool HasCoverFile(Slot slot)
+        => !string.IsNullOrEmpty(slot.File) && File.Exists(Path.Combine(_games.CoversDirectory, slot.File));
+
+    public Task<FetchResult> FetchAsync(Game game, CancellationToken cancellation = default) => FetchAsync(Slots(game)[0], cancellation);
 
     /// <summary>
-    /// Gives an entry a cover when one candidate is clearly right, and otherwise reports the candidates
-    /// for a person to choose from. A recorded cover whose file has gone is downloaded again.
+    /// Gives an entry or included title a cover when one candidate is clearly right, and otherwise reports the
+    /// candidates for a person to choose from. A recorded cover whose file has gone is downloaded again.
     /// </summary>
-    public async Task<FetchResult> FetchAsync(Game game, CancellationToken cancellation = default)
+    public async Task<FetchResult> FetchAsync(Slot slot, CancellationToken cancellation = default)
     {
-        if (StoredImageId(game) is { } recorded)
+        if (StoredImageId(slot.File) is { } recorded)
         {
-            await SetCoverAsync(game.Id, recorded, cancellation);
+            await SetCoverAsync(slot.Game.Id, recorded, slot.Title, cancellation);
             return new(Outcome.Added, []);
         }
         // An uploaded picture is a person's choice. If its file is not here it cannot be fetched again,
         // and it is not replaced by a lookup.
-        if (!string.IsNullOrEmpty(game.CoverImage)) return new(Outcome.UploadMissing, []);
-        var (title, year) = Subject(game);
+        if (!string.IsNullOrEmpty(slot.File)) return new(Outcome.UploadMissing, []);
+        var (title, year) = Subject(slot.Game, slot.Title);
         var candidates = await SearchAsync(title, cancellation);
         if (Confident(candidates, title, year) is not { } match)
             return new(candidates.Count > 0 ? Outcome.NeedsChoice : Outcome.NotFound, candidates);
-        await SetCoverAsync(game.Id, match.ImageId, cancellation);
+        await SetCoverAsync(slot.Game.Id, match.ImageId, slot.Title, cancellation);
         return new(Outcome.Added, candidates);
     }
 
@@ -138,23 +152,24 @@ public sealed partial class CoverArtService
         .Where(character => CharUnicodeInfo.GetUnicodeCategory(character) != UnicodeCategory.NonSpacingMark && char.IsLetterOrDigit(character))
         .Select(char.ToLowerInvariant));
 
-    /// <summary>Downloads the chosen image and records it on the entry in the selected tournament.</summary>
-    public async Task SetCoverAsync(Guid gameId, string imageId, CancellationToken cancellation = default)
+    /// <summary>Downloads the chosen image and records it on the entry, or on one of its included titles, in the selected tournament.</summary>
+    public async Task SetCoverAsync(Guid gameId, string imageId, int? includedTitle = null, CancellationToken cancellation = default)
     {
         var bytes = await ImageAsync(imageId, "t_cover_big_2x", cancellation);
         // The image id is part of the name, so a changed cover is a new address for the browser.
         var file = $"{gameId:N}-{imageId}.jpg";
         Directory.CreateDirectory(_games.CoversDirectory);
         await File.WriteAllBytesAsync(Path.Combine(_games.CoversDirectory, file), bytes, cancellation);
-        if (!_games.SetCover(gameId, file))
-            throw new CoverArtException("That entry is no longer in the selected tournament.");
+        if (_games.SetCover(gameId, file, includedTitle)) return;
+        _games.DeleteCoverFile(file);
+        throw new CoverArtException("That entry is no longer in the selected tournament.");
     }
 
     /// <summary>
     /// Stores a picture supplied by hand as an entry's cover. Its kind is read from the file itself, so a
     /// mislabelled or non-picture upload is refused before anything is written.
     /// </summary>
-    public async Task SetUploadedCoverAsync(Guid gameId, Stream picture, CancellationToken cancellation = default)
+    public async Task SetUploadedCoverAsync(Guid gameId, Stream picture, int? includedTitle = null, CancellationToken cancellation = default)
     {
         using var buffer = new MemoryStream();
         var chunk = new byte[81920];
@@ -170,7 +185,7 @@ public sealed partial class CoverArtService
         Directory.CreateDirectory(_games.CoversDirectory);
         var path = Path.Combine(_games.CoversDirectory, file);
         await File.WriteAllBytesAsync(path, bytes, cancellation);
-        if (_games.SetCover(gameId, file)) return;
+        if (_games.SetCover(gameId, file, includedTitle)) return;
         File.Delete(path);
         throw new CoverArtException("That entry is no longer in the selected tournament.");
     }
@@ -185,7 +200,7 @@ public sealed partial class CoverArtService
         return bytes.Length >= 12 && bytes[..4].SequenceEqual("RIFF"u8) && bytes[8..12].SequenceEqual("WEBP"u8) ? "webp" : null;
     }
 
-    public bool ClearCover(Guid gameId) => _games.SetCover(gameId, null);
+    public bool ClearCover(Guid gameId, int? includedTitle = null) => _games.SetCover(gameId, null, includedTitle);
 
     /// <summary>A small picture of a candidate, relayed so the browser never contacts IGDB itself.</summary>
     public Task<byte[]> PreviewAsync(string imageId, CancellationToken cancellation = default)
@@ -206,8 +221,8 @@ public sealed partial class CoverArtService
         }
     }
 
-    private static string? StoredImageId(Game game)
-        => game.CoverImage is { } file && StoredFilePattern().Match(file) is { Success: true } match ? match.Groups[1].Value : null;
+    private static string? StoredImageId(string? file)
+        => file is not null && StoredFilePattern().Match(file) is { Success: true } match ? match.Groups[1].Value : null;
 
     // One request at a time, spaced out, with the Twitch token obtained and renewed as needed.
     private async Task<HttpResponseMessage> SendAsync(Func<HttpRequestMessage> request, CancellationToken cancellation)

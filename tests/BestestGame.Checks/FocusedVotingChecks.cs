@@ -53,19 +53,27 @@ static class FocusedVotingChecks
         Check(session.Current(true).SequenceEqual(initialQueue[1]) && session.Snapshot()[^1].SequenceEqual(initialQueue[0]),
             "Skipping a group moves the whole group to the end without resolving it");
         session.Restore(initialQueue);
-        Check(!session.BringToFront(initialQueue[0][3]) && !session.BringToFront(Guid.NewGuid()) &&
-            session.Snapshot().SelectMany(group => group).SequenceEqual(pending.Select(duel => duel.Id)),
+        var standingOrder = pending.Select(duel => duel.Id).ToArray();
+        Check(!session.BringToFront(initialQueue[0][3], standingOrder) && !session.BringToFront(Guid.NewGuid(), standingOrder) &&
+            session.Snapshot().SelectMany(group => group).SequenceEqual(standingOrder),
             "Selecting the current group or an unknown duel leaves the queue alone");
-        Check(session.BringToFront(initialQueue[4][7]) && session.Current(true).SequenceEqual(initialQueue[4]) &&
-            session.Snapshot().Skip(1).SelectMany(group => group).SequenceEqual(
-                initialQueue.Where((_, index) => index != 4).SelectMany(group => group)) &&
+        Check(session.BringToFront(initialQueue[4][7], standingOrder) && session.Current(true).SequenceEqual(initialQueue[4]) &&
+            session.Snapshot().SelectMany(group => group).SequenceEqual(
+                new[] { 4, 5, 6, 7, 8, 9, 10, 11, 3, 2, 1, 0 }.SelectMany(index => initialQueue[index])) &&
             session.RemainingCount == 113 && CheckData.Snapshot(service) == contentsBeforeSplit,
-            "Selecting a group makes it current without reordering the rest or recording results");
+            "Selecting a group makes it current without recording results; the lower-ranked neighbours follow, then the higher-ranked ones, nearest first");
+        session.Remove(session.Snapshot()[..8].SelectMany(group => group));
+        Check(session.BringToFront(initialQueue[1][0], standingOrder) &&
+            session.Snapshot().SelectMany(group => group).SequenceEqual(
+                new[] { 1, 2, 3, 0 }.SelectMany(index => initialQueue[index])),
+            "Neighbours are found past finished opponents, and the highest-ranked group comes last when nothing lower is left");
+        session.Restore(initialQueue);
+        session.BringToFront(initialQueue[4][7], standingOrder);
 
         var opponents = pending.Select(duel => (duel.Id, OpponentBar.Status.Pending)).ToArray();
         var bar = OpponentBar.Build(opponents, session.Snapshot());
         Check(bar.Count == 12 && bar.Select(segment => segment.Start).SequenceEqual(Enumerable.Range(0, 12).Select(index => index * 10)) &&
-            bar[4].Group == 0 && bar[0].Group == 1 && bar.SelectMany(segment => segment.DuelIds).SequenceEqual(pending.Select(duel => duel.Id)),
+            bar[4].Group == 0 && bar[5].Group == 1 && bar[0].Group == 11 && bar.SelectMany(segment => segment.DuelIds).SequenceEqual(pending.Select(duel => duel.Id)),
             "The opponent bar stays in standing order whichever group is current");
         session.SplitCurrent();
         bar = OpponentBar.Build(opponents, session.Snapshot());

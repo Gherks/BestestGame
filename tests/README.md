@@ -23,10 +23,10 @@ Focused voting checks start with 113 fully ranked entries and verify adaptive
 splitting down to individual duels, batch wins and losses, complete batch undo,
 duplicate and concurrent input, tournament isolation, and finishing all 113 new
 matchups with preferences that do not follow standing order. They also cover
-selecting another group without reordering the rest of the queue or saving
-results, and the opponent bar's layout: fixed standing order whichever group is
-current, a split dividing its segment in place, finished and banned neighbours
-merging, and a group drawn in pieces when its opponents are no longer adjacent.
+selecting another group without saving results, with voting then continuing
+through its nearest lower-ranked groups and afterwards its higher-ranked ones,
+and the opponent bar's layout: fixed standing order whichever group is current, a
+split dividing its segment in place, finished and banned neighbours merging, and a group drawn in pieces when its opponents are no longer adjacent.
 The bar's hover/focus popovers, split preview and animation, and rapid 1v1 marker
 need a browser.
 
@@ -36,7 +36,9 @@ duel, ordered from most to fewest and by tournament placement when counts are ti
 groups of up to ten opponents in standing order; **Split group** halves the
 current group without recording results. Either winning button records all of
 that group's individual duels. Select a segment of the bar under the choices to
-vote on that group next. Turn off **Adaptive groups** for rapid 1v1 voting.
+vote on that group next; after it, voting moves on to the nearest group below it in
+the standings, and to the nearest one above it once nothing below is left. Turn off
+**Adaptive groups** for rapid 1v1 voting.
 Shortcuts are **1 / Left arrow** for the focused entry, **2 / Right arrow** for its
 opponents, **M** to split, **U** to undo, and **S** to skip. Skipped matches remain
 pending, arena bans are respected, and undo reverses the entire last batch.
@@ -76,21 +78,27 @@ Unknown years are `null`; assigned years must be integers from 1 to 9999.
 This is the shape of the earlier `data.json` and of `--export-json`. JSON files with
 string-based included titles or missing years are still moved into the database.
 
-`MigrationChecks` adds 24 assertions on moving a `data.json` into SQLite: every tournament,
+`MigrationChecks` adds 27 assertions on moving a `data.json` into SQLite: every tournament,
 entry, included title, cover, score, result and the selection arriving unchanged and in
 order, the JSON file left untouched and ignored once the database exists, saved results
 surviving a restart, removed entries and deleted tournaments leaving no rows behind, and
-refusing a database from a newer version. Ten kinds of data the tables cannot hold
+refusing a database from a newer version. Three of them follow a collection's picture to its
+first included title: from an earlier JSON file, from imported data, and in an existing database
+whose tables are brought up to the second version. Ten kinds of data the tables cannot hold
 faithfully (such as a completed duel without a winner or a duel between entries of
 different tournaments) must stop the start without creating a database.
 
-`CoverArtChecks` adds 20 assertions against a stand-in for Twitch and IGDB: nothing requested
+`CoverArtChecks` adds 32 assertions against a stand-in for Twitch and IGDB: nothing requested
 without credentials, rejected credentials, token reuse and renewal, safe quoting of titles,
 which candidates are certain (name, year within one, accents and punctuation set aside),
 collections and legacy titles, downloading beside the database, uncertain and unknown
 titles, replacing, restoring, clearing and removing pictures, uploaded pictures (stored by
 their real kind, replaced, refused when not a picture or too large, and left alone by a
-fetch), and unchanged storage for entries without a cover. The Games page controls, the candidate chooser and the painted
+fetch), and unchanged storage for entries without a cover. Twelve cover the pictures of a
+collection's included titles: each looked up and stored by itself, which one stands for the
+collection, a picture shared by two titles, titles that are not there, pictures following their
+titles through edits and being deleted with them, an entry becoming or ceasing to be a
+collection, the picture Game of the year shows for a release, and exported data. The Games page controls, the candidate chooser and the painted
 canvases need a browser; the real IGDB service needs credentials. See the Cover art section
 of [the main README](../README.md).
 
@@ -121,7 +129,9 @@ search, preservation of ranks while searching, collection/included-title and
 Unicode matching without duplicate participants, blank/no-result/unknown-year
 cases, zero-point ties and read-only game data. It also covers when a year's
 first place is still open: contenders by points within reach, level leaders with
-matchups left, head-to-head decisions and collections as one contender. `ManagementChecks` covers
+matchups left, head-to-head decisions and collections as one contender, and which
+ranks stand on canvases (`StandingsCanvases`, shared by Rankings and Game of the
+year) for lists shorter and longer than ten, with shared ranks. `ManagementChecks` covers
 renaming entries and tournaments and deleting a tournament with its cover pictures.
 Rankings exposes completed/pending counts and all matchup/exclusion actions
 through its native entry Details dialog, which opens with a read-only opponent bar.

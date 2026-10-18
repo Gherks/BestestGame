@@ -9,6 +9,8 @@ public static class ReleaseRankings
         public int HeadToHeadWins { get; init; }
         /// <summary>Place among the releases level on points this year, best first; see <see cref="HeadToHead.Tiers"/>.</summary>
         public int Tier { get; init; }
+        /// <summary>The release's own picture, or failing that the one that stands for its tournament entry.</summary>
+        public string? CoverImage { get; init; }
         public bool SharesRankWith(Entry other)
             => Points == other.Points && Tier == other.Tier;
     }
@@ -51,9 +53,12 @@ public static class ReleaseRankings
         var results = new HeadToHead.Results(completedDuels);
         var releases = games.SelectMany(game => game.IncludedTitles is { Count: > 0 }
                 ? game.IncludedTitles.Where(title => title.ReleaseYear.HasValue)
-                    .Select(title => new Entry(game.Id, title.Title, title.ReleaseYear!.Value, game.Points, game.Title))
+                    .Select(title => new Entry(game.Id, title.Title, title.ReleaseYear!.Value, game.Points, game.Title)
+                    {
+                        CoverImage = string.IsNullOrEmpty(title.CoverImage) ? game.Cover : title.CoverImage
+                    })
                 : game.ReleaseYear is { } year
-                    ? new[] { new Entry(game.Id, game.Title, year, game.Points, null) }
+                    ? new[] { new Entry(game.Id, game.Title, year, game.Points, null) { CoverImage = game.Cover } }
                     : Enumerable.Empty<Entry>()).ToList();
 
         return releases.GroupBy(entry => (entry.Year, entry.Points))
