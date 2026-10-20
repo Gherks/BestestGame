@@ -13,9 +13,9 @@
 
 @if (_currentTournament is null)
 {
-    <section class="surface voting-arena stack">
+    <section class="surface voting-arena stack" data-entrance="@_entrance.State(EntranceReady)">
         <header class="page-heading"><h1>Voting</h1><p>Select a tournament to compare its games.</p></header>
-        <div class="empty-state stack">
+        <div class="empty-state stack arrive">
             <h2>No tournament selected</h2>
             <p>Create or select a tournament before you start voting.</p>
             <div><a href="/tournaments" class="button button--primary"><span class="button__content">Go to tournaments</span></a></div>
@@ -26,7 +26,7 @@ else
 {
     <section @ref="_root" class="surface voting-arena stack @(FocusEntry is null ? "ordinary-voting" : "")" aria-labelledby="voting-heading"
              data-shortcuts-enabled="@(_sessionReady && FocusEntry is null ? "true" : "false")"
-             data-presentation="@_ordinary.Presentation">
+             data-presentation="@_ordinary.Presentation" data-entrance="@_entrance.State(EntranceReady)">
         <header class="page-heading">
             <h1 id="voting-heading">Voting</h1>
             @if (FocusEntry is not null)
@@ -43,7 +43,7 @@ else
             }
             else
             {
-                <p class="loading-state" role="status">Loading voting settings…</p>
+                <p class="loading-state arrive" role="status">Loading voting settings…</p>
             }
 
         }
@@ -52,7 +52,7 @@ else
             var presentation = _ordinary.Presentation;
             @if (!_tournamentChanged)
             {
-            <div class="voting-progress compact-progress">
+            <div class="voting-progress compact-progress arrive arrive--early">
                 <div class="cluster text-secondary">
                     <span>Choose the game you prefer.</span>
                     <span><strong class="count-settle" @key="_completedCount">@_completedCount</strong> of @_totalCount matchups complete · @_pendingCount remaining</span>
@@ -68,7 +68,7 @@ else
             <div data-duel-content>
             @if (_tournamentChanged)
             {
-                <div class="status status--warning stack" role="status">
+                <div class="status status--warning stack arrive" role="status">
                     <h2>Tournament changed</h2>
                     <p>Reload Voting to use the active tournament.</p>
                     <div><a href="@Navigation.Uri" data-enhance-nav="false" class="button button--primary"><span class="button__content">Reload Voting</span></a></div>
@@ -76,7 +76,7 @@ else
             }
             else if (_games.Count < 2)
             {
-                <div class="empty-state stack">
+                <div class="empty-state stack arrive">
                     <h2>Add games to start voting</h2>
                     <p>A matchup needs at least two entries in this tournament.</p>
                     <div><a href="/import" class="button button--primary"><span class="button__content">Import games</span></a></div>
@@ -86,7 +86,7 @@ else
             {
                 @if (_onlyArenaBanMatchesRemain)
                 {
-                    <div class="status status--warning stack">
+                    <div class="status status--warning stack arrive">
                         <h2>Only arena-banned matchups remain</h2>
                         <p>Every remaining matchup includes an arena-banned entry. Uncheck a title on <a href="@RankingsUrl" class="text-link">Rankings</a> to resume voting.</p>
                     </div>
@@ -145,12 +145,12 @@ else
                 var leftDisplay = GetTitleDisplay(_leftGame);
                 var rightDisplay = GetTitleDisplay(_rightGame);
                 <div class="matchup-grid">
-                    <button type="button" class="tactile tactile--large tactile--secondary voting-choice @(CoverArt.Url(_leftGame) is null ? null : "tactile--art")" disabled="@(!_sessionReady)" data-choice="left" data-action="left" data-duel-id="@duelId" data-winner-id="@leftId"
+                    <button type="button" class="tactile tactile--large tactile--secondary voting-choice arrive-canvas @(CoverArt.Url(_leftGame) is null ? null : "tactile--art")" style="--arrival: 0" disabled="@(!_sessionReady)" data-choice="left" data-action="left" data-duel-id="@duelId" data-winner-id="@leftId"
                             aria-keyshortcuts="1 ArrowLeft" aria-label="@($"Vote for {leftDisplay.Title}")" @onclick="() => CastVote(presentation, duelId, leftId)">
                         <span @key="(duelId, leftId)" class="tactile__face">
                             @if (CoverArt.Url(_leftGame) is { } cover1)
                             {
-                                <span class="tactile__ground" style="background-image: url('@cover1')" aria-hidden="true"></span>
+                                <span class="tactile__ground arrive-develop" style="background-image: url('@cover1')" aria-hidden="true"></span>
                             }
                             <span class="choice-title">@leftDisplay.Title</span>
                             @if (_leftGame.IncludedTitles is { Count: > 0 } included1)
@@ -168,13 +168,13 @@ else
                             <span class="choice-help" aria-hidden="true">1 or ←</span>
                         </span>
                     </button>
-                    <span class="matchup-versus" aria-hidden="true">vs</span>
-                    <button type="button" class="tactile tactile--large tactile--secondary voting-choice @(CoverArt.Url(_rightGame) is null ? null : "tactile--art")" disabled="@(!_sessionReady)" data-choice="right" data-action="right" data-duel-id="@duelId" data-winner-id="@rightId"
+                    <span class="matchup-versus arrive arrive--early" aria-hidden="true">vs</span>
+                    <button type="button" class="tactile tactile--large tactile--secondary voting-choice arrive-canvas @(CoverArt.Url(_rightGame) is null ? null : "tactile--art")" style="--arrival: 1" disabled="@(!_sessionReady)" data-choice="right" data-action="right" data-duel-id="@duelId" data-winner-id="@rightId"
                             aria-keyshortcuts="2 ArrowRight" aria-label="@($"Vote for {rightDisplay.Title}")" @onclick="() => CastVote(presentation, duelId, rightId)">
                         <span @key="(duelId, rightId)" class="tactile__face">
                             @if (CoverArt.Url(_rightGame) is { } cover2)
                             {
-                                <span class="tactile__ground" style="background-image: url('@cover2')" aria-hidden="true"></span>
+                                <span class="tactile__ground arrive-develop" style="background-image: url('@cover2')" aria-hidden="true"></span>
                             }
                             <span class="choice-title">@rightDisplay.Title</span>
                             @if (_rightGame.IncludedTitles is { Count: > 0 } included2)
@@ -200,14 +200,14 @@ else
             {
                 <p class="vote-notice text-secondary" role="status">@_voteNotice</p>
             }
-            <div class="cluster arena-actions">
+            <div class="cluster arena-actions arrive">
                 <button type="button" class="button" data-action="undo" disabled="@(!_ordinary.CanUndo || !_sessionReady)" @onclick="() => UndoLastVote(presentation)"><span class="button__content">Undo</span></button>
                 <button type="button" class="button" data-action="skip" disabled="@(_currentDuel is null || !_sessionReady)" @onclick="() => SkipMatch(presentation)"><span class="button__content">Skip for now</span></button>
             </div>
         }
         @if (_games.Count > 0)
         {
-            <details class="voting-options">
+            <details class="voting-options arrive">
                 <summary>Voting options · @(FocusEntry is not null ? $"Focused: {FocusedEntryTitle}" : "All matchups")</summary>
                 <div class="stack options-content">
                 <div class="focus-controls">
@@ -287,6 +287,9 @@ else
     private bool _tournamentChanged;
     private bool _sessionReady => !_tournamentChanged && !_restoreExclusions && _currentTournament is not null && _exclusions.IsReadyFor(_currentTournament.Id);
     private string _voteNotice = string.Empty;
+    // The page enters once its session is ready, as that can change the duel and enables the choices.
+    private readonly PageEntrance _entrance = new();
+    private bool EntranceReady => RendererInfo.IsInteractive && (_currentTournament is null || _tournamentChanged || _sessionReady);
     // An order preference for the browser tab, like the focused voting toggles.
     private const string ClosestFirstKey = "bestestgame:ordinary:closest-first";
     private bool _closestFirst = true;
@@ -401,6 +404,8 @@ else
         {
             _voteNotice = "This matchup changed. Available choices have been refreshed.";
         }
+        // The next duel slides in instead of arriving.
+        _entrance.Settle();
         LoadNextDuel();
         await SaveUndoHistoryAsync();
     }
@@ -414,6 +419,7 @@ else
         _voteNotice = outcome == OrdinaryDuelSession.UndoOutcome.Undone
             ? "Last vote undone."
             : "This vote has changed since you saved it and cannot be undone. The current result is preserved.";
+        _entrance.Settle();
         LoadNextDuel(outcome == OrdinaryDuelSession.UndoOutcome.Undone ? lastDuelId : _currentDuel?.Id);
         await SaveUndoHistoryAsync();
     }
@@ -426,6 +432,7 @@ else
     {
         if (!_sessionReady || FocusEntry is not null || _currentDuel is null || presentation != _ordinary.Presentation) return;
         var skippedId = _currentDuel.Id;
+        _entrance.Settle();
         LoadNextDuel(avoidDuelId: skippedId);
         _voteNotice = _currentDuel?.Id == skippedId
             ? "This is the only available matchup. It remains pending."
@@ -445,6 +452,7 @@ else
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
+        _entrance.Rendered(EntranceReady, () => InvokeAsync(StateHasChanged));
         if (_currentTournament is null) return;
         if (_shortcutModule is null)
         {

@@ -4,7 +4,7 @@
 @{ var segments = OpponentBar.Build(Opponents, Groups); }
 @if (segments.Count > 0)
 {
-    <div class="matchup-map">
+    <div class="matchup-map @Class">
         <div class="matchup-bar" role="group" aria-label="All opponents, from highest to lowest ranked">
             @foreach (var segment in segments)
             {
@@ -107,6 +107,8 @@
     [Parameter] public Guid? Single { get; set; }
     [Parameter] public bool JustSplit { get; set; }
     [Parameter] public bool Disabled { get; set; }
+    /// <summary>Classes for the map, such as its part in a page's entrance.</summary>
+    [Parameter] public string? Class { get; set; }
     /// <summary>A full group always fits by default; longer finished runs are summarized.</summary>
     [Parameter] public int PopoverTitles { get; set; } = AdaptiveDuelSession.InitialGroupSize;
     /// <summary>Receives a duel from the selected group.</summary>

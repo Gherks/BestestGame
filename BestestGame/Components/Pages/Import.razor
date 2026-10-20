@@ -9,7 +9,7 @@
 
 <PageTitle>Games | BestestGame</PageTitle>
 
-<div class="import-page stack">
+<div class="import-page stack" data-entrance="@_entrance.State(RendererInfo.IsInteractive)">
     <header class="page-heading">
         <h1>Games</h1>
         @if (_currentTournament is not null)
@@ -20,7 +20,7 @@
 
     @if (_currentTournament is null)
     {
-        <section class="surface empty-state stack">
+        <section class="surface empty-state stack arrive">
             <h2>Select a tournament first</h2>
             <p>Create or select a tournament before adding games.</p>
             <div><a href="/tournaments" class="button button--primary"><span class="button__content">Go to tournaments</span></a></div>
@@ -35,7 +35,7 @@
         }
 
         <section class="game-library stack" @ref="_libraryRoot" aria-labelledby="manage-heading">
-            <div class="library-heading cluster">
+            <div class="library-heading cluster arrive arrive--early">
                 <h2 id="manage-heading" @ref="_manageHeading" tabindex="-1">Your games</h2>
                 <div class="cluster">
                     <button type="button" class="button @(_games.Count == 0 ? "button--primary" : "")" @onclick="OpenAddForm" aria-haspopup="dialog"><span class="button__content">Add game</span></button>
@@ -46,7 +46,7 @@
                     }
                 </div>
             </div>
-            <div class="library-search">
+            <div class="library-search arrive arrive--early">
                 <div class="field">
                     <label class="field-label" for="library-search">Search games</label>
                     <input @ref="_searchInput" id="library-search" type="search" class="form-control" placeholder="Game or included title"
@@ -54,7 +54,7 @@
                     <p id="library-search-help" class="helper-text">Search game names and included titles.</p>
                 </div>
             </div>
-            <div class="library-results cluster">
+            <div class="library-results cluster arrive arrive--early">
                 <p id="library-count" class="helper-text" role="status">@(string.IsNullOrWhiteSpace(_searchText) ? $"{_games.Count} {(_games.Count == 1 ? "entry" : "entries")}" : $"Showing {visibleGames.Count} of {_games.Count} entries")</p>
                 <button type="button" class="button" @onclick="ClearSearch" disabled="@string.IsNullOrEmpty(_searchText)"><span class="button__content">Clear search</span></button>
             </div>
@@ -68,19 +68,19 @@
             }
             else if (!Covers.IsConfigured && _games.Count > 0)
             {
-                <p class="helper-text">Covers are not looked up, because IGDB credentials are missing from <code>igdb.json</code> beside the database. You can still upload a picture from each entry's Actions.</p>
+                <p class="helper-text arrive">Covers are not looked up, because IGDB credentials are missing from <code>igdb.json</code> beside the database. You can still upload a picture from each entry's Actions.</p>
             }
             @if (_games.Count == 0)
             {
-                <div class="surface empty-state"><p>No games in this tournament yet. Add a game or import a list to begin.</p></div>
+                <div class="surface empty-state arrive"><p>No games in this tournament yet. Add a game or import a list to begin.</p></div>
             }
             else if (visibleGames.Count == 0)
             {
-                <div class="surface empty-state" data-library-empty><p>No games match “@_searchText.Trim()”. Try another title or clear the search.</p></div>
+                <div class="surface empty-state arrive" data-library-empty><p>No games match “@_searchText.Trim()”. Try another title or clear the search.</p></div>
             }
             else
             {
-                <ul class="game-list">
+                <ul class="game-list arrive">
                     @foreach (var game in visibleGames)
                     {
                         var pending = _pendingMatchups.GetValueOrDefault(game.Id);
@@ -398,6 +398,8 @@
     private IJSObjectReference? _libraryModule;
     private bool _focusSearch;
     private bool _focusFeedback;
+
+    private readonly PageEntrance _entrance = new();
 
     protected override void OnInitialized()
     {
@@ -920,6 +922,7 @@
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
+        _entrance.Rendered(RendererInfo.IsInteractive, () => InvokeAsync(StateHasChanged));
         if (_currentTournament is null) return;
         if (firstRender)
         {

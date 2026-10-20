@@ -112,6 +112,7 @@
     --radius-control: 2px;
     --radius-panel: 12px;
     --ease-paint: cubic-bezier(.2, .7, .2, 1);
+    --ease-arrive: cubic-bezier(.16, .8, .2, 1);
 }
 
 *, *::before, *::after { box-sizing: border-box; }
@@ -498,6 +499,14 @@ button.podium-canvas:enabled { cursor: pointer; }
 .duel-stage[data-transition-phase] > [data-duel-content] { opacity: 0; }
 .duel-outgoing { position: absolute; top: 8px; left: 8px; pointer-events: none; }
 
+/* Pages enter as Game of the year does (PageEntrance says when): canvases arrive one after another in reading
+   order out of a blur, their covers developing, lead-in text rises with them and the rest rises last. The
+   individual transform properties leave a canvas's own tilt alone. */
+@keyframes arrive-canvas { from { opacity: 0; translate: 0 .5rem; scale: .97; filter: blur(8px) saturate(.3); } }
+@keyframes arrive-develop { from, 25% { opacity: 0; filter: saturate(0) brightness(.4); } }
+@keyframes arrive-rise { from { opacity: 0; translate: 0 .75rem; } }
+@keyframes arrive-reveal { from { opacity: 0; } }
+
 /* Native disclosures unfold from their summary and fold back; older browsers toggle instantly. */
 @supports selector(::details-content) {
     @media (prefers-reduced-motion: no-preference) {
@@ -532,6 +541,19 @@ button.podium-canvas:enabled { cursor: pointer; }
     .duel-outgoing .duel-chosen::after { animation: choice-glow 0.16s ease-out both; }
     .duel-outgoing .duel-chosen::before { animation: choice-backglow 0.22s ease-out both; }
     .duel-outgoing .duel-passed > .tactile__face { animation: choice-dim 0.2s ease-out both; }
+    /* A page entering; see PageEntrance. Each motion lets go once it ends, so hover and focus effects work as before. */
+    :where([data-entrance="enter"]) .arrive-canvas { --arrival-delay: calc(0.05s + min(var(--arrival, 0), 10) * 0.035s); animation: arrive-canvas 0.5s var(--ease-arrive) var(--arrival-delay) backwards; }
+    :where([data-entrance="enter"]) .arrive-develop { animation: arrive-develop 0.8s ease-out var(--arrival-delay, 0.05s) backwards; }
+    :where([data-entrance="enter"]) .arrive { animation: arrive-rise 0.45s var(--ease-arrive) 0.25s backwards; }
+    :where([data-entrance="enter"]) .arrive--early { animation-delay: 0.1s; }
+    /* Prerendered content waits unseen, since the interactive render replaces it and would restart its motion.
+       Should the page never become interactive, it shows anyway. A part that loads its own session waits
+       inside a page that has already entered, so waiting comes last. */
+    :where([data-entrance="waiting"]) :is(.arrive, .arrive-canvas) { animation: arrive-reveal 0.3s 1s backwards; }
+    [data-entrance="waiting"] .finish { animation: arrive-reveal 0.3s 1s backwards; }
+    [data-entrance="waiting"] .finish * { animation: none; }
+    /* The outgoing copy of a duel has arrived already. */
+    .duel-outgoing :is(.arrive, .arrive-canvas, .arrive-develop) { animation: none; }
 }
 
 /* Native modal dialogs. */

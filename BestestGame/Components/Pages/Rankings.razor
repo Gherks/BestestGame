@@ -12,9 +12,9 @@
 
 @if (_currentTournament is null)
 {
-    <section class="surface stack">
+    <section class="surface stack" data-entrance="@_entrance.State(EntranceReady)">
         <header class="page-heading"><h1>Rankings</h1><p>Select a tournament to browse its results.</p></header>
-        <div class="empty-state stack">
+        <div class="empty-state stack arrive">
             <h2>No tournament selected</h2>
             <p>Create or select a tournament to view its rankings.</p>
             <div><a href="/tournaments" class="button button--primary"><span class="button__content">Go to tournaments</span></a></div>
@@ -23,7 +23,7 @@
 }
 else
 {
-<section class="standings stack" aria-labelledby="standings-heading">
+<section class="standings stack" aria-labelledby="standings-heading" data-entrance="@_entrance.State(EntranceReady)">
     <header class="page-heading standings-heading">
         <div>
         <h1 id="standings-heading" @ref="_standingsHeading" tabindex="-1">Rankings</h1>
@@ -36,19 +36,19 @@ else
     </header>
     @if (!string.IsNullOrEmpty(_voteNotice))
     {
-        <div class="cluster">
+        <div class="cluster arrive arrive--early">
             <p class="vote-notice text-secondary" role="status">@_voteNotice</p>
             <button type="button" class="button" disabled="@(!_canUndo || !_sessionReady)" @onclick="UndoLastVote"><span class="button__content">Undo last vote</span></button>
         </div>
     }
-    @{ var canvases = _canvases; var podium = canvases.Podium; var soleLeader = podium.Count(entry => entry.Rank == 1) == 1; var rows = canvases.Rows; var onCanvas = canvases.Count; }
+    @{ var canvases = _canvases; var podium = canvases.Podium; var soleLeader = podium.Count(entry => entry.Rank == 1) == 1; var rows = canvases.Rows; var onCanvas = canvases.Count; var arrival = 0; }
     @if (podium.Count > 0)
     {
         @* The top of the standings stands on canvases; the table below continues from the next rank. *@
         <ol class="podium @(soleLeader && podium.Count > 1 ? "podium--led" : "")" style="--podium-rows: @(podium.Count - 1)" aria-label="Top of the rankings">
             @foreach (var entry in podium)
             {
-                <li @key="entry.Game.Id" class="podium-place @(entry.Rank == 1 ? "podium-place--first" : "") @(entry.Rank == 1 && soleLeader ? "podium-place--lead" : "")" data-game-id="@entry.Game.Id">
+                <li @key="entry.Game.Id" class="podium-place arrive-canvas @(entry.Rank == 1 ? "podium-place--first" : "") @(entry.Rank == 1 && soleLeader ? "podium-place--lead" : "")" style="--arrival: @(arrival++)" data-game-id="@entry.Game.Id">
                     @PlaceCanvas(entry)
                 </li>
             }
@@ -59,7 +59,7 @@ else
             <ol class="podium-row @(row.Far ? "podium-row--far" : columns == 4 ? "podium-row--four" : "")" style="--podium-columns: @columns" aria-label="@($"Ranks {row.Places[0].Rank} to {row.Places[^1].Rank}")">
                 @foreach (var entry in row.Places)
                 {
-                    <li @key="entry.Game.Id" class="podium-place" data-game-id="@entry.Game.Id">
+                    <li @key="entry.Game.Id" class="podium-place arrive-canvas" style="--arrival: @(arrival++)" data-game-id="@entry.Game.Id">
                         @PlaceCanvas(entry)
                     </li>
                 }
@@ -69,7 +69,7 @@ else
     @if (_games.Count > 1)
     {
         @* Always the full tournament: the year filter and search below only narrow the table. *@
-        <details class="standings-insights">
+        <details class="standings-insights arrive">
             <summary>Insights · @Counted(_insights.UpsetCount, "upset") · @Counted(_insights.LoopCount, "loop")</summary>
             <div class="insight-groups">
                 <section class="insight-group" aria-labelledby="insight-upsets">
@@ -137,7 +137,7 @@ else
     }
     @if (_games.Count > 0)
     {
-        <div class="standings-filter">
+        <div class="standings-filter arrive">
             <div class="field standings-search">
                 <label for="standings-search" class="field-label">Search titles</label>
                 <input id="standings-search" type="search" class="form-control" placeholder="Title, collection or included title"
@@ -161,9 +161,9 @@ else
         </div>
         @if (LeaderboardYear is not null)
         {
-            <p class="helper-text">Collections appear when an included title matches the year. Points remain from the full tournament.</p>
+            <p class="helper-text arrive">Collections appear when an included title matches the year. Points remain from the full tournament.</p>
         }
-        <div class="standings-notes">
+        <div class="standings-notes arrive">
             @if (_pendingMatchupCount > 0)
             {
                 <p class="standings-progress helper-text">Rankings are still taking shape. @_pendingMatchupCount @(_pendingMatchupCount == 1 ? "matchup remains" : "matchups remain").</p>
@@ -174,7 +174,7 @@ else
     }
     @if (_games.Count == 0)
     {
-        <div class="surface empty-state stack">
+        <div class="surface empty-state stack arrive">
             <h3>No games imported yet</h3>
             @if (LeaderboardYear is { } emptyYear)
             {
@@ -185,15 +185,15 @@ else
     }
     else if (_rankedStandings.Count == 0)
     {
-        <p class="surface empty-state">No entries for this release year. Select another year or All years.</p>
+        <p class="surface empty-state arrive">No entries for this release year. Select another year or All years.</p>
     }
     else if (_visibleStandings.Count == 0)
     {
-        <p class="surface empty-state">No titles match your search. Clear the search or try another title.</p>
+        <p class="surface empty-state arrive">No titles match your search. Clear the search or try another title.</p>
     }
     else if (_visibleStandings.Count > onCanvas)
     {
-        <table class="data-table standings-table">
+        <table class="data-table standings-table arrive">
             <caption>Entries level on points are ordered by their matchups against each other; those still level share a rank. Search keeps these positions.</caption>
             <colgroup><col class="standings-rank-column" /><col /><col class="standings-points-column" /></colgroup>
             <thead><tr><th scope="col">Rank</th><th scope="col">Title</th><th scope="col">Points</th></tr></thead>
@@ -403,7 +403,7 @@ else
                         aria-label="@($"Details for {display.Title}, rank {entry.Rank}, {Counted(game.Points, "point")}")" @onclick="() => ShowEntryDetails(game.Id)">
             @if (CoverArt.Url(game) is { } cover)
             {
-                <img class="podium-cover" src="@cover" alt="" draggable="false" onerror="this.hidden = true" />
+                <img class="podium-cover arrive-develop" src="@cover" alt="" draggable="false" onerror="this.hidden = true" />
             }
             <span class="podium-rank"><span @key="entry.Rank" class="@(_rankChanged.Contains(game.Id) ? "value-settle" : null)">@entry.Rank</span></span>
             <span class="podium-entry">
@@ -498,6 +498,9 @@ else
     private IReadOnlySet<Guid> _arenaBannedGameIds => _exclusions.GetIds(_currentTournament?.Id);
     private bool _restoreExclusions = true;
     private bool _sessionReady => !_restoreExclusions && _currentTournament is not null && _exclusions.IsReadyFor(_currentTournament.Id);
+    // The page enters once its session is ready, as that enables the canvases and can bring back the last vote.
+    private readonly PageEntrance _entrance = new();
+    private bool EntranceReady => RendererInfo.IsInteractive && (_currentTournament is null || _sessionReady);
     // Shared with ordinary Voting through the browser tab; see VoteHistoryStore.
     private List<GameService.DuelResult> _undoHistory = [];
     private bool _canUndo => _undoHistory.Count > 0;
@@ -708,6 +711,7 @@ else
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
+        _entrance.Rendered(EntranceReady, () => InvokeAsync(StateHasChanged));
         if (_currentTournament is null) return;
         var restored = _restoreExclusions;
         if (restored)

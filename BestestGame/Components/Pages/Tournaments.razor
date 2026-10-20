@@ -9,7 +9,7 @@
 
 <PageTitle>Tournaments | BestestGame</PageTitle>
 
-<div class="tournaments-page stack">
+<div class="tournaments-page stack" data-entrance="@_entrance.State(RendererInfo.IsInteractive)">
     <header class="page-heading">
         <h1>Tournaments</h1>
         <p>@(_tournaments.Count == 0 ? "Start your first game list, then add the games you want to compare." : "Choose a tournament to continue, or start a new game list.")</p>
@@ -35,15 +35,16 @@
     @if (_tournaments.Count > 0)
     {
         <section class="stack" aria-labelledby="tournament-list-heading">
-            <h2 id="tournament-list-heading" @ref="_listHeading" tabindex="-1">Your tournaments</h2>
+            <h2 id="tournament-list-heading" @ref="_listHeading" tabindex="-1" class="arrive arrive--early">Your tournaments</h2>
             <ul class="tournament-list stack">
+                @{ var arrival = 0; }
                 @foreach (var tournament in _tournaments.OrderByDescending(t => t.Id == _currentTournamentId).ThenBy(t => t.Name, StringComparer.OrdinalIgnoreCase))
                 {
                     var isActive = tournament.Id == _currentTournamentId;
                     var gameCount = tournament.Games.Count;
                     var completedCount = tournament.Duels.Count(d => d.IsCompleted);
                     var nextTask = TournamentOverview.GetNextTask(tournament, true);
-                    <li @key="tournament.Id" data-tournament-id="@tournament.Id" class="surface tournament-row @(isActive ? "tournament-row--active" : "")">
+                    <li @key="tournament.Id" data-tournament-id="@tournament.Id" class="surface tournament-row arrive-canvas @(isActive ? "tournament-row--active" : "")" style="--arrival: @(arrival++)">
                         <div class="tournament-details stack">
                             <div class="cluster">
                                 <h3>@tournament.Name</h3>
@@ -76,7 +77,7 @@
         </section>
     }
 
-    <section class="surface stack" aria-labelledby="create-heading">
+    <section class="surface stack arrive" aria-labelledby="create-heading">
         <h2 id="create-heading" tabindex="-1">Create a tournament</h2>
         <form class="create-form" @onsubmit="CreateTournament" @onsubmit:preventDefault="true">
             <div class="field">
@@ -143,6 +144,8 @@
     private IJSObjectReference? _dialogModule;
     private DotNetObjectReference<Tournaments>? _dialogReference;
     private static string Counted(int count, string one, string many) => $"{count} {(count == 1 ? one : many)}";
+
+    private readonly PageEntrance _entrance = new();
 
     protected override void OnInitialized() => LoadTournaments();
 
@@ -225,6 +228,7 @@
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
+        _entrance.Rendered(RendererInfo.IsInteractive, () => InvokeAsync(StateHasChanged));
         if (firstRender)
         {
             _dialogModule = await JS.InvokeAsync<IJSObjectReference>("import", ScriptModules.Url("importDialog.js"));

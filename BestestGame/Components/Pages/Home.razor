@@ -6,8 +6,9 @@
 
 <PageTitle>Home | BestestGame</PageTitle>
 
-<div class="home-page stack">
-    <section class="home-next-step stack" aria-labelledby="home-heading">
+@* Home is not interactive, so nothing replaces its markup and it enters straight away. *@
+<div class="home-page stack" data-entrance="enter">
+    <section class="home-next-step stack arrive-canvas" aria-labelledby="home-heading">
         <header class="page-heading">
             <p class="eyebrow">@(_tournament is null ? "Your game rankings" : "Active tournament")</p>
             <h1 id="home-heading">@(_tournament?.Name ?? "Find your favourite games.")</h1>
@@ -20,7 +21,7 @@
     @* Statistics follow the painted next step instead of sitting on it. *@
     @if (_tournament is not null)
     {
-        <dl class="home-statistics">
+        <dl class="home-statistics arrive arrive--early">
             <div><dt>Entries</dt><dd>@_tournament.Games.Count</dd></div>
             @if (_nextTask.Stage != TournamentOverview.Stage.Setup)
             {
@@ -33,14 +34,14 @@
         </dl>
         @if (_tournament.Duels.Count > 0 && _nextTask.Stage != TournamentOverview.Stage.Setup)
         {
-            <progress class="progress-bar" value="@CompletedMatchups" max="@_tournament.Duels.Count" aria-label="Completed tournament matchups"></progress>
+            <progress class="progress-bar arrive arrive--early" value="@CompletedMatchups" max="@_tournament.Duels.Count" aria-label="Completed tournament matchups"></progress>
         }
     }
 
     @if (_tournament is not null && _nextTask.Stage != TournamentOverview.Stage.Setup)
     {
         <section class="home-leaders stack" aria-labelledby="leaders-heading">
-            <div class="cluster">
+            <div class="cluster arrive arrive--early">
                 <h2 id="leaders-heading">@(_nextTask.Stage == TournamentOverview.Stage.Voting ? "Current leaders" : "Your leaders")</h2>
                 @if (_nextTask.Stage == TournamentOverview.Stage.Voting)
                 {
@@ -49,15 +50,16 @@
             </div>
             @if (_leaders.Games.Count == 0)
             {
-                <p class="helper-text">No points recorded yet.</p>
+                <p class="helper-text arrive">No points recorded yet.</p>
             }
             else
             {
                 <ul class="home-leader-list">
+                    @{ var arrival = 1; }
                     @foreach (var game in _leaders.Games)
                     {
                         var display = GetTitleDisplay(game);
-                        <li @key="game.Id" data-leader-id="@game.Id">
+                        <li @key="game.Id" class="arrive-canvas" style="--arrival: @(arrival++)" data-leader-id="@game.Id">
                             <div class="home-leader-title">
                                 <span>@display.Title</span>
                                 @if (game.IncludedTitles is { Count: > 0 } || !string.IsNullOrWhiteSpace(display.Subtitle))
@@ -71,17 +73,17 @@
                 </ul>
                 @if (_leaders.TotalTied > _leaders.Games.Count)
                 {
-                    <p class="helper-text">@(_leaders.TotalTied - _leaders.Games.Count) more entries share the lead. <a href="/rankings" class="text-link">See all leaders</a>.</p>
+                    <p class="helper-text arrive">@(_leaders.TotalTied - _leaders.Games.Count) more entries share the lead. <a href="/rankings" class="text-link">See all leaders</a>.</p>
                 }
                 @if (_nextTask.Stage == TournamentOverview.Stage.Voting)
                 {
-                    <p class="helper-text">Based on full tournament points. Rankings are still taking shape.</p>
+                    <p class="helper-text arrive">Based on full tournament points. Rankings are still taking shape.</p>
                 }
             }
         </section>
     }
 
-    <details class="home-instructions">
+    <details class="home-instructions arrive">
         <summary>How it works</summary>
         <ol class="getting-started">
             <li><strong>Create a tournament.</strong> Give your game list a name.</li>
