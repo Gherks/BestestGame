@@ -242,8 +242,23 @@ a { color: inherit; cursor: pointer; }
     user-select: none;
     -webkit-tap-highlight-color: transparent;
     touch-action: manipulation;
-    transform: rotate(var(--tactile-tilt));
+    /* Leaning --lean towards --face, as if tipped in space; see the hover in the motion rules below. */
+    transform: perspective(1400px) rotate3d(calc(-1 * sin(var(--face))), cos(var(--face)), 0, var(--lean)) rotate(var(--tactile-tilt)) scale(var(--press));
 }
+/* Which way a canvas faces (0deg is right, 90deg down), how far it leans that way, and how far it is pressed in.
+   Registered so they can be animated, and kept on the canvas itself so animating them restyles nothing else. */
+@property --face { syntax: "<angle>"; inherits: false; initial-value: 0deg; }
+@property --lean { syntax: "<angle>"; inherits: false; initial-value: 0deg; }
+@property --press { syntax: "<number>"; inherits: false; initial-value: 1; }
+/* Light falls on a canvas from in front of it. Leaning, it catches a glare on the side it tips towards and
+   falls into shade on the other, so the glare travels round the canvas as the lean turns. Flat, it has neither.
+   The glare takes the canvas's lean and facing explicitly, as they are not inherited. */
+.tactile__shine { --face: inherit; --lean: inherit; position: absolute; inset: 0; overflow: hidden; border-radius: inherit; pointer-events: none;
+    background:
+        radial-gradient(70% 55% at calc(50% + cos(var(--face)) * 48%) calc(50% + sin(var(--face)) * 48%), rgb(255 250 235 / 38%), rgb(255 250 235 / 13%) 45%, transparent 75%),
+        linear-gradient(calc(var(--face) + 90deg), rgb(10 8 6 / 30%), transparent 55%);
+    /* Full strength at the hover's lean: the sine of 12 degrees is about a fifth. */
+    opacity: clamp(0, calc(sin(var(--lean)) * 4.8), 1); }
 /* The second choice of a matchup is the cool canvas, leaning the other way. It is found by position, because
    the outgoing copy of a duel keeps its structure but none of its data attributes. */
 .tactile:nth-of-type(2) { --tactile-ground: var(--paint-cool-ground); --tactile-far: var(--paint-cool-far); --tactile-near: var(--paint-cool-near); --tactile-sway: -1; --tactile-shape: var(--shape-canvas-alt); --tactile-label: var(--opponent-label); --tactile-tilt: 0.5deg; }
@@ -293,11 +308,10 @@ a { color: inherit; cursor: pointer; }
 .tactile--danger { --tactile-ground: var(--danger-surface); --tactile-far: none; --tactile-near: none; --tactile-label: var(--danger); }
 .tactile:focus-visible { outline: 2px solid var(--accent); outline-offset: 5px; }
 @media (hover: hover) {
-    /* The canvas straightens, lifts and its paint comes forward. */
-    .tactile:not(:disabled):not([aria-disabled="true"]):hover { transform: rotate(0deg) translateY(-4px); }
+    /* The paint comes forward. */
     .tactile:not(:disabled):not([aria-disabled="true"]):hover > .tactile__face { border-color: rgb(243 236 217 / 80%); filter: saturate(1.5) brightness(1.2); }
 }
-.tactile:not(:disabled):not([aria-disabled="true"]):active { transform: scale(.985); }
+.tactile:not(:disabled):not([aria-disabled="true"]):active { --press: .985; }
 .tactile:not(:disabled):not([aria-disabled="true"]):active > .tactile__face { filter: saturate(.7) brightness(.8); }
 .tactile:disabled, .tactile[aria-disabled="true"] { cursor: default; }
 .tactile:disabled > .tactile__face, .tactile[aria-disabled="true"] > .tactile__face { filter: saturate(.55) brightness(.85); }
@@ -500,13 +514,25 @@ button.podium-canvas:enabled { cursor: pointer; }
 /* Only the changing duel moves; progress, notices and queue controls stay put. */
 /* Sideways the stage clips the slide a little beyond the choices, leaving room for the backglow; upward and
    downward nothing leaves it but that glow. */
-.duel-stage { position: relative; isolation: isolate; min-width: 0; overflow-x: clip; overflow-y: visible; overflow-clip-margin: 1.5rem; margin: -8px; padding: 8px; }
+/* The stage lies above what follows it on the page too, so a canvas that leans or swells over its neighbours
+   is always on top of them. */
+.duel-stage { position: relative; z-index: 1; isolation: isolate; min-width: 0; overflow-x: clip; overflow-y: visible; overflow-clip-margin: 1.5rem; margin: -8px; padding: 8px; }
 .duel-stage[data-transition-phase] > [data-duel-content] { opacity: 0; }
 .duel-outgoing { position: absolute; top: 8px; left: 8px; pointer-events: none; }
 
 /* Pages enter as Game of the year does (PageEntrance says when): canvases arrive one after another in reading
    order out of a blur, their covers developing, lead-in text rises with them and the rest rises last. The
    individual transform properties leave a canvas's own tilt alone. */
+@keyframes tactile-face { to { --face: 360deg; } }
+@keyframes tactile-bounce {
+    0% { scale: 1; animation-timing-function: cubic-bezier(.3, 0, .4, 1); }
+    18% { scale: 1.02; animation-timing-function: ease-in-out; }
+    38% { scale: .991; animation-timing-function: ease-in-out; }
+    56% { scale: 1.01; animation-timing-function: ease-in-out; }
+    72% { scale: .997; animation-timing-function: ease-in-out; }
+    86% { scale: 1.003; animation-timing-function: ease-in-out; }
+    100% { scale: 1; }
+}
 @keyframes arrive-canvas { from { opacity: 0; translate: 0 .5rem; scale: .97; filter: blur(8px) saturate(.3); } }
 @keyframes arrive-develop { from, 25% { opacity: 0; filter: saturate(0) brightness(.4); } }
 @keyframes arrive-rise { from { opacity: 0; translate: 0 .75rem; } }
@@ -529,7 +555,18 @@ button.podium-canvas:enabled { cursor: pointer; }
 @media (prefers-reduced-motion: no-preference) {
     .button { transition: color 0.25s ease, transform 0.1s ease; }
     .button::before { transition: transform 0.45s var(--ease-paint); }
-    .tactile { transition: transform 0.35s ease; }
+    /* The way a canvas faces turns clockwise all the time; it only shows once the canvas leans. Pointed at, it
+       leans 12 degrees, so it tips right, then down, left and up in turn, round and round. It also swells and
+       settles back in a few shrinking bounces, and lies above the other canvas while it does. */
+    .tactile { transition: --lean 0.5s cubic-bezier(.3, .7, .3, 1), --press 0.1s ease; animation: tactile-face 22s linear infinite; }
+    @media (hover: hover) {
+        .tactile:not(:disabled):not([aria-disabled="true"]):hover { --lean: 12deg; z-index: 1; }
+    }
+    .tactile:not(:disabled):not([aria-disabled="true"]):hover { animation: tactile-face 22s linear infinite, tactile-bounce 0.9s; }
+    /* While the page arrives, a canvas runs its arrival beside the turn and the bounce, so pointing at it at once
+       neither waits for the arrival nor cuts it short. The copy of a duel that leaves has arrived already. */
+    [data-entrance="enter"] .tactile.arrive-canvas:not(.duel-outgoing *) { animation: arrive-canvas 0.5s var(--ease-arrive) var(--arrival-delay) backwards, tactile-face 22s linear infinite; }
+    [data-entrance="enter"] .tactile.arrive-canvas:not(.duel-outgoing *):not(:disabled):not([aria-disabled="true"]):hover { animation: arrive-canvas 0.5s var(--ease-arrive) var(--arrival-delay) backwards, tactile-face 22s linear infinite, tactile-bounce 0.9s; }
     .duel-stage { animation: paint-drift-x 17s ease-in-out infinite alternate, paint-drift-y 23s ease-in-out infinite alternate; }
     .tactile > .tactile__face { transition: filter 0.35s ease, border-color 0.35s ease; }
     .data-table tbody tr { transition: background-size 0.45s var(--ease-paint); }

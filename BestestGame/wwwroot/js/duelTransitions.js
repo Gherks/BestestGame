@@ -51,8 +51,13 @@ function leave(state, button) {
     const copy = content.cloneNode(true);
     // The copy shows which side won as it leaves. Matched by position, before its attributes go.
     const choices = [...content.querySelectorAll("button[data-action]")];
-    copy.querySelectorAll("button[data-action]").forEach((choice, index) =>
-        choice.classList.add(choices[index] === button ? "duel-chosen" : "duel-passed"));
+    copy.querySelectorAll("button[data-action]").forEach((choice, index) => {
+        choice.classList.add(choices[index] === button ? "duel-chosen" : "duel-passed");
+        // A copy is never pointed at and does not turn, so it keeps each canvas's lean as it was.
+        if (!choices[index]) return;
+        const style = getComputedStyle(choices[index]);
+        for (const name of ["--face", "--lean"]) choice.style.setProperty(name, style.getPropertyValue(name));
+    });
     // The copy must never expose a second actionable or accessible duel.
     for (const element of [copy, ...copy.querySelectorAll("*")]) {
         element.removeAttribute("id");

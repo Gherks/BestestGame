@@ -173,6 +173,7 @@ else
                             }
                             <span class="choice-help" aria-hidden="true">1 or ←</span>
                         </span>
+                        <span class="tactile__shine" aria-hidden="true"></span>
                     </button>
                     <span class="matchup-versus arrive arrive--early" aria-hidden="true">vs</span>
                     <button type="button" class="tactile tactile--large tactile--secondary voting-choice arrive-canvas @(CoverArt.Url(_rightGame) is null ? null : "tactile--art")" style="--arrival: 1" disabled="@(!_sessionReady)" data-choice="right" data-action="right" data-duel-id="@duelId" data-winner-id="@rightId"
@@ -197,6 +198,7 @@ else
                             }
                             <span class="choice-help" aria-hidden="true">2 or →</span>
                         </span>
+                        <span class="tactile__shine" aria-hidden="true"></span>
                     </button>
                 </div>
             }
