@@ -1,0 +1,23 @@
+/* The button is a small painted mark with room around it for a finger. */
+.info-tip { position: relative; display: inline-flex; align-items: center; vertical-align: middle; }
+.info-tip__button { display: inline-grid; place-items: center; width: 2rem; height: 2rem; margin: -0.25rem 0; padding: 0; border: 0; background: none; color: var(--muted); font: inherit; cursor: help; }
+.info-tip__mark { display: grid; place-items: center; width: 1.25rem; height: 1.25rem; border: 1px solid currentColor; border-radius: var(--shape-mark-alt); font-family: var(--font-label); font-size: 0.875rem; font-weight: 700; line-height: 1; }
+.info-tip__button:focus-visible { outline: 2px solid var(--accent); outline-offset: 0; border-radius: var(--shape-mark-alt); }
+/* The explanation hangs below the mark, as wide as its text allows. */
+.info-tip__bubble { position: absolute; z-index: 5; top: calc(100% + 0.25rem); left: -0.25rem; display: none; width: max-content; max-width: min(22rem, calc(100vw - 2rem)); padding: var(--space-3); border: 1px solid var(--border); border-radius: var(--shape-mark-alt); background: var(--panel-raised); box-shadow: var(--dialog-shadow); color: var(--text); font-family: var(--font-body); font-size: var(--text-support); font-style: normal; font-weight: 400; letter-spacing: normal; line-height: 1.5; text-align: left; text-transform: none; white-space: normal; overflow-wrap: anywhere; pointer-events: none; }
+.info-tip--end .info-tip__bubble { right: -0.25rem; left: auto; }
+.info-tip:focus-within .info-tip__bubble { display: block; }
+.info-tip:focus-within .info-tip__button { color: var(--accent); }
+@media (hover: hover) {
+    .info-tip__button:hover { color: var(--accent); }
+    .info-tip:hover .info-tip__bubble { display: block; animation: info-tip-in 0.12s 0.1s backwards; }
+}
+@keyframes info-tip-in { from { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) {
+    .info-tip:hover .info-tip__bubble { animation: none; }
+}
+/* On a phone the explanation spans the row it belongs to, so it never runs off the screen. */
+@media (max-width: 640px) {
+    .info-tip { position: static; }
+    .info-tip__bubble, .info-tip--end .info-tip__bubble { right: 0; left: 0; width: auto; max-width: none; }
+}

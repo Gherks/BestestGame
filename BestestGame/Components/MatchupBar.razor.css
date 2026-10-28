@@ -1,5 +1,6 @@
 /* Segments stay unpositioned so every popover is placed against the full bar. */
-.matchup-map { display: grid; gap: var(--space-1); min-width: 0; }
+.matchup-map { position: relative; display: grid; gap: var(--space-1); min-width: 0; }
+.bar-key__start { display: inline-flex; align-items: center; gap: var(--space-1); }
 .matchup-bar { --popover-width: min(18rem, 100%); position: relative; display: flex; min-width: 0; }
 /* The target is taller than the strip it draws, for easier pointing. */
 .bar-segment { display: flex; flex: 1 1 0; align-items: center; min-width: 0; height: 2rem; margin: 0 0.5px; padding: 0; border: 0; background: none; color: inherit; }

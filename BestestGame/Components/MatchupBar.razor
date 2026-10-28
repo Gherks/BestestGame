@@ -69,7 +69,7 @@
             }
         </div>
         <div class="bar-key text-secondary">
-            <span>Highest ranked</span>
+            <span class="bar-key__start">Highest ranked@(Help)</span>
             <ul class="bar-legend">
                 @if (Groups.Length > 0)
                 {
@@ -113,6 +113,8 @@
     [Parameter] public string? Class { get; set; }
     /// <summary>A full group always fits by default; longer finished runs are summarized.</summary>
     [Parameter] public int PopoverTitles { get; set; } = AdaptiveDuelSession.InitialGroupSize;
+    /// <summary>An explanation of the bar, shown beside its key.</summary>
+    [Parameter] public RenderFragment? Help { get; set; }
     /// <summary>Receives a duel from the selected group.</summary>
     [Parameter] public EventCallback<Guid> OnSelect { get; set; }
 

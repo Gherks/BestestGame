@@ -1,0 +1,29 @@
+@* A checkbox setting that explains itself: pointing at its label, or reaching it with the keyboard, shows what
+   it does. The explanation also describes the checkbox, so a screen reader reads it out. Escape hides it, while
+   the pointer is over it too, whichever element has the keyboard. *@
+<span class="setting-toggle @(Align == InfoTip.TipAlign.End ? "setting-toggle--end" : null)"
+      onkeydown="if (event.key === 'Escape') this.classList.add('setting-toggle--dismissed')"
+      onmouseenter="this.dismiss ??= event => event.key === 'Escape' && this.classList.add('setting-toggle--dismissed'); document.addEventListener('keydown', this.dismiss)"
+      onmouseleave="document.removeEventListener('keydown', this.dismiss); this.classList.remove('setting-toggle--dismissed')"
+      onfocusout="this.classList.remove('setting-toggle--dismissed')">
+    <label class="checkbox-field @Class">
+        <input type="checkbox" checked="@Checked" disabled="@Disabled" aria-describedby="@_id" @onchange="OnChange" />
+        <span class="setting-toggle__label">@Label</span>
+    </label>
+    <span id="@_id" role="tooltip" class="setting-toggle__tip">@ChildContent</span>
+</span>
+
+@code {
+    [Parameter, EditorRequired] public string Label { get; set; } = "";
+    [Parameter] public bool Checked { get; set; }
+    [Parameter] public bool Disabled { get; set; }
+    [Parameter] public EventCallback<ChangeEventArgs> OnChange { get; set; }
+    /// <summary>What the setting does, shown beside it on request.</summary>
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+    /// <summary>Which edge of the setting the explanation lines up with; End suits one near the right side.</summary>
+    [Parameter] public InfoTip.TipAlign Align { get; set; }
+    /// <summary>Classes for the label.</summary>
+    [Parameter] public string? Class { get; set; }
+
+    private readonly string _id = $"setting-{Guid.NewGuid():N}";
+}

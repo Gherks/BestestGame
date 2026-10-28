@@ -1,0 +1,19 @@
+@* A small "?" beside a control that explains it. The explanation opens on hover, and on focus for the keyboard
+   and touch; Escape closes it again. It describes the button, so a screen reader reads it on focus. *@
+<span class="info-tip @(Align == TipAlign.End ? "info-tip--end" : null)">
+    <button type="button" class="info-tip__button" aria-label="@Label" aria-describedby="@_id"
+            onkeydown="if (event.key === 'Escape') this.blur()"><span class="info-tip__mark" aria-hidden="true">?</span></button>
+    <span id="@_id" role="tooltip" class="info-tip__bubble">@ChildContent</span>
+</span>
+
+@code {
+    public enum TipAlign { Start, End }
+
+    /// <summary>What the button is called for a screen reader, such as "About Adaptive groups".</summary>
+    [Parameter, EditorRequired] public string Label { get; set; } = "";
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+    /// <summary>Which edge of the button the explanation lines up with; End suits a tip near the right side.</summary>
+    [Parameter] public TipAlign Align { get; set; }
+
+    private readonly string _id = $"tip-{Guid.NewGuid():N}";
+}

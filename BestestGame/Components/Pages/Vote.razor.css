@@ -1,12 +1,18 @@
 .ordinary-voting { gap: var(--space-3); }
 .voting-arena h2 { font-size: 1.5rem; }
 .voting-arena .page-heading { margin-bottom: 0; }
-.voting-options { border-top: 1px solid var(--border); padding-top: var(--space-2); }
-.voting-options > summary { min-height: 44px; padding-block: var(--space-2); overflow-wrap: anywhere; font-size: var(--text-control); }
-.options-content { padding-block: var(--space-3); }
-.focus-controls { display: flex; flex-wrap: wrap; align-items: end; gap: var(--space-4); }
-.focus-controls .field { flex: 1 1 18rem; max-width: 40rem; }
-.focus-controls select { width: 100%; min-width: 0; }
+/* The kind of voting and its settings sit together at the top. A tip's explanation spans this row on a phone. */
+.voting-toolbar { position: relative; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-2) var(--space-4); font-size: var(--text-support); }
+.voting-mode { display: flex; flex: 1 1 auto; flex-wrap: wrap; align-items: center; gap: var(--space-2) var(--space-3); min-width: 0; }
+/* Two painted tabs; the one in use is filled like the page's place in the menu. */
+.mode-switch { display: inline-flex; flex: none; padding: 3px; border: 1px solid var(--input-border); border-radius: var(--shape-mark); }
+.mode-switch__option { display: inline-flex; align-items: center; min-height: 38px; padding: 0 1rem; border-radius: var(--shape-mark-alt); color: var(--muted); font-family: var(--font-label); font-size: var(--text-button); font-weight: 600; letter-spacing: 0.1em; text-decoration: none; text-transform: uppercase; }
+.mode-switch__option[aria-current] { background: var(--primary); color: var(--primary-text); }
+.mode-switch__option:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+@media (hover: hover) {
+    .mode-switch__option:not([aria-current]):hover { color: var(--heading); }
+}
+.focus-entry { flex: 0 1 22rem; width: auto; min-width: 0; font-size: var(--text-support); }
 /* Two posters side by side, each the shape of a cover. Their height follows the window, so the choice
    fills the page without pushing Undo and Skip off it, and the width follows from the height. */
 .matchup-grid { --poster-height: clamp(16rem, calc(100dvh - 23rem), 38rem); display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); gap: var(--space-4); align-items: start; max-width: calc(var(--poster-height) * 1.5 + 5rem); margin-inline: auto; }
@@ -30,6 +36,11 @@
 .compact-progress { gap: var(--space-1); border: 0; padding: 0; }
 .compact-progress .cluster { justify-content: space-between; gap: var(--space-1) var(--space-3); }
 @media (max-width: 640px) {
+    /* The list takes its own line, with the explanation after it. */
+    .voting-mode { gap: var(--space-2); }
+    .voting-mode > .focus-entry { flex: 1 1 12rem; order: 1; }
+    .voting-mode ::deep .info-tip { order: 2; }
+    .mode-switch__option { padding: 0 0.625rem; font-size: 1.0625rem; letter-spacing: 0.08em; }
     /* The posters stay side by side on a phone, as in focused voting. */
     .matchup-grid { gap: var(--space-2); }
     .voting-choice > .tactile__face { padding: var(--space-3); }

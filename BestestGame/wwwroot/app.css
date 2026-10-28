@@ -341,6 +341,11 @@ select option { background: var(--board); color: var(--text); }
 .helper-text { color: var(--muted); font-size: var(--text-support); line-height: 1.6; }
 :where(input[type="checkbox"], input[type="radio"]) { width: 1.125rem; height: 1.125rem; accent-color: var(--entry); vertical-align: middle; cursor: pointer; }
 .checkbox-field { display: flex; align-items: center; gap: var(--space-3); min-height: 44px; }
+/* The key that does the same as a button, shown inside it. A touch screen has no keys to show. */
+.key-hint { display: inline-grid; place-items: center; min-width: 1.25rem; height: 1.25rem; padding: 0 0.25rem; border: 1px solid currentColor; border-radius: 3px; font-family: var(--font-label); font-size: 0.75rem; font-weight: 600; letter-spacing: 0; line-height: 1; opacity: .7; }
+@media (hover: none), (max-width: 640px) {
+    .key-hint { display: none; }
+}
 
 /* Blazor validation and explicit accessible invalid states. */
 .valid.modified:not([type="checkbox"]):not([type="radio"]) { border-color: var(--success); box-shadow: none; }

@@ -29,20 +29,17 @@ else
              data-presentation="@_ordinary.Presentation" data-entrance="@_entrance.State(EntranceReady)">
         <header class="page-heading">
             <h1 id="voting-heading">Voting</h1>
-            @if (FocusEntry is not null)
-            {
-                <p>Focused voting in @_currentTournament.Name.</p>
-            }
         </header>
         @if (FocusEntry is { } focusedId)
         {
             @if (_sessionReady)
             {
                 <FocusedVoting @key="(_currentTournament.Id, focusedId)" TournamentId="_currentTournament.Id" GameId="focusedId"
-                               BannedGameIds="_arenaBannedGameIds" RankingsUrl="@RankingsUrl" OnResultsChanged="RefreshVoting" />
+                               BannedGameIds="_arenaBannedGameIds" RankingsUrl="@RankingsUrl" OnResultsChanged="RefreshVoting" Toolbar="ModeSwitch" />
             }
             else
             {
+                <div class="voting-toolbar arrive arrive--early">@ModeSwitch</div>
                 <p class="loading-state arrive" role="status">Loading voting settings…</p>
             }
 
@@ -52,6 +49,15 @@ else
             var presentation = _ordinary.Presentation;
             @if (!_tournamentChanged)
             {
+            <div class="voting-toolbar arrive arrive--early">
+                @ModeSwitch
+                @if (_games.Count >= 2)
+                {
+                    <SettingToggle Label="Closest matchups first" Checked="_closestFirst" Disabled="!_sessionReady" OnChange="ToggleClosestFirst" Align="InfoTip.TipAlign.End">
+                        Asks about entries that are level on points before lopsided pairs, where your vote changes the most. Applies from the next matchup.
+                    </SettingToggle>
+                }
+            </div>
             <div class="voting-progress compact-progress arrive arrive--early">
                 <div class="cluster text-secondary">
                     <span>Choose the game you prefer.</span>
@@ -60,7 +66,7 @@ else
                 <progress class="progress-bar" value="@_completedCount" max="@Math.Max(1, _totalCount)" aria-label="Completed tournament matchups">@_completedCount of @_totalCount</progress>
                 @if (_arenaBannedGameIds.Count > 0)
                 {
-                    <p class="helper-text">@_presentablePendingCount available with your voting exclusions.</p>
+                    <p class="helper-text">@_presentablePendingCount available with your <a href="@RankingsUrl" class="text-link">voting exclusions</a>.</p>
                 }
             </div>
             }
@@ -201,53 +207,9 @@ else
                 <p class="vote-notice text-secondary" role="status">@_voteNotice</p>
             }
             <div class="cluster arena-actions arrive">
-                <button type="button" class="button" data-action="undo" disabled="@(!_ordinary.CanUndo || !_sessionReady)" @onclick="() => UndoLastVote(presentation)"><span class="button__content">Undo</span></button>
-                <button type="button" class="button" data-action="skip" disabled="@(_currentDuel is null || !_sessionReady)" @onclick="() => SkipMatch(presentation)"><span class="button__content">Skip for now</span></button>
+                <button type="button" class="button" data-action="undo" disabled="@(!_ordinary.CanUndo || !_sessionReady)" aria-keyshortcuts="U" @onclick="() => UndoLastVote(presentation)"><span class="button__content">Undo<kbd class="key-hint" aria-hidden="true">U</kbd></span></button>
+                <button type="button" class="button" data-action="skip" disabled="@(_currentDuel is null || !_sessionReady)" aria-keyshortcuts="S" @onclick="() => SkipMatch(presentation)"><span class="button__content">Skip for now<kbd class="key-hint" aria-hidden="true">S</kbd></span></button>
             </div>
-        }
-        @if (_games.Count > 0)
-        {
-            <details class="voting-options arrive">
-                <summary>Voting options · @(FocusEntry is not null ? $"Focused: {FocusedEntryTitle}" : "All matchups")</summary>
-                <div class="stack options-content">
-                <div class="focus-controls">
-                <div class="field">
-                    <label for="focusEntry" class="field-label">Focus on entry</label>
-                    <select id="focusEntry" value="@FocusEntry" @onchange="ChangeFocusedEntry" class="form-control" disabled="@(!_sessionReady)">
-                        <option value="">All matchups</option>
-                        @* Entries with at most one matchup left are hidden, except the focused one so the selector matches the page.
-                           The stable sort keeps tournament placement among equal remaining counts. *@
-                        @foreach (var entry in _standings.Select(standing => standing.Game)
-                            .Where(game => _pendingPerGame.GetValueOrDefault(game.Id) > 1 || game.Id == FocusEntry)
-                            .OrderByDescending(game => _pendingPerGame.GetValueOrDefault(game.Id)))
-                        {
-                            <option value="@entry.Id">@GetTitleDisplay(entry).Title · @_pendingPerGame.GetValueOrDefault(entry.Id) remaining</option>
-                        }
-                    </select>
-                </div>
-                <a href="/import" class="text-link">Add another entry</a>
-                </div>
-                @if (FocusEntry is null)
-                {
-                    <div class="field">
-                        <label class="checkbox-field">
-                            <input type="checkbox" checked="@_closestFirst" disabled="@(!_sessionReady)" @onchange="ToggleClosestFirst" />
-                            Closest matchups first
-                        </label>
-                        <p class="helper-text">Asks about entries that are level on points before lopsided pairs. Applies from the next matchup.</p>
-                    </div>
-                }
-                <div><a href="@RankingsUrl" class="text-link">View rankings and voting exclusions</a></div>
-                @if (FocusEntry is null)
-                {
-                    <p class="helper-text">Shortcuts: 1 / Left chooses the first game; 2 / Right chooses the second. U undoes your last vote; S skips. Skip leaves the matchup pending.</p>
-                }
-                else
-                {
-                    <p class="helper-text">Votes save immediately. Turn off Adaptive groups for rapid 1v1. Shortcuts: 1 / Left chooses your entry; 2 / Right chooses all current opponents. M splits without saving; U undoes the last vote or queue change; S skips. The bar under the choices shows every opponent from highest to lowest ranked; select a segment to vote on that group next, then on its lower-ranked neighbours.</p>
-                }
-                </div>
-            </details>
         }
 
     </section>
@@ -263,6 +225,37 @@ else
     private void ChangeFocusedEntry(ChangeEventArgs args)
         => Navigation.NavigateTo(FocusUrl(Guid.TryParse(args.Value?.ToString(), out var gameId) ? gameId : null));
     private string RankingsUrl => VotingRoutes.Rankings(LeaderboardYear);
+    // The way into each kind of voting, at the top of the page. One entry starts on the entry with the most
+    // matchups left; the list beside it then picks another. Entries with at most one matchup left are not
+    // listed, except the focused one, so the list matches the page.
+    private Game? BusiestEntry => _standings.Select(standing => standing.Game)
+        .Where(game => _pendingPerGame.GetValueOrDefault(game.Id) > 1).MaxBy(game => _pendingPerGame.GetValueOrDefault(game.Id));
+    private RenderFragment ModeSwitch => @<div class="voting-mode">
+        <nav class="mode-switch" aria-label="Voting mode">
+            <a href="@FocusUrl(null)" class="mode-switch__option" aria-current="@(FocusEntry is null ? "page" : null)">All matchups</a>
+            @if (FocusEntry is not null || BusiestEntry is not null)
+            {
+                <a href="@FocusUrl(FocusEntry ?? BusiestEntry?.Id)" class="mode-switch__option" aria-current="@(FocusEntry is not null ? "page" : null)">One entry</a>
+            }
+        </nav>
+        @if (FocusEntry is not null)
+        {
+            <select id="focusEntry" value="@FocusEntry" @onchange="ChangeFocusedEntry" class="form-control focus-entry" disabled="@(!_sessionReady)" aria-label="Entry to vote on">
+                @foreach (var entry in _standings.Select(standing => standing.Game)
+                    .Where(game => _pendingPerGame.GetValueOrDefault(game.Id) > 1 || game.Id == FocusEntry)
+                    .OrderByDescending(game => _pendingPerGame.GetValueOrDefault(game.Id)))
+                {
+                    <option value="@entry.Id">@GetTitleDisplay(entry).Title · @_pendingPerGame.GetValueOrDefault(entry.Id) left</option>
+                }
+            </select>
+        }
+        <InfoTip Label="About voting modes">
+            <strong>All matchups</strong> asks about any two games in the tournament, one pair at a time.<br />
+            <br />
+            <strong>One entry</strong> works through every matchup of a single entry, against a group of opponents per vote,
+            to place it quickly. Choose the entry in the list beside it. Entries you exclude on Rankings are left out of both.
+        </InfoTip>
+    </div>;
     private string FocusedEntryTitle => _games.FirstOrDefault(game => game.Id == FocusEntry) is { } game
         ? GetTitleDisplay(game).Title : "Unavailable entry";
     private Tournament? _currentTournament;

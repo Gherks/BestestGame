@@ -19,31 +19,35 @@
         // their place, so the bar holds still while voting.
         var barOrder = _showFinished ? _barOrder : _barOrder.Where(id => !_duels[id].IsCompleted || _votedIn.ContainsKey(id)).ToArray();
         <header class="focused-header arrive arrive--early">
-            @if (current.Length == 0)
-            {
-                <div class="focused-entry">
-                    <p class="eyebrow">Your entry</p>
-                    <h2>@entryDisplay.Title</h2>
-                    @if (!string.IsNullOrWhiteSpace(entryDisplay.Subtitle))
-                    {
-                        <details class="included-context focused-entry-context">
-                            <summary>@IncludedSummary(_game)</summary>
-                            <p>@entryDisplay.Subtitle</p>
-                        </details>
-                    }
-                </div>
-            }
+            @Toolbar
             <div class="focused-toggles">
-                <label class="checkbox-field adaptive-toggle">
-                    <input type="checkbox" checked="@_useGroups" disabled="@(!_ready || _busy)" @onchange="ToggleGroups" />
-                    Adaptive groups
-                </label>
-                <label class="checkbox-field finished-toggle">
-                    <input type="checkbox" checked="@_showFinished" disabled="@(!_ready)" @onchange="ToggleFinished" />
-                    Show won and lost
-                </label>
+                <SettingToggle Label="Adaptive groups" Class="adaptive-toggle" Checked="_useGroups" Disabled="@(!_ready || _busy)" OnChange="ToggleGroups" Align="InfoTip.TipAlign.End">
+                    <strong>On:</strong> your entry faces a group of up to @AdaptiveDuelSession.InitialGroupSize opponents, and one vote saves a
+                    result against each of them. Split a group that is too mixed to call.<br />
+                    <br /> 
+                    <strong>Off:</strong> rapid 1v1, one opponent per vote.
+                    Votes save at once either way.
+                </SettingToggle>
+                <SettingToggle Label="Show won and lost" Class="finished-toggle" Checked="_showFinished" Disabled="!_ready" OnChange="ToggleFinished" Align="InfoTip.TipAlign.End">
+                    Also shows the opponents whose results were saved before this visit on the bar below the choices.
+                    Results from this visit always stay on it.
+                </SettingToggle>
             </div>
         </header>
+        @if (current.Length == 0)
+        {
+            <div class="focused-entry arrive arrive--early">
+                <p class="eyebrow">Your entry</p>
+                <h2>@entryDisplay.Title</h2>
+                @if (!string.IsNullOrWhiteSpace(entryDisplay.Subtitle))
+                {
+                    <details class="included-context focused-entry-context">
+                        <summary>@IncludedSummary(_game)</summary>
+                        <p>@entryDisplay.Subtitle</p>
+                    </details>
+                }
+            </div>
+        }
 
         <div class="focused-progress arrive arrive--early" aria-live="polite" aria-atomic="true">
             <p class="text-secondary"><span class="count-settle" @key="_completedCount">@_completedCount</span> of @_totalCount matchups finished · @_session.RemainingCount available@(_blockedCount > 0 ? $" · {_blockedCount} arena-banned" : "")</p>
@@ -143,7 +147,14 @@
         // Outside the duel stage: the bar stays in place while a vote slides the choices.
         <MatchupBar Opponents="@barOrder.Select(id => (id, StatusOf(_duels[id]))).ToArray()" Groups="@_session.Snapshot()" VotedIn="_votedIn" TitleOf="TitleOf"
                     Single="@(_useGroups || current.Length == 0 ? null : current[0])" JustSplit="_justSplit"
-                    Disabled="@(!_ready || _busy)" Class="arrive" OnSelect="@(id => Select(presentation, id))" />
+                    Disabled="@(!_ready || _busy)" Class="arrive" OnSelect="@(id => Select(presentation, id))">
+            <Help>
+                <InfoTip Label="About the opponent bar">
+                    Every opponent of your entry, from highest to lowest ranked. Select a segment to vote on that group next;
+                    voting then carries on with its lower-ranked neighbours.
+                </InfoTip>
+            </Help>
+        </MatchupBar>
         <div class="focused-controls arrive" data-focused-controls>
             @if (current.Length > 0)
             {
@@ -153,14 +164,14 @@
                 @if (current.Length > 1)
                 {
                     <button type="button" class="button split-action" disabled="@(!_ready || _busy)" data-action="split" aria-keyshortcuts="M" @onclick="() => Split(presentation)">
-                        <span @key="presentation" class="button__content">Split group</span>
+                        <span @key="presentation" class="button__content">Split group<kbd class="key-hint" aria-hidden="true">M</kbd></span>
                     </button>
                 }
                 <button type="button" class="button" disabled="@(!_ready || _busy || _history.Count == 0)" data-action="undo" aria-label="Undo last action" aria-keyshortcuts="U" @onclick="() => Undo(presentation)">
-                    <span @key="presentation" class="button__content">Undo</span>
+                    <span @key="presentation" class="button__content">Undo<kbd class="key-hint" aria-hidden="true">U</kbd></span>
                 </button>
                 <button type="button" class="button" disabled="@(!_ready || _busy || current.Length == 0)" data-action="skip" aria-keyshortcuts="S" @onclick="() => Skip(presentation)">
-                    <span @key="presentation" class="button__content">Skip for now</span>
+                    <span @key="presentation" class="button__content">Skip for now<kbd class="key-hint" aria-hidden="true">S</kbd></span>
                 </button>
             </div>
             @if (!string.IsNullOrEmpty(_notice))
@@ -178,6 +189,8 @@
     [Parameter] public string RankingsUrl { get; set; } = "/rankings";
     [Parameter] public bool ShortcutsEnabled { get; set; } = true;
     [Parameter] public EventCallback OnResultsChanged { get; set; }
+    /// <summary>The page's own controls, shown at the start of the header row beside the voting settings.</summary>
+    [Parameter] public RenderFragment? Toolbar { get; set; }
 
     private readonly AdaptiveDuelSession _session = new();
     private readonly Stack<VotingAction> _history = new();

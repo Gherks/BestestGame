@@ -1,0 +1,21 @@
+.setting-toggle { position: relative; display: inline-flex; align-items: center; }
+/* A dotted line under the name says there is more to read about it. */
+.setting-toggle__label { text-decoration: underline dotted var(--quiet); text-decoration-thickness: 1px; text-underline-offset: 0.3em; }
+/* The explanation hangs below the setting, as wide as its text allows. It waits a moment, so passing over
+   the label on the way to the checkbox does not flash it. */
+.setting-toggle__tip { position: absolute; z-index: 5; top: calc(100% - 0.25rem); left: 0; display: none; width: max-content; max-width: min(22rem, calc(100vw - 2rem)); padding: var(--space-3); border: 1px solid var(--border); border-radius: var(--shape-mark-alt); background: var(--panel-raised); box-shadow: var(--dialog-shadow); color: var(--text); font-family: var(--font-body); font-size: var(--text-support); font-style: normal; font-weight: 400; letter-spacing: normal; line-height: 1.5; text-align: left; text-transform: none; white-space: normal; overflow-wrap: anywhere; pointer-events: none; }
+.setting-toggle--end .setting-toggle__tip { right: 0; left: auto; }
+.setting-toggle:has(input:focus-visible) .setting-toggle__tip { display: block; }
+@media (hover: hover) {
+    .setting-toggle:has(.checkbox-field:hover) .setting-toggle__tip { display: block; animation: setting-tip-in 0.15s 0.35s backwards; }
+}
+.setting-toggle--dismissed .setting-toggle__tip { display: none !important; }
+@keyframes setting-tip-in { from { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) {
+    .setting-toggle:has(.checkbox-field:hover) .setting-toggle__tip { animation: none; }
+}
+/* On a phone the explanation spans the row it belongs to, so it never runs off the screen. */
+@media (max-width: 640px) {
+    .setting-toggle { position: static; }
+    .setting-toggle__tip, .setting-toggle--end .setting-toggle__tip { right: 0; left: 0; width: auto; max-width: none; }
+}
