@@ -4,7 +4,8 @@ namespace BestestGame.Services;
 
 /// <summary>
 /// Lays out every opponent of a focused entry along one bar in a fixed order.
-/// Neighbours in the same queue group, or with the same saved result, form a segment.
+/// Neighbours in the same queue group, or with the same saved result, form a segment. Results saved while
+/// voting can be kept apart by the group they were voted in, so a group keeps its place once voted on.
 /// </summary>
 public static class OpponentBar
 {
@@ -12,7 +13,8 @@ public static class OpponentBar
 
     /// <param name="Group">Queue position of a pending group; -1 when the opponents are not queued.</param>
     /// <param name="Start">Number of opponents to the left of this segment.</param>
-    public sealed record Segment(Status Status, int Group, int Start, IReadOnlyList<Guid> DuelIds);
+    /// <param name="VotedIn">The group a won or lost segment was voted in; null for results from before.</param>
+    public sealed record Segment(Status Status, int Group, int Start, IReadOnlyList<Guid> DuelIds, Guid? VotedIn = null);
 
     public static Guid OpponentId(Duel duel, Guid entryId) => duel.Game1Id == entryId ? duel.Game2Id : duel.Game1Id;
 
@@ -36,7 +38,9 @@ public static class OpponentBar
             .OrderBy(duel => order[OpponentId(duel, entryId)]).ToArray();
     }
 
-    public static IReadOnlyList<Segment> Build(IEnumerable<(Guid DuelId, Status Status)> opponents, Guid[][] groups)
+    /// <param name="votedIn">Duels voted on this session, each with a key for the group it was voted in.</param>
+    public static IReadOnlyList<Segment> Build(IEnumerable<(Guid DuelId, Status Status)> opponents, Guid[][] groups,
+        IReadOnlyDictionary<Guid, Guid>? votedIn = null)
     {
         var groupOf = new Dictionary<Guid, int>();
         for (var index = 0; index < groups.Length; index++)
@@ -49,9 +53,10 @@ public static class OpponentBar
         foreach (var (duelId, status) in opponents)
         {
             var group = status == Status.Pending ? groupOf.GetValueOrDefault(duelId, -1) : -1;
+            Guid? voted = status is Status.Won or Status.Lost && votedIn?.TryGetValue(duelId, out var key) == true ? key : null;
             // A group whose opponents are no longer neighbours is drawn as several segments.
-            if (segments.Count == 0 || segments[^1].Status != status || segments[^1].Group != group)
-                segments.Add(new(status, group, position, run = []));
+            if (segments.Count == 0 || segments[^1].Status != status || segments[^1].Group != group || segments[^1].VotedIn != voted)
+                segments.Add(new(status, group, position, run = [], voted));
             run.Add(duelId);
             position++;
         }

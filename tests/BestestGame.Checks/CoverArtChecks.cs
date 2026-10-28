@@ -1,6 +1,7 @@
 using System.Net;
 using System.Text;
 using System.Text.Json;
+using BestestGame.Components;
 using BestestGame.Models;
 using BestestGame.Services;
 using Microsoft.Extensions.Configuration;
@@ -205,6 +206,54 @@ static class CoverArtChecks
         Check(File.Exists(collectionFile) && Kept("co3exo") && games.RemoveGame(collection.Id) && !File.Exists(collectionFile) && !Kept("co3exo"),
             "Removing an entry removes its picture and those of its included titles");
         Console.WriteLine("32 cover art checks passed.");
+        await ReleaseYearChecks(games, covers, igdb);
+    }
+
+    private static async Task ReleaseYearChecks(GameService games, CoverArtService covers, Igdb igdb)
+    {
+        CoverArtService.Release[] found = [new("Resident Evil 4", 2005), new("Resident Evil 4", 2023), new("Resident Evil 4: Separate Ways", 2023), new("Celeste", 2018)];
+        Check(CoverArtService.ConfidentYear(found, "Celeste") == 2018 && CoverArtService.ConfidentYear([new("Pokémon Red", 1996), new("POKEMON RED", 1996)], "Pokemon Red") == 1996,
+            "A year is certain when every game under exactly the title's name came out that year");
+        Check(CoverArtService.ConfidentYear(found, "Resident Evil 4") is null && CoverArtService.ConfidentYear(found, "Resident Evil") is null && CoverArtService.ConfidentYear([], "Celeste") is null,
+            "A remake under the same name, a different name or no result leaves the year to a person");
+        Check(CoverArtService.YearChoices([new("Resident Evil 4: Separate Ways", 2023), .. found], "Resident Evil 4")
+                .Select(release => (release.Name, release.Year)).SequenceEqual([("Resident Evil 4", 2005), ("Resident Evil 4", 2023), ("Resident Evil 4: Separate Ways", 2023), ("Celeste", 2018)]),
+            "Choices list the exact name first, each name and year once");
+
+        igdb.Games = "[{\"id\":1,\"name\":\"League of Legends\",\"first_release_date\":1256774400},{\"id\":2,\"name\":\"Undated\"}]";
+        var releases = await covers.SearchReleasesAsync("League of \"Legends\"");
+        Check(releases.SequenceEqual([new CoverArtService.Release("League of Legends", 2009)]) && igdb.Queries[^1].StartsWith("search \"League of \\\"Legends\\\"\";") &&
+            igdb.Queries[^1].Contains("where first_release_date != null") && !igdb.Queries[^1].Contains("cover"),
+            "A year lookup quotes the title safely, does not need a cover, and keeps only dated results");
+
+        var tournament = games.CreateTournament("Years");
+        games.ImportGames([new Game { Title = "League of Legends" }, new Game { Title = "Prey (2017)" }, new Game { Title = "Metro (2033, Exodus)" },
+            new Game { Title = "Halo", IncludedTitles = [new() { Title = "Halo 2", ReleaseYear = 2004 }, new() { Title = "Halo 3 (Xbox)" }] },
+            new Game { Title = "Dated", ReleaseYear = 2001 }]);
+        Game Get(string title) => games.GetGames().Single(game => game.Title == title);
+        var gaps = games.GetGames().SelectMany(ReleaseYears.Missing).ToList();
+        Check(gaps.Select(gap => (gap.Stored, gap.Subject)).SequenceEqual([("League of Legends", "League of Legends"), ("Prey (2017)", "Prey"), ("Halo 3 (Xbox)", "Halo 3")]) &&
+            ReleaseYears.IsLegacyCollection(Get("Metro (2033, Exodus)")) && !ReleaseYears.IsLegacyCollection(Get("Prey (2017)")),
+            "Undated single games and included titles need a year; a legacy collection is left out");
+        Check(ReleaseYears.WrittenYear("Prey (2017)") == 2017 && ReleaseYears.WrittenYear("Metro (2033, Exodus)") is null && ReleaseYears.WrittenYear("Prey") is null,
+            "A year written at the end of a title is read from it");
+
+        var league = Get("League of Legends");
+        Check(games.FillReleaseYear(league.Id, null, "League of Legends", 2009) && Get("League of Legends").ReleaseYear == 2009,
+            "A single game's year is filled in");
+        Check(!games.FillReleaseYear(league.Id, null, "League of Legends", 2010) && Get("League of Legends").ReleaseYear == 2009,
+            "A year already recorded is never replaced");
+        var halo = Get("Halo");
+        Check(!games.FillReleaseYear(halo.Id, 1, "Halo 3", 2007) && !games.FillReleaseYear(halo.Id, null, "Halo", 2001) && !games.FillReleaseYear(halo.Id, 5, "Halo 3 (Xbox)", 2007),
+            "A title that has changed, a collection's own year or a title that is not there is left alone");
+        Check(games.FillReleaseYear(halo.Id, 1, "Halo 3 (Xbox)", 2007) && Get("Halo").IncludedTitles.Select(title => title.ReleaseYear).SequenceEqual(new int?[] { 2004, 2007 }) &&
+            Get("Halo").ReleaseYear is null, "An included title's year is filled in without touching the collection or its other titles");
+        var before = CheckData.Snapshot(games);
+        try { games.FillReleaseYear(Get("Prey (2017)").Id, null, "Prey (2017)", 0); } catch (ArgumentOutOfRangeException) { }
+        Check(CheckData.Snapshot(games) == before && !games.FillReleaseYear(Guid.NewGuid(), null, "League of Legends", 2009),
+            "An invalid year or an unknown entry changes nothing");
+        games.DeleteTournament(tournament.Id);
+        Console.WriteLine("Release year checks passed.");
     }
 
     private static async Task<bool> Fails(Func<Task> action)

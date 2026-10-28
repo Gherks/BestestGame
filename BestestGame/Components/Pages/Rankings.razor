@@ -166,7 +166,7 @@ else
         <div class="standings-notes arrive">
             @if (_pendingMatchupCount > 0)
             {
-                <p class="standings-progress helper-text">Rankings are still taking shape. @_pendingMatchupCount @(_pendingMatchupCount == 1 ? "matchup remains" : "matchups remain").</p>
+                <p class="standings-progress helper-text">Rankings are still taking shape. @_pendingMatchupCount @(_pendingMatchupCount == 1 ? "matchup remains" : "matchups remain"). @SettledSummary</p>
             }
             @* The count only says something while the table is narrowed. *@
             <p class="helper-text" role="status">@(string.IsNullOrWhiteSpace(_search) && LeaderboardYear is null ? "" : $"Showing {_visibleStandings.Count} of {_rankedStandings.Count} entries{(_rankedStandings.Count != _games.Count ? " for this year" : "")}.")</p>
@@ -228,6 +228,7 @@ else
                                         {
                                             <span class="standings-unfinished">@Open(game)</span>
                                         }
+                                        @OutlookMark(game, "standings-outlook")
                                     </div>
                                 </div>
                             </div>
@@ -296,6 +297,10 @@ else
                 <div><dt>Points</dt><dd>@detailsGame.Points</dd></div>
                 <div><dt>Completed matchups</dt><dd>@_matchesPlayed.GetValueOrDefault(detailsGame.Id)</dd></div>
                 <div><dt>Pending matchups</dt><dd>@_pendingPerGame.GetValueOrDefault(detailsGame.Id)</dd></div>
+                @if (_pendingMatchupCount > 0 && _outlooks.TryGetValue(detailsGame.Id, out var detailsOutlook) && !detailsOutlook.Settled)
+                {
+                    <div><dt>Can finish</dt><dd>@RankSpan(detailsOutlook)</dd></div>
+                }
             </dl>
             <div class="entry-detail-actions cluster">
                 <button type="button" class="button" data-details="wins" @onclick="() => ShowWinsOver(detailsGame.Id, detailsGame.Title, _winsOver.GetValueOrDefault(detailsGame.Id, []))"><span class="button__content">Wins (@_winsOver.GetValueOrDefault(detailsGame.Id, []).Count)</span></button>
@@ -417,6 +422,7 @@ else
                 {
                     <span class="podium-context standings-unfinished">@Open(game)</span>
                 }
+                @OutlookMark(game, "podium-context standings-outlook")
             </span>
         </button>;
     }
@@ -425,6 +431,22 @@ else
     {
         var left = _pendingPerGame.GetValueOrDefault(game.Id);
         return $"{Counted(left, "matchup")} left · can reach {game.Points + left}";
+    }
+    // Where each entry can still finish, shown only while matchups remain; see TournamentStandings.Outlooks.
+    private Dictionary<Guid, TournamentStandings.Outlook> _outlooks = [];
+    private static string RankSpan(TournamentStandings.Outlook outlook)
+        => $"{TournamentStandings.Ordinal(outlook.Best)}–{TournamentStandings.Ordinal(outlook.Worst)}";
+    // A settled rank needs no mark: the rank shown is already final.
+    private RenderFragment? OutlookMark(Game game, string classes)
+        => _pendingMatchupCount > 0 && _outlooks.TryGetValue(game.Id, out var outlook) && !outlook.Settled
+            ? @<span class="@classes">Finishes @RankSpan(outlook)</span> : null;
+    private string SettledSummary
+    {
+        get
+        {
+            var settled = _rankedStandings.Count(entry => _outlooks.TryGetValue(entry.Game.Id, out var outlook) && outlook.Settled);
+            return $"{settled} of {Counted(_rankedStandings.Count, "rank")}{(LeaderboardYear is null ? "" : " this year")} {(settled == 1 ? "is" : "are")} settled.";
+        }
     }
     private TournamentInsights.Summary _insights = TournamentInsights.Build([], []);
     private static string Counted(int count, string noun) => $"{count} {noun}{(count == 1 ? "" : "s")}";
@@ -552,6 +574,7 @@ else
             if (_pendingPerGame.ContainsKey(duel.Game1Id)) _pendingPerGame[duel.Game1Id]++;
             if (_pendingPerGame.ContainsKey(duel.Game2Id)) _pendingPerGame[duel.Game2Id]++;
         }
+        _outlooks = TournamentStandings.Outlooks(_rankedStandings, _pendingPerGame);
     }
 
     private async Task ToggleArenaBanAsync(Guid gameId, bool isChecked)

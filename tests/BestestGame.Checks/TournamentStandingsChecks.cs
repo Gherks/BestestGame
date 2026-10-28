@@ -49,6 +49,7 @@ static class TournamentStandingsChecks
         duel.IsCompleted = true;
         HeadToHeadTiers();
         OpenLead();
+        Outlooks();
         Canvases();
         Check(JsonSerializer.Serialize(games) == before, "Rank and search leave IDs, stored points, titles, years and included releases intact");
         var legacyNull = new Game { Title = "Legacy (First, Second)", ReleaseYear = 2007, IncludedTitles = null! };
@@ -136,6 +137,68 @@ static class TournamentStandingsChecks
         games.Add(collection);
         Check(Lead(new() { [collection.Id] = 40 }, [direct]).Contenders.Single() is { Title: "Set", Reach: 70 },
             "A collection with several releases in the year is one contender, under its own name");
+    }
+
+    // Where entries can still finish. Small tournaments are played out in every possible way to show the ranges always hold.
+    private static void Outlooks()
+    {
+        var ahead = new Game { Title = "Ahead", Points = 10 };
+        var middle = new Game { Title = "Middle", Points = 5 };
+        var behind = new Game { Title = "Behind", Points = 3 };
+        List<Game> trio = [ahead, middle, behind];
+        var far = TournamentStandings.Outlooks(TournamentStandings.Rank(trio), new Dictionary<Guid, int> { [middle.Id] = 2 });
+        Check(trio.All(game => far[game.Id].Settled) && far[middle.Id] == new TournamentStandings.Outlook(2, 2),
+            "An entry nobody can catch or be caught by has a settled rank, even with matchups left");
+        var close = TournamentStandings.Outlooks(TournamentStandings.Rank(trio), new Dictionary<Guid, int> { [middle.Id] = 5 });
+        Check(close[ahead.Id] == new TournamentStandings.Outlook(1, 2) && close[middle.Id] == new TournamentStandings.Outlook(1, 2) && close[behind.Id].Settled,
+            "Drawing level with a finished entry still counts as able to pass it");
+        Check(TournamentStandings.Ordinal(1) == "1st" && TournamentStandings.Ordinal(2) == "2nd" && TournamentStandings.Ordinal(3) == "3rd" &&
+            TournamentStandings.Ordinal(4) == "4th" && TournamentStandings.Ordinal(11) == "11th" && TournamentStandings.Ordinal(12) == "12th" &&
+            TournamentStandings.Ordinal(13) == "13th" && TournamentStandings.Ordinal(21) == "21st" && TournamentStandings.Ordinal(112) == "112th",
+            "Ranks read as ordinals");
+
+        var random = new Random(20261028);
+        var settledSeen = 0;
+        for (var round = 0; round < 400; round++)
+        {
+            var games = Enumerable.Range(0, random.Next(2, 7)).Select(index => new Game { Title = $"G{index}", ReleaseYear = 2000 + random.Next(2) }).ToList();
+            var duels = new List<Duel>();
+            for (var first = 0; first < games.Count; first++)
+                for (var second = first + 1; second < games.Count; second++)
+                {
+                    var played = random.NextDouble() < 0.6;
+                    duels.Add(new Duel { Game1Id = games[first].Id, Game2Id = games[second].Id, IsCompleted = played,
+                        WinnerId = played ? (random.Next(2) == 0 ? games[first].Id : games[second].Id) : null });
+                }
+            var open = duels.Where(duel => !duel.IsCompleted).Take(10).ToList();
+            foreach (var duel in duels.Where(duel => !duel.IsCompleted).Skip(10)) { duel.IsCompleted = true; duel.WinnerId = duel.Game1Id; }
+            List<Game> Scored(IEnumerable<Duel> results) => games.Select(game => new Game { Id = game.Id, Title = game.Title, ReleaseYear = game.ReleaseYear,
+                Points = results.Count(duel => duel.IsCompleted && duel.WinnerId == game.Id) }).ToList();
+            var pending = games.ToDictionary(game => game.Id, game => open.Count(duel => duel.Game1Id == game.Id || duel.Game2Id == game.Id));
+            foreach (var year in new int?[] { null, 2000 })
+            {
+                var outlooks = TournamentStandings.Outlooks(TournamentStandings.Rank(Scored(duels), duels, year), pending);
+                var reached = outlooks.Keys.ToDictionary(id => id, _ => new HashSet<int>());
+                for (var outcome = 0; outcome < 1 << open.Count; outcome++)
+                {
+                    var final = duels.Select(duel => open.IndexOf(duel) is var index and >= 0
+                        ? new Duel { Id = duel.Id, Game1Id = duel.Game1Id, Game2Id = duel.Game2Id, IsCompleted = true,
+                            WinnerId = (outcome >> index & 1) == 0 ? duel.Game1Id : duel.Game2Id } : duel).ToList();
+                    foreach (var entry in TournamentStandings.Rank(Scored(final), final, year))
+                    {
+                        var outlook = outlooks[entry.Game.Id];
+                        Check(outlook.Best <= entry.Rank && entry.Rank <= outlook.Worst, "Every entry finishes within the ranks it can still reach");
+                        reached[entry.Game.Id].Add(entry.Rank);
+                    }
+                }
+                foreach (var (id, outlook) in outlooks.Where(item => item.Value.Settled))
+                {
+                    Check(reached[id].Count == 1, "A settled rank is the same whatever happens in the matchups left");
+                    settledSeen++;
+                }
+            }
+        }
+        Check(settledSeen > 0, "The played-out tournaments include settled ranks");
     }
 
     private static void Check(bool condition, string description)

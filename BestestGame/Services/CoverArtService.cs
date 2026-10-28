@@ -106,10 +106,52 @@ public sealed partial class CoverArtService
         return new(Outcome.Added, candidates);
     }
 
-    public async Task<IReadOnlyList<Candidate>> SearchAsync(string title, CancellationToken cancellation = default)
+    public Task<IReadOnlyList<Candidate>> SearchAsync(string title, CancellationToken cancellation = default)
+        => QueryGamesAsync(title, "fields name,first_release_date,cover.image_id; where cover != null; limit 12;", game =>
+            game.TryGetProperty("cover", out var cover) && cover.ValueKind == JsonValueKind.Object &&
+            cover.TryGetProperty("image_id", out var id) && id.GetString() is { } imageId && ImageIdPattern().IsMatch(imageId)
+                ? new Candidate(imageId, NameOf(game), YearOf(game)) : null, cancellation);
+
+    /// <summary>A game IGDB knows, and the year it first came out.</summary>
+    public sealed record Release(string Name, int Year);
+
+    /// <summary>Games IGDB finds for a title that have a release date, whether or not it holds a cover for them.</summary>
+    public Task<IReadOnlyList<Release>> SearchReleasesAsync(string title, CancellationToken cancellation = default)
+        => QueryGamesAsync(title, "fields name,first_release_date; where first_release_date != null; limit 12;", game =>
+            YearOf(game) is { } year and >= 1 and <= 9999 ? new Release(NameOf(game), year) : null, cancellation);
+
+    /// <summary>
+    /// The year to record without asking: IGDB has the title under exactly this name, set aside case, accents and
+    /// punctuation, and every game it has under that name came out in the same year. A remake or reboot that
+    /// shares its name makes the year a person's choice.
+    /// </summary>
+    public static int? ConfidentYear(IReadOnlyList<Release> releases, string title)
+    {
+        var wanted = Normalize(title);
+        var years = releases.Where(release => Normalize(release.Name) == wanted).Select(release => release.Year).Distinct().ToList();
+        return years.Count == 1 ? years[0] : null;
+    }
+
+    /// <summary>What to offer a person when no year is certain: games under exactly this name first, each name and year once.</summary>
+    public static IReadOnlyList<Release> YearChoices(IReadOnlyList<Release> releases, string title, int limit = 4)
+    {
+        var wanted = Normalize(title);
+        return releases.Select((release, order) => (release, order))
+            .OrderBy(item => Normalize(item.release.Name) == wanted ? 0 : 1).ThenBy(item => item.order)
+            .Select(item => item.release).DistinctBy(release => (Normalize(release.Name), release.Year)).Take(limit).ToList();
+    }
+
+    private static string NameOf(JsonElement game) => game.TryGetProperty("name", out var name) ? name.GetString() ?? "" : "";
+
+    private static int? YearOf(JsonElement game) => game.TryGetProperty("first_release_date", out var date) && date.TryGetInt64(out var seconds)
+        ? DateTimeOffset.FromUnixTimeSeconds(seconds).Year : null;
+
+    // Searches IGDB's games for a title; the fields and filter are what follows the search in the query.
+    private async Task<IReadOnlyList<T>> QueryGamesAsync<T>(string title, string fields, Func<JsonElement, T?> read, CancellationToken cancellation)
+        where T : class
     {
         if (string.IsNullOrWhiteSpace(title)) return [];
-        var query = $"search \"{title.Replace("\\", "\\\\").Replace("\"", "\\\"")}\"; fields name,first_release_date,cover.image_id; where cover != null; limit 12;";
+        var query = $"search \"{title.Replace("\\", "\\\\").Replace("\"", "\\\"")}\"; {fields}";
         using var response = await SendAsync(() => new HttpRequestMessage(HttpMethod.Post, $"{ApiUrl}/games")
         {
             Content = new StringContent(query, Encoding.UTF8, "text/plain")
@@ -117,15 +159,7 @@ public sealed partial class CoverArtService
         try
         {
             using var document = JsonDocument.Parse(await response.Content.ReadAsStringAsync(cancellation));
-            return document.RootElement.EnumerateArray()
-                .Select(game => (Game: game, ImageId: game.TryGetProperty("cover", out var cover) && cover.ValueKind == JsonValueKind.Object &&
-                    cover.TryGetProperty("image_id", out var id) ? id.GetString() : null))
-                .Where(entry => entry.ImageId is not null && ImageIdPattern().IsMatch(entry.ImageId))
-                .Select(entry => new Candidate(entry.ImageId!,
-                    entry.Game.TryGetProperty("name", out var name) ? name.GetString() ?? "" : "",
-                    entry.Game.TryGetProperty("first_release_date", out var date) && date.TryGetInt64(out var seconds)
-                        ? DateTimeOffset.FromUnixTimeSeconds(seconds).Year : null))
-                .ToList();
+            return document.RootElement.EnumerateArray().Select(read).OfType<T>().ToList();
         }
         catch (Exception exception) when (exception is JsonException or InvalidOperationException)
         {

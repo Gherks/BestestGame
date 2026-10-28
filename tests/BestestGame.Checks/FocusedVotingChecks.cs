@@ -93,6 +93,18 @@ static class FocusedVotingChecks
         bar = OpponentBar.Build(opponents.Take(3), [[pending[0].Id, pending[2].Id], [pending[1].Id]]);
         Check(bar.Select(segment => segment.Group).SequenceEqual(new[] { 0, 1, 0 }),
             "A group whose opponents are no longer neighbours is drawn in pieces at their own places");
+        var ids = pending.Select(duel => duel.Id).ToArray();
+        var votedIn = ids[..3].ToDictionary(id => id, _ => ids[2]);
+        foreach (var id in ids[3..6]) votedIn[id] = ids[5];
+        var afterVotes = ids.Select((id, index) => (id, index < 8 ? OpponentBar.Status.Won : OpponentBar.Status.Pending)).ToArray();
+        var queued = new AdaptiveDuelSession();
+        queued.Synchronize(ids[8..]);
+        bar = OpponentBar.Build(afterVotes, queued.Snapshot(), votedIn);
+        Check(bar.Count >= 4 && bar[0] is { Status: OpponentBar.Status.Won, Start: 0, DuelIds.Count: 3 } && bar[0].VotedIn == ids[2] &&
+            bar[1] is { Status: OpponentBar.Status.Won, Start: 3, DuelIds.Count: 3 } && bar[1].VotedIn == ids[5] &&
+            bar[2] is { Status: OpponentBar.Status.Won, Start: 6, DuelIds.Count: 2, VotedIn: null } &&
+            bar[3] is { Status: OpponentBar.Status.Pending, Group: 0, Start: 8 },
+            "Groups won in a row stay apart, each where it was, and apart from results saved before");
 
         // Opponents on 4, 3, 3, 3 with the entry on 0: one of the third opponent's points came from the entry.
         var ranked = new[] { 4, 3, 3, 3, 0 }.Select((points, index) => new Game { Title = $"Ranked {index}", Points = points }).ToList();

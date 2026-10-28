@@ -101,3 +101,13 @@
     .cover-search .field { width: 100%; }
     .cover-progress { flex-wrap: wrap; }
 }
+/* Releases IGDB found for a title without a certain year, waiting for a pick. */
+.year-choice { display: flex; flex-direction: column; gap: var(--space-2); margin-top: var(--space-1); }
+/* A title looked up on IGDB before it is added: its results, or the release picked and the cover it will get. */
+.entry-lookup { min-width: 0; }
+.lookup-results { gap: var(--space-3); }
+.lookup-pick { display: flex; align-items: flex-start; gap: var(--space-3); min-width: 0; }
+.lookup-pick .game-cover { width: 4rem; }
+.lookup-pick__text { display: flex; flex-direction: column; gap: var(--space-2); min-width: 0; }
+.cover-option[aria-pressed="true"] { border-color: var(--heading); }
+.included-item { gap: var(--space-3); }

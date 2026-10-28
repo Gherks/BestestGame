@@ -358,6 +358,31 @@ public class GameService
         }
     }
 
+    /// <summary>
+    /// Records a release year for an entry of the selected tournament, or for one included title of a collection,
+    /// counted from zero, as long as it has none yet and still carries the expected title. A year someone set in
+    /// the meantime is never replaced, and a collection edited since cannot have its year put on another title.
+    /// </summary>
+    public bool FillReleaseYear(Guid gameId, int? title, string expectedTitle, int year)
+    {
+        ValidateReleaseYear(year);
+        return Write(connection =>
+        {
+            if (!IsInCurrentTournament(connection, gameId))
+                return false;
+
+            var titles = connection.Query("SELECT position, title FROM included_titles WHERE game_id = $id ORDER BY position",
+                row => (Position: row.GetInt32(0), Title: row.GetString(1)), ("$id", gameId));
+            if (title is not { } index)
+                return titles.Count == 0 && connection.Execute(
+                    "UPDATE games SET release_year = $year WHERE id = $id AND title = $title AND release_year IS NULL",
+                    ("$year", year), ("$id", gameId), ("$title", expectedTitle)) > 0;
+            return index >= 0 && index < titles.Count && titles[index].Title == expectedTitle && connection.Execute(
+                "UPDATE included_titles SET release_year = $year WHERE game_id = $id AND position = $position AND release_year IS NULL",
+                ("$year", year), ("$id", gameId), ("$position", titles[index].Position)) > 0;
+        });
+    }
+
     private static bool IsInCurrentTournament(SqliteConnection connection, Guid gameId)
         => connection.Count(
             "SELECT COUNT(*) FROM games WHERE id = $id AND tournament_id = (SELECT current_tournament_id FROM app_state WHERE id = 1)",

@@ -15,8 +15,9 @@
     else
     {
         var entryDisplay = EntryTitles.GetTitleDisplay(_game);
-        // Without finished opponents the remaining groups widen to fill the bar.
-        var barOrder = _showFinished ? _barOrder : _barOrder.Where(id => !_duels[id].IsCompleted).ToArray();
+        // Without won and lost, opponents finished before this visit are left out. Those voted on here keep
+        // their place, so the bar holds still while voting.
+        var barOrder = _showFinished ? _barOrder : _barOrder.Where(id => !_duels[id].IsCompleted || _votedIn.ContainsKey(id)).ToArray();
         <header class="focused-header arrive arrive--early">
             @if (current.Length == 0)
             {
@@ -140,7 +141,7 @@
         </div>
         </div>
         // Outside the duel stage: the bar stays in place while a vote slides the choices.
-        <MatchupBar Opponents="@barOrder.Select(id => (id, StatusOf(_duels[id]))).ToArray()" Groups="@_session.Snapshot()" TitleOf="TitleOf"
+        <MatchupBar Opponents="@barOrder.Select(id => (id, StatusOf(_duels[id]))).ToArray()" Groups="@_session.Snapshot()" VotedIn="_votedIn" TitleOf="TitleOf"
                     Single="@(_useGroups || current.Length == 0 ? null : current[0])" JustSplit="_justSplit"
                     Disabled="@(!_ready || _busy)" Class="arrive" OnSelect="@(id => Select(presentation, id))" />
         <div class="focused-controls arrive" data-focused-controls>
@@ -185,6 +186,9 @@
     // Every matchup of the tournament: the entry's final rank can depend on results between other entries.
     private List<Duel> _tournamentDuels = [];
     private Guid[] _barOrder = [];
+    // Opponents voted on during this visit, each keyed to the group it was voted in: the last duel of that group
+    // at the time. A group voted whole is one segment, and one voted 1v1 keeps its outline, in its results' colours.
+    private readonly Dictionary<Guid, Guid> _votedIn = [];
     private Game? _game;
     private Guid _presentation = Guid.NewGuid();
     private bool _initialized;
@@ -210,7 +214,8 @@
     // Groups is the queue to return to. It is null for a vote restored after a reload: the tab keeps
     // only results, because a queue snapshot per action would outgrow what one browser message may carry.
     private sealed record VotingAction(Guid[][]? Groups, GameService.DuelResult[] Results);
-    private sealed record SavedSession(Guid[][] Groups, bool UseGroups, GameService.DuelResult[][]? Votes = null);
+    // Voted lists the duels voted on in this visit, one array per group they were voted in.
+    private sealed record SavedSession(Guid[][] Groups, bool UseGroups, GameService.DuelResult[][]? Votes = null, Guid[][]? Voted = null);
     private const int SavedVoteBatches = 20;
     // More tiles than the largest canvas can show; the canvas clips the rest.
     private const int MosaicTiles = 48;
@@ -304,11 +309,14 @@
     private Task Vote(Guid presentation, bool entryWins) => Perform(presentation, async () =>
     {
         var groups = _session.Snapshot();
+        var votedIn = groups.Length > 0 ? groups[0][^1] : Guid.Empty;
         var votes = _session.Current(_useGroups).Select(id =>
             new GameService.DuelResult(id, entryWins ? GameId : Opponent(_duels[id]).Id)).ToArray();
         var recorded = GameService.RecordWinners(TournamentId, votes).ToArray();
         if (recorded.Length > 0)
         {
+            foreach (var result in recorded)
+                _votedIn[result.DuelId] = votedIn;
             _history.Push(new(groups, recorded));
             _notice = $"Saved {recorded.Length} {(recorded.Length == 1 ? "result" : "results")}.";
         }
@@ -366,6 +374,8 @@
             return;
         }
         _history.Pop();
+        foreach (var result in action.Results)
+            _votedIn.Remove(result.DuelId);
         if (action.Groups is not null) _session.Restore(action.Groups);
         Refresh();
         _notice = action.Results.Length > 0 ? $"Undid {action.Results.Length} {(action.Results.Length == 1 ? "result" : "results")} from that vote." : "Undid the last queue change.";
@@ -413,6 +423,10 @@
                         _session.Restore(state.Groups.SelectMany(group => group.Chunk(AdaptiveDuelSession.InitialGroupSize)));
                         _useGroups = state.UseGroups;
                         Refresh();
+                        foreach (var voted in state.Voted ?? [])
+                            if (voted is { Length: > 0 })
+                                foreach (var id in voted.Where(id => _duels.TryGetValue(id, out var duel) && duel.IsCompleted))
+                                    _votedIn[id] = voted[^1];
                         // Only votes still stored exactly as cast can be undone.
                         foreach (var batch in state.Votes ?? [])
                             if (batch is { Length: > 0 } && batch.All(vote => vote is not null && _duels.TryGetValue(vote.DuelId, out var duel) &&
@@ -435,7 +449,8 @@
         {
             _saveSession = false;
             await _module.InvokeVoidAsync("saveSession", StorageKey,
-                JsonSerializer.Serialize(new SavedSession(_session.Snapshot(), _useGroups, SavedVotes())));
+                JsonSerializer.Serialize(new SavedSession(_session.Snapshot(), _useGroups, SavedVotes(),
+                    _votedIn.GroupBy(pair => pair.Value, pair => pair.Key).Select(group => group.Append(group.Key).Distinct().ToArray()).ToArray())));
         }
     }
 

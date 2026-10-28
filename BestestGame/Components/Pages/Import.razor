@@ -42,7 +42,8 @@
                     <button type="button" class="button" @onclick="OpenImportForm" aria-haspopup="dialog"><span class="button__content">Import list</span></button>
                     @if (Covers.IsConfigured)
                     {
-                        <button type="button" class="button" @onclick="FetchMissingCovers" disabled="@(_coverRun is not null || _games.Count == 0)"><span class="button__content">Fetch covers</span></button>
+                        <button type="button" class="button" @onclick="FetchMissingCovers" disabled="@(_coverRun is not null || _yearRun is not null || _games.Count == 0)"><span class="button__content">Fetch covers</span></button>
+                        <button type="button" class="button" @onclick="FillMissingYears" disabled="@(_coverRun is not null || _yearRun is not null || _games.Count == 0)"><span class="button__content">Fill release years</span></button>
                     }
                 </div>
             </div>
@@ -64,6 +65,14 @@
                     <p class="loading-state" role="status">Fetching covers: @_coverDone of @_coverTotal</p>
                     <progress class="progress-bar" value="@_coverDone" max="@_coverTotal" aria-label="Covers fetched"></progress>
                     <button type="button" class="button" @onclick="() => _coverRun?.Cancel()"><span class="button__content">Stop</span></button>
+                </div>
+            }
+            else if (_yearRun is not null)
+            {
+                <div class="cover-progress cluster">
+                    <p class="loading-state" role="status">Looking up release years: @_yearDone of @_yearTotal</p>
+                    <progress class="progress-bar" value="@_yearDone" max="@_yearTotal" aria-label="Release years looked up"></progress>
+                    <button type="button" class="button" @onclick="() => _yearRun?.Cancel()"><span class="button__content">Stop</span></button>
                 </div>
             }
             else if (!Covers.IsConfigured && _games.Count > 0)
@@ -101,6 +110,10 @@
                                 @if (pending > 0)
                                 {
                                     <p class="helper-text">@pending @(pending == 1 ? "matchup" : "matchups") remaining</p>
+                                }
+                                @foreach (var gap in ReleaseYears.Missing(game).Where(gap => _yearChoices.ContainsKey((game.Id, gap.Title))))
+                                {
+                                    @YearChoice(gap)
                                 }
                                 @if (game.IncludedTitles is { Count: > 0 })
                                 {
@@ -142,7 +155,7 @@
             {
                 <div class="dialog__header"><h2 id="entry-heading">@(_entrySaved ? (_editingGameId is null ? "Game added" : "Details saved") : _editingGameId is null ? "Add a game" : _renaming ? "Rename game" : "Edit game details")</h2></div>
                 <div class="stack">
-                    <p id="entry-help" class="helper-text">@(_editingGameId is null ? "New entries generate matchups with the other games in this tournament. Release years are optional." : "Change the title, release years and included titles here. Results and points stay with the entry.")</p>
+                    <p id="entry-help" class="helper-text">@(_editingGameId is null ? $"New entries generate matchups with the other games in this tournament. Release years are optional.{(CanLookUp ? " Look up a title to take its cover and year from IGDB." : "")}" : "Change the title, release years and included titles here. Results and points stay with the entry.")</p>
                     @if (_messageLocation == MessageLocation.Entry && !string.IsNullOrEmpty(_message))
                     {
                         <p @ref="_formFeedback" class="@GetAlertClasses()" role="status" tabindex="-1">@_message</p>
@@ -193,21 +206,31 @@
                                     <ValidationMessage For="() => _entry.ReleaseYear" />
                                 </div>
                             </div>
+                            @if (CanLookUp)
+                            {
+                                @EntryLookup(_entry)
+                            }
                             <details class="optional-included" open="@_showIncludedTitles">
                                 <summary>Included titles (optional) · @_entry.IncludedTitles.Count</summary>
                                 <div class="stack included-titles">
                                     <p class="helper-text">Included titles share this entry's points and matchups. Each can have its own optional release year.</p>
                                     @foreach (var included in _entry.IncludedTitles)
                                     {
-                                        <div @key="included" class="included-row">
-                                            <label class="field"><span class="field-label">Included title</span>
-                                                <InputText @bind-Value="included.Title" class="form-control" />
-                                            </label>
-                                            <label class="field"><span class="field-label">Release year (optional)</span>
-                                                <InputNumber @bind-Value="included.ReleaseYear" min="1" max="9999" step="1" DisplayName="Included title release year" class="form-control" />
-                                                <ValidationMessage For="() => included.ReleaseYear" />
-                                            </label>
-                                            <button type="button" @onclick="() => _entry.IncludedTitles.Remove(included)" class="button" aria-label="@($"Remove included title: {(string.IsNullOrWhiteSpace(included.Title) ? "untitled" : included.Title)}")"><span class="button__content">Remove included title</span></button>
+                                        <div @key="included" class="included-item stack">
+                                            <div class="included-row">
+                                                <label class="field"><span class="field-label">Included title</span>
+                                                    <InputText @bind-Value="included.Title" class="form-control" />
+                                                </label>
+                                                <label class="field"><span class="field-label">Release year (optional)</span>
+                                                    <InputNumber @bind-Value="included.ReleaseYear" min="1" max="9999" step="1" DisplayName="Included title release year" class="form-control" />
+                                                    <ValidationMessage For="() => included.ReleaseYear" />
+                                                </label>
+                                                <button type="button" @onclick="() => RemoveIncludedTitle(included)" class="button" aria-label="@($"Remove included title: {(string.IsNullOrWhiteSpace(included.Title) ? "untitled" : included.Title)}")"><span class="button__content">Remove included title</span></button>
+                                            </div>
+                                            @if (CanLookUp)
+                                            {
+                                                @EntryLookup(included)
+                                            }
                                         </div>
                                     }
                                     <div><button type="button" @onclick="() => _entry.IncludedTitles.Add(new IncludedTitle())" class="button"><span class="button__content">Add included title</span></button></div>
@@ -469,6 +492,7 @@
             return;
         }
         var adding = _editingGameId is null;
+        var picked = PickedCovers();
         var existingIds = _games.Select(game => game.Id).ToHashSet();
         if (_editingGameId is { } renamedId && !GameService.RenameGame(renamedId, _entry.Title))
         {
@@ -493,12 +517,14 @@
             // Candidates are kept by a title's place in its collection, which an edit can change.
             foreach (var slot in _coverCandidates.Keys.Where(slot => slot.Game == _editingGameId).ToList())
                 _coverCandidates.Remove(slot);
+            foreach (var gap in _yearChoices.Keys.Where(gap => gap.Game == _editingGameId).ToList())
+                _yearChoices.Remove(gap);
             LoadGames();
             _entrySaved = true;
             _addedGames = adding
                 ? _games.Where(game => !existingIds.Contains(game.Id)).ToList()
                 : _games.Where(game => game.Id == _editingGameId).ToList();
-            if (adding) await LookUpAddedCovers();
+            if (adding) await LookUpAddedCovers(picked);
         }
         else
         {
@@ -507,8 +533,9 @@
         }
     }
 
-    // A game added by hand gets its covers straight away: certain matches are saved, the rest wait for a choice.
-    private async Task LookUpAddedCovers()
+    // A game added by hand gets its covers straight away: the ones picked in the form are saved, then certain
+    // matches for the rest, and the others wait for a choice.
+    private async Task LookUpAddedCovers(IReadOnlyList<CoverArtService.Candidate?> picked)
     {
         _entryCoverProblem = string.Empty;
         if (!Covers.IsConfigured || _addedGames.FirstOrDefault() is not { } game) return;
@@ -518,6 +545,11 @@
         {
             foreach (var slot in CoverArtService.Slots(game))
             {
+                if (picked.ElementAtOrDefault(slot.Title ?? 0) is { } pick)
+                {
+                    await Covers.SetCoverAsync(game.Id, pick.ImageId, slot.Title);
+                    continue;
+                }
                 var result = await Covers.FetchAsync(slot);
                 if (result.Outcome == CoverArtService.Outcome.NeedsChoice)
                     _coverCandidates[(game.Id, slot.Title)] = result.Candidates;
@@ -553,6 +585,7 @@
         _entrySaved = false;
         _entryCoverBusy = false;
         _entryCoverProblem = string.Empty;
+        ResetLookup();
         _showIncludedTitles = false;
         _message = string.Empty;
         _addedGames = [];
@@ -572,6 +605,7 @@
     {
         _entryOpen = false;
         _focusFeedback = _focusValidation = false;
+        ResetLookup();
         ResetEntryForm();
     }
 
@@ -653,6 +687,258 @@
 
         _alertClass = "alert-warning";
         _message = "Could not remove that game title. Please refresh and try again.";
+    }
+
+    // Looking a title up before it is added: IGDB's games under that title, each with its cover and year. Picking
+    // one fills in the year at once and keeps the cover to save once the entry exists. A pick is held for the
+    // entry itself or for one of its included titles.
+    private bool CanLookUp => _editingGameId is null && Covers.IsConfigured;
+    private object? _lookupTarget;
+    private IReadOnlyList<CoverArtService.Candidate>? _lookupResults;
+    private string _lookupNotice = string.Empty;
+    private CancellationTokenSource? _lookupRun;
+    private readonly Dictionary<object, CoverArtService.Candidate> _picks = new(ReferenceEqualityComparer.Instance);
+
+    private RenderFragment EntryLookup(object target) => __builder =>
+    {
+        var open = ReferenceEquals(_lookupTarget, target);
+        var picked = _picks.GetValueOrDefault(target);
+        var name = LookupTitle(target);
+        <div class="entry-lookup" aria-busy="@(open && _lookupRun is not null ? "true" : "false")">
+            @if (picked is not null && !open)
+            {
+                <div class="lookup-pick">
+                    <span class="game-cover" style="background-image: url('/covers/preview/@picked.ImageId')" role="img" aria-label="@($"Chosen cover: {picked.Name}")"></span>
+                    <div class="lookup-pick__text">
+                        <p><strong>@picked.Name</strong>@(picked.Year is { } year ? $" · {year}" : "")</p>
+                        <p class="helper-text">From IGDB. The cover is saved when the game is added.</p>
+                        <div class="cluster">
+                            <button type="button" class="button" disabled="@(_lookupRun is not null)" @onclick="() => LookUp(target)" aria-label="@($"Look up {name} again")"><span class="button__content">Change</span></button>
+                            <button type="button" class="button" @onclick="() => _picks.Remove(target)" aria-label="@($"Remove the chosen cover for {name}")"><span class="button__content">Remove cover</span></button>
+                        </div>
+                    </div>
+                </div>
+            }
+            else if (!open)
+            {
+                <div><button type="button" class="button" disabled="@(_lookupRun is not null)" @onclick="() => LookUp(target)" aria-label="@(target is IncludedTitle ? $"Look up cover and year for {(string.IsNullOrWhiteSpace(name) ? "this included title" : name)}" : null)"><span class="button__content">Look up cover and year</span></button></div>
+            }
+            else
+            {
+                <div class="lookup-results stack" aria-live="polite">
+                    @if (_lookupRun is not null)
+                    {
+                        <p class="loading-state" role="status">Searching IGDB for @CoverArtService.Subject(new Game { Title = name }).Title…</p>
+                    }
+                    else
+                    {
+                        @if (!string.IsNullOrEmpty(_lookupNotice))
+                        {
+                            <p class="status status--warning" role="status">@_lookupNotice</p>
+                        }
+                        else if (_lookupResults is { Count: > 0 })
+                        {
+                            <p class="helper-text">Which release is it? Choosing one fills in its year.</p>
+                        }
+                        @if (_lookupResults is { Count: > 0 } results)
+                        {
+                            <ul class="cover-grid">
+                                @foreach (var candidate in results)
+                                {
+                                    <li @key="candidate.ImageId">
+                                        <button type="button" class="cover-option" aria-pressed="@(candidate == picked ? "true" : "false")" @onclick="() => Pick(target, candidate, chosen: true)">
+                                            <img src="@($"/covers/preview/{candidate.ImageId}")" alt="" loading="lazy" width="132" height="176" />
+                                            <span>@candidate.Name</span>
+                                            <span class="helper-text">@(candidate.Year?.ToString() ?? "Year unknown")</span>
+                                        </button>
+                                    </li>
+                                }
+                            </ul>
+                        }
+                        <div><button type="button" class="button" @onclick="CloseLookup"><span class="button__content">@(_lookupResults is not { Count: > 0 } ? "Close" : picked is null ? "None of these" : "Keep current choice")</span></button></div>
+                    }
+                </div>
+            }
+        </div>
+    };
+
+    private async Task LookUp(object target)
+    {
+        if (_lookupRun is not null) return;
+        _lookupTarget = target;
+        _lookupResults = null;
+        _lookupNotice = string.Empty;
+        var title = CoverArtService.Subject(new Game { Title = LookupTitle(target) }).Title;
+        if (title.Length == 0)
+        {
+            _lookupNotice = "Enter a title first, then look it up.";
+            return;
+        }
+        using var run = _lookupRun = new CancellationTokenSource();
+        try
+        {
+            var results = await Covers.SearchAsync(title, run.Token);
+            _lookupResults = results;
+            if (results.Count == 0)
+                _lookupNotice = "IGDB has nothing under that title. Check the spelling, or add the game without a cover.";
+            // A first look that finds the game for certain takes it; looking again always asks.
+            else if (!_picks.ContainsKey(target) && CoverArtService.Confident(results, title, LookupYear(target)) is { } match)
+                Pick(target, match, chosen: false);
+        }
+        catch (CoverArtService.CoverArtException exception) { _lookupNotice = exception.Message; }
+        catch (OperationCanceledException) { }
+        finally
+        {
+            if (_lookupRun == run) _lookupRun = null;
+        }
+    }
+
+    // A release chosen by hand sets the year; one taken without asking only fills a year left blank.
+    private void Pick(object target, CoverArtService.Candidate candidate, bool chosen)
+    {
+        _picks[target] = candidate;
+        if (candidate.Year is { } year && (chosen || LookupYear(target) is null))
+        {
+            if (target is IncludedTitle included) included.ReleaseYear = year;
+            else _entry.ReleaseYear = year;
+        }
+        CloseLookup();
+    }
+
+    private void CloseLookup()
+    {
+        _lookupTarget = null;
+        _lookupResults = null;
+        _lookupNotice = string.Empty;
+    }
+
+    private void ResetLookup()
+    {
+        _lookupRun?.Cancel();
+        _lookupRun = null;
+        _picks.Clear();
+        CloseLookup();
+    }
+
+    private void RemoveIncludedTitle(IncludedTitle included)
+    {
+        _entry.IncludedTitles.Remove(included);
+        _picks.Remove(included);
+        if (ReferenceEquals(_lookupTarget, included)) CloseLookup();
+    }
+
+    private string LookupTitle(object target) => target is IncludedTitle included ? included.Title ?? string.Empty : _entry.Title ?? string.Empty;
+    private int? LookupYear(object target) => target is IncludedTitle included ? included.ReleaseYear : _entry.ReleaseYear;
+
+    // The cover picked for each picture the new entry holds: its own, or one per included title in order. A
+    // collection's first title takes the entry's own pick when it has none of its own, as an edit does.
+    private IReadOnlyList<CoverArtService.Candidate?> PickedCovers()
+    {
+        var own = _picks.GetValueOrDefault(_entry);
+        if (_entry.IncludedTitles is not { Count: > 0 } titles) return [own];
+        return titles.Select((title, index) => _picks.GetValueOrDefault(title) ?? (index == 0 ? own : null)).ToList();
+    }
+
+    // Release years: a run over every title without a year. A year is saved when IGDB is certain of it; otherwise
+    // the releases it found wait beside the entry for a person to pick from.
+    private CancellationTokenSource? _yearRun;
+    private int _yearDone;
+    private int _yearTotal;
+    private readonly Dictionary<(Guid Game, int? Title), IReadOnlyList<CoverArtService.Release>> _yearChoices = [];
+
+    private RenderFragment YearChoice(ReleaseYears.Gap gap) => @<div class="year-choice" data-year-choice="@gap.Title">
+        @* A single game's title stands just above; an included title is named. *@
+        <p class="helper-text">@if (gap.Title is null) { <text>Which release is this?</text> } else { <text>Which release is <strong>@gap.Stored</strong>?</text> }</p>
+        <div class="cluster">
+            @foreach (var release in _yearChoices[(gap.Game.Id, gap.Title)])
+            {
+                <button type="button" class="button" @onclick="() => ChooseYear(gap, release)"><span class="button__content">@release.Year · @release.Name</span></button>
+            }
+            <button type="button" class="button" @onclick="() => DismissYear(gap)"><span class="button__content">None of these</span></button>
+        </div>
+    </div>;
+
+    private async Task FillMissingYears()
+    {
+        if (_coverRun is not null || _yearRun is not null) return;
+        var gaps = _games.SelectMany(ReleaseYears.Missing).ToList();
+        var legacy = _games.Count(ReleaseYears.IsLegacyCollection);
+        _messageLocation = MessageLocation.Library;
+        _alertClass = "alert-success";
+        if (gaps.Count == 0)
+        {
+            _message = legacy == 0 ? "Every entry and included title already has a release year."
+                : $"{Entries(legacy, "older collection")} {(legacy == 1 ? "lists its" : "list their")} parts in the title, so no year was looked up. Add included titles from Edit details to give each part a year.";
+            return;
+        }
+        _message = string.Empty;
+        (_yearDone, _yearTotal) = (0, gaps.Count);
+        int filled = 0, undecided = 0;
+        List<string> unknown = [];
+        string? problem = null;
+        using var run = _yearRun = new CancellationTokenSource();
+        try
+        {
+            foreach (var gap in gaps)
+            {
+                _yearChoices.Remove((gap.Game.Id, gap.Title));
+                // A year already written in the title needs no lookup.
+                if (ReleaseYears.WrittenYear(gap.Stored) is { } written)
+                {
+                    if (GameService.FillReleaseYear(gap.Game.Id, gap.Title, gap.Stored, written)) filled++;
+                }
+                else
+                {
+                    var releases = await Covers.SearchReleasesAsync(gap.Subject, run.Token);
+                    if (CoverArtService.ConfidentYear(releases, gap.Subject) is { } year)
+                    {
+                        if (GameService.FillReleaseYear(gap.Game.Id, gap.Title, gap.Stored, year)) filled++;
+                    }
+                    else if (CoverArtService.YearChoices(releases, gap.Subject) is { Count: > 0 } choices)
+                    {
+                        _yearChoices[(gap.Game.Id, gap.Title)] = choices;
+                        undecided++;
+                    }
+                    else unknown.Add(gap.Stored);
+                }
+                _yearDone++;
+                StateHasChanged();
+            }
+        }
+        catch (CoverArtService.CoverArtException exception) { problem = exception.Message; }
+        catch (OperationCanceledException) { problem = "Stopped before every title was looked up."; }
+        finally { _yearRun = null; }
+        LoadGames();
+        if (problem is not null) _alertClass = "alert-warning";
+        _message = string.Join(" ", new[]
+        {
+            problem,
+            $"Filled {filled} release {(filled == 1 ? "year" : "years")}.",
+            undecided > 0 ? $"{Entries(undecided, "title")} could be more than one release: pick the right one beside {(undecided == 1 ? "it" : "each")}." : null,
+            unknown.Count > 0 ? $"Not found on IGDB: {string.Join(", ", unknown.Take(5))}{(unknown.Count > 5 ? $" and {unknown.Count - 5} more" : "")}. Add {(unknown.Count == 1 ? "its year" : "their years")} from Edit details." : null,
+            legacy > 0 ? $"{Entries(legacy, "older collection")} {(legacy == 1 ? "lists its" : "list their")} parts in the title and {(legacy == 1 ? "was" : "were")} skipped." : null
+        }.Where(part => part is not null));
+    }
+
+    private static string Entries(int count, string noun) => $"{count} {noun}{(count == 1 ? "" : "s")}";
+
+    private void ChooseYear(ReleaseYears.Gap gap, CoverArtService.Release release)
+    {
+        _yearChoices.Remove((gap.Game.Id, gap.Title));
+        _messageLocation = MessageLocation.Library;
+        var saved = GameService.FillReleaseYear(gap.Game.Id, gap.Title, gap.Stored, release.Year);
+        _alertClass = saved ? "alert-success" : "alert-warning";
+        _message = saved ? $"Release year {release.Year} saved for {gap.Stored}."
+            : $"{gap.Stored} has changed since it was looked up, so no year was saved. Check it in Edit details.";
+        LoadGames();
+    }
+
+    private void DismissYear(ReleaseYears.Gap gap)
+    {
+        _yearChoices.Remove((gap.Game.Id, gap.Title));
+        _messageLocation = MessageLocation.Library;
+        _alertClass = "alert-success";
+        _message = $"No year saved for {gap.Stored}. You can add it from Edit details.";
     }
 
     // Cover art: a run over every entry and included title without a picture, and a chooser for the ones that
@@ -991,6 +1277,8 @@
     public async ValueTask DisposeAsync()
     {
         _coverRun?.Cancel();
+        _yearRun?.Cancel();
+        _lookupRun?.Cancel();
         if (_libraryModule is not null)
         {
             try

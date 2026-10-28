@@ -1,7 +1,7 @@
 @using System.Globalization
 @using BestestGame.Services
 
-@{ var segments = OpponentBar.Build(Opponents, Groups); }
+@{ var segments = OpponentBar.Build(Opponents, Groups, VotedIn); }
 @if (segments.Count > 0)
 {
     <div class="matchup-map @Class">
@@ -103,6 +103,8 @@
     [Parameter, EditorRequired] public Func<Guid, string> TitleOf { get; set; } = _ => "";
     /// <summary>The voting queue, current group first. Without it the bar is a read-only overview.</summary>
     [Parameter] public Guid[][] Groups { get; set; } = [];
+    /// <summary>Duels voted on while this bar was shown, keyed to the group each was voted in. Each such group stays its own segment.</summary>
+    [Parameter] public IReadOnlyDictionary<Guid, Guid>? VotedIn { get; set; }
     /// <summary>Rapid 1v1: the one opponent up for a vote. Null while a whole group is.</summary>
     [Parameter] public Guid? Single { get; set; }
     [Parameter] public bool JustSplit { get; set; }
