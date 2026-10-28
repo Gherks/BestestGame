@@ -519,6 +519,11 @@ button.podium-canvas:enabled { cursor: pointer; }
 /* The stage lies above what follows it on the page too, so a canvas that leans or swells over its neighbours
    is always on top of them. */
 .duel-stage { position: relative; z-index: 1; isolation: isolate; min-width: 0; overflow-x: clip; overflow-y: visible; overflow-clip-margin: 1.5rem; margin: -8px; padding: 8px; }
+/* With a pointer, a lifted and leaning canvas reaches further out to the sides; a phone keeps the tighter edge,
+   which stays inside its narrow screen. */
+@media (hover: hover) and (min-width: 641px) {
+    .duel-stage { overflow-clip-margin: 3rem; }
+}
 .duel-stage[data-transition-phase] > [data-duel-content] { opacity: 0; }
 .duel-outgoing { position: absolute; top: 8px; left: 8px; pointer-events: none; }
 
@@ -562,9 +567,12 @@ button.podium-canvas:enabled { cursor: pointer; }
        settles back in a few shrinking bounces, and lies above the other canvas while it does. */
     .tactile { transition: --lean 0.5s cubic-bezier(.3, .7, .3, 1), --lift 0.35s ease, --press 0.1s ease; animation: tactile-face 22s linear infinite; }
     @media (hover: hover) {
-        /* Pointed at, it also rises 5% and stays there; the bounce plays on top of that, so it peaks about 7% up
-           and lands back on the 5%. The rise is as quick as the bounce's first swell, and it sinks back more slowly. */
+        /* Pointed at, it also rises 12% and stays there; the bounce plays on top of that, so it peaks about 14% up
+           and lands back on the 12%. The rise is as quick as the bounce's first swell, and it sinks back more slowly. */
         .tactile:not(:disabled):not([aria-disabled="true"]):hover { --lean: 12deg; --lift: 1.12; z-index: 1; transition: --lean 0.5s cubic-bezier(.3, .7, .3, 1), --lift 0.16s ease-out, --press 0.1s ease; }
+        /* Meanwhile the other canvas sinks away by half the lift, as if the two were on a see-saw, and dims. */
+        :has(> .tactile:not(:disabled):not([aria-disabled="true"]):hover) > .tactile:not(:hover) { --lift: .94; }
+        :has(> .tactile:not(:disabled):not([aria-disabled="true"]):hover) > .tactile:not(:hover) > .tactile__face { filter: saturate(.7) brightness(.65); }
     }
     .tactile:not(:disabled):not([aria-disabled="true"]):hover { animation: tactile-face 22s linear infinite, tactile-bounce 0.9s; }
     /* While the page arrives, a canvas runs its arrival beside the turn and the bounce, so pointing at it at once
