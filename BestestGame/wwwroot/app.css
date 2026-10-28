@@ -243,12 +243,14 @@ a { color: inherit; cursor: pointer; }
     -webkit-tap-highlight-color: transparent;
     touch-action: manipulation;
     /* Leaning --lean towards --face, as if tipped in space; see the hover in the motion rules below. */
-    transform: perspective(1400px) rotate3d(calc(-1 * sin(var(--face))), cos(var(--face)), 0, var(--lean)) rotate(var(--tactile-tilt)) scale(var(--press));
+    transform: perspective(1400px) rotate3d(calc(-1 * sin(var(--face))), cos(var(--face)), 0, var(--lean)) rotate(var(--tactile-tilt)) scale(calc(var(--press) * var(--lift)));
 }
-/* Which way a canvas faces (0deg is right, 90deg down), how far it leans that way, and how far it is pressed in.
+/* Which way a canvas faces (0deg is right, 90deg down), how far it leans that way, how far it is lifted towards
+   the viewer, and how far it is pressed in.
    Registered so they can be animated, and kept on the canvas itself so animating them restyles nothing else. */
 @property --face { syntax: "<angle>"; inherits: false; initial-value: 0deg; }
 @property --lean { syntax: "<angle>"; inherits: false; initial-value: 0deg; }
+@property --lift { syntax: "<number>"; inherits: false; initial-value: 1; }
 @property --press { syntax: "<number>"; inherits: false; initial-value: 1; }
 /* Light falls on a canvas from in front of it. Leaning, it catches a glare on the side it tips towards and
    falls into shade on the other, so the glare travels round the canvas as the lean turns. Flat, it has neither.
@@ -558,9 +560,11 @@ button.podium-canvas:enabled { cursor: pointer; }
     /* The way a canvas faces turns clockwise all the time; it only shows once the canvas leans. Pointed at, it
        leans 12 degrees, so it tips right, then down, left and up in turn, round and round. It also swells and
        settles back in a few shrinking bounces, and lies above the other canvas while it does. */
-    .tactile { transition: --lean 0.5s cubic-bezier(.3, .7, .3, 1), --press 0.1s ease; animation: tactile-face 22s linear infinite; }
+    .tactile { transition: --lean 0.5s cubic-bezier(.3, .7, .3, 1), --lift 0.35s ease, --press 0.1s ease; animation: tactile-face 22s linear infinite; }
     @media (hover: hover) {
-        .tactile:not(:disabled):not([aria-disabled="true"]):hover { --lean: 12deg; z-index: 1; }
+        /* Pointed at, it also rises 5% and stays there; the bounce plays on top of that, so it peaks about 7% up
+           and lands back on the 5%. The rise is as quick as the bounce's first swell, and it sinks back more slowly. */
+        .tactile:not(:disabled):not([aria-disabled="true"]):hover { --lean: 12deg; --lift: 1.12; z-index: 1; transition: --lean 0.5s cubic-bezier(.3, .7, .3, 1), --lift 0.16s ease-out, --press 0.1s ease; }
     }
     .tactile:not(:disabled):not([aria-disabled="true"]):hover { animation: tactile-face 22s linear infinite, tactile-bounce 0.9s; }
     /* While the page arrives, a canvas runs its arrival beside the turn and the bounce, so pointing at it at once

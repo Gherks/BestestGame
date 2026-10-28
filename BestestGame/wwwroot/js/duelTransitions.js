@@ -56,7 +56,7 @@ function leave(state, button) {
         // A copy is never pointed at and does not turn, so it keeps each canvas's lean as it was.
         if (!choices[index]) return;
         const style = getComputedStyle(choices[index]);
-        for (const name of ["--face", "--lean"]) choice.style.setProperty(name, style.getPropertyValue(name));
+        for (const name of ["--face", "--lean", "--lift"]) choice.style.setProperty(name, style.getPropertyValue(name));
     });
     // The copy must never expose a second actionable or accessible duel.
     for (const element of [copy, ...copy.querySelectorAll("*")]) {
